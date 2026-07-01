@@ -74,14 +74,18 @@ function ChipField({ options, value, onChange }) {
   const [showCustom, setShowCustom] = useState(isCustom);
   const [customVal, setCustomVal]   = useState(isCustom ? value : "");
 
+  // Keep local "Other" box in sync if the parent value changes from outside
+  // (e.g. switching sub-type, or the initial product load resolving late).
+  useEffect(() => {
+    const custom = value && !options.includes(value) && value !== "";
+    setShowCustom(custom);
+    setCustomVal(custom ? value : "");
+  }, [value, options]);
+
   const pick = (opt) => {
     if (opt === "Other") { setShowCustom(true); onChange(customVal || ""); }
     else { setShowCustom(false); setCustomVal(""); onChange(opt); }
   };
-
-  useEffect(() => {
-    if (isCustom) { setShowCustom(true); setCustomVal(value); }
-  }, []);
 
   return (
     <div>
@@ -126,17 +130,26 @@ export default function ProductView() {
   const [saving, setSaving]   = useState(false);
   const [error, setError]     = useState("");
 
+  // Track which sub-type the currently-loaded specFields belong to, so we
+  // only wipe them when the user actually *changes* sub-type — not on
+  // initial load (which is what was causing fields to render blank).
+  const [specOwnerSubType, setSpecOwnerSubType] = useState(null);
+
   useEffect(() => {
     (async () => {
       try {
         const res = await API.get(`/products/${id}`);
         const p = res.data;
         setProduct(p);
+
+        const normalizedSubType = (p.SubType || "").toLowerCase();
         const rawSpec = p.Category === "yarn" ? p.Weight : p.Size;
         setSpecFields(parseSpecStr(rawSpec));
+        setSpecOwnerSubType(normalizedSubType);
+
         setForm({
           tab:         p.Category,
-          subType:     (p.SubType || "").toLowerCase(),
+          subType:     normalizedSubType,
           name:        p.Name,
           price:       p.Price,
           qty:         p.Quantity,
@@ -159,6 +172,20 @@ export default function ProductView() {
   const enterEdit  = () => setSearchParams({ edit:"1" });
   const cancelEdit = () => setSearchParams({});
 
+  // Switching sub-type (within the SAME locked category) clears spec fields
+  // since each sub-type has different spec keys. Re-selecting the sub-type
+  // the product already had restores its original saved values instead of
+  // wiping them.
+  const handleSubTypeChange = (key) => {
+    set("subType", key);
+    if (key === specOwnerSubType) {
+      const rawSpec = product.Category === "yarn" ? product.Weight : product.Size;
+      setSpecFields(parseSpecStr(rawSpec));
+    } else {
+      setSpecFields({});
+    }
+  };
+
   const handleSave = async () => {
     setError("");
     setSaving(true);
@@ -170,6 +197,7 @@ export default function ProductView() {
         size:   form.tab === "cloth" ? specStr : null,
       });
       setProduct(res.data);
+      setSpecOwnerSubType(form.subType);
       setSearchParams({});
     } catch (err) {
       setError(err.response?.data?.message || "Failed to update product.");
@@ -198,6 +226,8 @@ export default function ProductView() {
   );
 
   const subConfig  = form ? getSubConfig(form.tab, form.subType) : null;
+  // Category is LOCKED to the product's existing category in edit mode —
+  // only that category's sub-types are ever shown, no Cloth/Yarn switcher.
   const subtypeMap = form?.tab === "yarn" ? YARN_SUBTYPES : CLOTH_SUBTYPES;
 
   const rawSpec = product.Category === "yarn" ? product.Weight : product.Size;
@@ -220,24 +250,27 @@ export default function ProductView() {
 
           {editMode ? (
             <>
+              {/* Category — locked, shown as read-only badge (no switcher) */}
               <Field label="Category">
-                <div style={{ display:"flex", gap:8 }}>
-                  {[{key:"cloth",label:"👘 Cloth"},{key:"yarn",label:"🧵 Yarn"}].map(({key,label}) => (
-                    <button key={key} onClick={() => { set("tab",key); set("subType", key==="yarn"?"bundle":"dhoti"); setSpecFields({}); }}
-                      style={{ flex:1, padding:"9px", borderRadius:9, border:"1.5px solid", cursor:"pointer", fontFamily:FONT, fontSize:13, fontWeight:600,
-                        background:  form.tab===key ? "rgba(45,106,79,0.12)" : "#ffffff",
-                        color:       form.tab===key ? "#2d6a4f" : "#4a7a5a",
-                        borderColor: form.tab===key ? "#2d6a4f" : "rgba(27,77,46,0.18)" }}>
-                      {label}
-                    </button>
-                  ))}
+                <div style={{
+                  display:"flex", alignItems:"center", gap:8, padding:"9px 14px",
+                  borderRadius:9, border:"1.5px solid rgba(45,106,79,0.30)",
+                  background:"rgba(45,106,79,0.07)", width:"fit-content",
+                }}>
+                  <span style={{ fontSize:16 }}>{form.tab === "cloth" ? "👘" : "🧵"}</span>
+                  <span style={{ fontFamily:FONT, fontSize:13.5, fontWeight:700, color:"#2d6a4f" }}>
+                    {form.tab === "cloth" ? "Cloth" : "Yarn"}
+                  </span>
+                  <span style={{ fontSize:11, color:"#6b8f71", marginLeft:4 }}>(locked)</span>
                 </div>
               </Field>
+
+              {/* Sub-type — ALL sub-types of the product's own category, never the other category's */}
               <Field label="Sub-type">
                 <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
                   {Object.entries(subtypeMap).map(([key,cfg]) => (
                     <button key={key} type="button"
-                      onClick={() => { set("subType",key); setSpecFields({}); }}
+                      onClick={() => handleSubTypeChange(key)}
                       style={{ padding:"6px 14px", borderRadius:20, border:"1.5px solid", cursor:"pointer", fontFamily:FONT, fontSize:13, fontWeight:600,
                         background:  form.subType===key ? "rgba(45,106,79,0.12)" : "#ffffff",
                         color:       form.subType===key ? "#2d6a4f" : "#4a7a5a",

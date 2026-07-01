@@ -17,15 +17,12 @@ class ProductController extends Controller
         if ($category = $request->query('category')) {
             $query->where('Category', $category);
         }
-
         if ($subType = $request->query('sub_type')) {
             $query->where('SubType', $subType);
         }
-
         if ($status = $request->query('status')) {
             $query->where('Status', $status);
         }
-
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('Name', 'like', "%{$search}%")
@@ -33,20 +30,16 @@ class ProductController extends Controller
             });
         }
 
-        return response()->json(
-            $query->orderByDesc('Id')->get()
-        );
+        return response()->json($query->orderByDesc('Id')->get());
     }
 
     /** GET /api/products/{id} */
     public function show($id)
     {
         $product = Product::find($id);
-
         if (!$product) {
             return response()->json(['message' => 'Product not found'], 404);
         }
-
         return response()->json($product);
     }
 
@@ -54,15 +47,16 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'tab'         => 'required|in:yarn,cloth',     // Category
+            'tab'         => 'required|in:yarn,cloth',
             'subType'     => 'required|string|max:20',
             'name'        => 'required|string|max:191',
             'price'       => 'required|numeric|min:0',
             'qty'         => 'required|integer|min:0',
-            'weight'      => 'nullable|string|max:50',
-            'size'        => 'nullable|string|max:50',
+            'weight'      => 'nullable|string|max:500',
+            'size'        => 'nullable|string|max:500',
             'color'       => 'nullable|string|max:10',
-            'quality'     => 'nullable|in:Premium,Standard,Economy',
+            // Accept any casing for quality — normalised to ucfirst below
+            'quality'     => 'nullable|string|in:Premium,Standard,Economy,premium,standard,economy',
             'description' => 'nullable|string',
             'status'      => 'nullable|in:active,inactive',
         ]);
@@ -77,7 +71,8 @@ class ProductController extends Controller
             'Size'        => $validated['size'] ?? null,
             'Price'       => $validated['price'],
             'Quantity'    => $validated['qty'],
-            'Quality'     => Str::lower($validated['quality'] ?? 'standard'),
+            // Store as ucfirst so DB is consistent: Premium / Standard / Economy
+            'Quality'     => ucfirst(Str::lower($validated['quality'] ?? 'standard')),
             'Description' => $validated['description'] ?? null,
             'Status'      => $validated['status'] ?? 'active',
             'CreatedBy'   => $request->user()->id,
@@ -90,7 +85,6 @@ class ProductController extends Controller
     public function update(Request $request, $id)
     {
         $product = Product::find($id);
-
         if (!$product) {
             return response()->json(['message' => 'Product not found'], 404);
         }
@@ -101,10 +95,11 @@ class ProductController extends Controller
             'name'        => 'sometimes|required|string|max:191',
             'price'       => 'sometimes|required|numeric|min:0',
             'qty'         => 'sometimes|required|integer|min:0',
-            'weight'      => 'nullable|string|max:50',
-            'size'        => 'nullable|string|max:50',
+            'weight'      => 'nullable|string|max:500',
+            'size'        => 'nullable|string|max:500',
             'color'       => 'nullable|string|max:10',
-            'quality'     => 'nullable|in:Premium,Standard,Economy',
+            // Accept any casing — normalised to ucfirst below
+            'quality'     => 'nullable|string|in:Premium,Standard,Economy,premium,standard,economy',
             'description' => 'nullable|string',
             'status'      => 'nullable|in:active,inactive',
         ]);
@@ -120,44 +115,44 @@ class ProductController extends Controller
         foreach ($map as $reqKey => $column) {
             if (array_key_exists($reqKey, $validated)) {
                 $value = $validated[$reqKey];
-                if (in_array($column, ['SubType', 'Quality'])) {
+                if ($column === 'SubType') {
                     $value = Str::lower($value);
+                }
+                if ($column === 'Quality' && $value !== null) {
+                    // Always store as ucfirst: Premium / Standard / Economy
+                    $value = ucfirst(Str::lower($value));
                 }
                 $update[$column] = $value;
             }
         }
 
         $product->update($update);
-
         return response()->json($product);
     }
 
-    
-public function destroy($id)
-{
-    $product = Product::find($id);
+    /** DELETE /api/products/{id} */
+    public function destroy($id)
+    {
+        $product = Product::find($id);
+        if (!$product) {
+            return response()->json(['message' => 'Product not found'], 404);
+        }
 
-    if (!$product) {
-        return response()->json(['message' => 'Product not found'], 404);
+        if ($product->orders()->exists()) {
+            return response()->json([
+                'message' => 'This product cannot be deleted because it has existing orders. Mark it as inactive instead.'
+            ], 409);
+        }
+
+        $product->delete();
+        return response()->json(['message' => 'Product deleted']);
     }
-
-    if ($product->orders()->exists()) {
-        return response()->json([
-            'message' => 'This product cannot be deleted because it has existing orders. Mark it as inactive instead.'
-        ], 409);
-    }
-
-    $product->delete();
-
-    return response()->json(['message' => 'Product deleted']);
-}
 
     private function generateProductCode(string $category): string
     {
         $prefix = $category === 'yarn' ? 'YRN' : 'CLT';
         $last = Product::where('Code', 'like', "{$prefix}-%")->orderByDesc('Id')->first();
-        $nextNumber = $last ? ((int) Str::after($last->Code, "{$prefix}-")) + 1 : 1;
-
+        $nextNumber = $last ? ((int) \Illuminate\Support\Str::after($last->Code, "{$prefix}-")) + 1 : 1;
         return "{$prefix}-" . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
     }
 }

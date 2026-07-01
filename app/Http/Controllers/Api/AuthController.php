@@ -22,7 +22,7 @@ class AuthController extends Controller
         // Try email first
         $user = User::where('email', $identifier)->first();
 
-        // If not found by email AND phone column exists, try phone
+        // If not found by email, try phone
         if (!$user && Schema::hasColumn('users', 'phone')) {
             $user = User::where('phone', $identifier)->first();
         }
@@ -31,30 +31,34 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
-        // Plain text password compare for ALL roles — no hashing
-       $dbPassword = $user->getAttributes()['password'];
+        // Password check — supports bcrypt (super/sys admin) and plain text (admin/end_user)
+        $dbPassword = $user->getAttributes()['password'];
+        $isMatch = strlen($dbPassword) === 60 && str_starts_with($dbPassword, '$2')
+            ? \Illuminate\Support\Facades\Hash::check($password, $dbPassword)
+            : $password === $dbPassword;
 
-$isMatch = strlen($dbPassword) === 60 && str_starts_with($dbPassword, '$2')
-    ? \Illuminate\Support\Facades\Hash::check($password, $dbPassword)
-    : $password === $dbPassword;
+        if (!$isMatch) {
+            return response()->json(['message' => 'Invalid credentials'], 401);
+        }
 
-if (!$isMatch) {
-    return response()->json(['message' => 'Invalid credentials'], 401);
-}
-
-        // Check Status if column exists
+        // Block inactive / pending users
         if (Schema::hasColumn('users', 'Status')) {
             if ($user->Status && $user->Status !== 'active') {
-                return response()->json(['message' => 'Account is inactive. Contact your administrator.'], 403);
+                $msg = ($user->Status === 'inactive')
+                    ? 'Your account is pending approval. Please contact your administrator.'
+                    : 'Account is inactive. Contact your administrator.';
+                return response()->json(['message' => $msg], 403);
             }
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'token' => $token,
-            'role'  => $user->role,
-            'user'  => $user,
+            'token'        => $token,
+            'role'         => $user->role,
+            'designation'  => $user->Designation  ?? null,
+            'assignedArea' => $user->AssignedArea  ?? null,
+            'user'         => $user,
         ]);
     }
 

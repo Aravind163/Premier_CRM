@@ -221,7 +221,7 @@ export default function AddOrder() {
   const { isDark } = useTheme();
   const themeG = getG(isDark);
 
-  const card      = { background:themeG.card, border:`1px solid ${themeG.border}`, borderRadius:14, padding:24, boxShadow:"0 4px 16px rgba(106,163,38,0.05)" };
+  const card      = { background:themeG.card, border:`1px solid ${themeG.border}`, borderRadius:14, padding:24, boxShadow:"0 4px 16px rgba(106,163,38,0.05)", minWidth:0, width:"100%", boxSizing:"border-box" };
   const cardTitle = { fontFamily:"'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize:16, fontWeight:600, margin:"0 0 20px", color:themeG.textMain };
 
   const navigate = useNavigate();
@@ -333,7 +333,7 @@ export default function AddOrder() {
         </span>
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns: showDetailsCard ? "1fr 1fr 1fr" : "1fr 1fr", gap:24 }}>
+      <div style={{ display:"grid", gridTemplateColumns: showDetailsCard ? "repeat(3, minmax(0, 1fr))" : "repeat(2, minmax(0, 1fr))", gap:24, alignItems:"start" }}>
 
         {error && (
           <div style={{ gridColumn:"1 / -1", background:"rgba(192,57,43,0.08)", border:"1px solid rgba(192,57,43,0.25)", borderRadius:10, padding:"10px 14px", fontSize:13, color:"#a23528" }}>

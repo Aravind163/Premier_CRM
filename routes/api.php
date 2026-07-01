@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\EmployeeController;
+use App\Http\Controllers\Api\LocationController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -25,4 +26,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/employees',         [EmployeeController::class, 'store']);
     Route::put('/employees/{id}',     [EmployeeController::class, 'update']);
     Route::patch('/employees/{id}',   [EmployeeController::class, 'update']);
+
+    // Tamil Nadu district / taluk reference data — used for District
+    // assignment (System Admin → Admin) and Taluk assignment (Admin → End User)
+    Route::get('/locations/districts', [LocationController::class, 'districts']);
+    Route::get('/locations/taluks',    [LocationController::class, 'taluks']);
 });

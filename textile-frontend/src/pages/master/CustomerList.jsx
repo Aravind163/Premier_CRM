@@ -153,8 +153,8 @@ export default function CustomerList() {
                   <td style={{ padding: "12px 13px" }}><Badge text={c.status} /></td>
                   <td style={{ padding: "12px 13px" }}>
                     <div style={{ display: "flex", gap: 7 }}>
-                      <button style={btnStyle("#3a9bd5")} onClick={() => navigate(`/master/customers/${c.dbId}`)}>View</button>
-                      <button style={btnStyle(themeG.accent)} onClick={() => navigate(`/master/customers/${c.dbId}?edit=1`)}>Edit</button>
+                      <button style={btnStyle("#3a9bd5")} onClick={() => navigate(`/master/customers/${c.dbId}`)}>👁️</button>
+                      <button style={btnStyle(themeG.accent)} onClick={() => navigate(`/master/customers/${c.dbId}?edit=1`)}>✏️</button>
                     </div>
                   </td>
                 </tr>

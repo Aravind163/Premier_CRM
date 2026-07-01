@@ -16,6 +16,7 @@ import StatusCustomers from "./pages/status/StatusCustomers";
 import StatusOrders    from "./pages/status/StatusOrders";
 import StatusEmployees from "./pages/status/StatusEmployees";
 import SystemAdminEmployees from "./pages/status/SystemAdminEmployees";
+import StatusEndUsers from "./pages/status/StatusEndUsers";
 import ReportsOrders    from "./pages/reports/ReportsOrders";
 import ReportsProducts  from "./pages/reports/ReportsProducts";
 import ReportsEmployees from "./pages/reports/ReportsEmployees";
@@ -50,6 +51,7 @@ function App() {
           <Route path="/status/orders"           element={<StatusOrders />} />
           <Route path="/status/employees"        element={<StatusEmployees />} />
           <Route path="/status/employees/manage" element={<SystemAdminEmployees />} />
+          <Route path="/status/end-users"        element={<StatusEndUsers />} />
 
           {/* Reports */}
           <Route path="/reports/orders"    element={<ReportsOrders />} />

@@ -86,7 +86,7 @@ export default function Header() {
 
       {/* Right */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        {/* Theme Toggle */}
+        
         <button
           onClick={toggleTheme}
           title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}

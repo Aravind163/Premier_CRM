@@ -9,11 +9,35 @@ const getActiveCat = () => localStorage.getItem("premier_category") || null;
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
+/**
+ * Role hierarchy (4 logins):
+ *  - super_admin  : read-only everywhere (viewable, not editable/assignable)
+ *  - system_admin : full access — can edit/assign, approves admin + end_user accounts,
+ *                    assigns area (district/taluk) to both admin and end_user
+ *  - admin        : area-scoped operational access (assigned by system_admin),
+ *                    can create end_user accounts (pending sys_admin approval)
+ *  - end_user     : restricted, area-scoped menu — view/create within their own
+ *                    assigned area only, no system-wide master data access
+ */
 export default function Layout({ children, pageTitle, pageSubtitle }) {
   const location = useLocation();
   const { colors, isDark } = useTheme();
   const role = localStorage.getItem("role") || "super_admin";
+  // Admins are scoped by District; End Users are scoped by Taluk (within
+  // their admin's district). assignedArea is kept as a generic fallback
+  // display value for either.
+  const district = localStorage.getItem("District") || "";
+  const taluk    = localStorage.getItem("Taluk") || "";
+  const assignedArea = localStorage.getItem("assignedArea") || district || taluk || "";
   const activeCat = getActiveCat();
+
+  const isSuperAdmin  = role === "super_admin";
+  const isSystemAdmin = role === "system_admin";
+  const isAdmin       = role === "admin";
+  const isEndUser     = role === "end_user";
+
+  // Read-only banner shown for super_admin (viewable but not editable/assignable)
+  const readOnly = isSuperAdmin;
 
   const [masterOpen,    setMasterOpen]    = useState(true);
   const [productsOpen,  setProductsOpen]  = useState(true);
@@ -37,6 +61,16 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
           <div style={S.logoWrap}> <span style={S.logoText}>Premier CRM</span>
           </div>
 
+          {/* Role badge */}
+          
+          {(isAdmin || isEndUser) && (assignedArea || district || taluk) && (
+            <div style={S.areaBadge}>
+              📍 {isAdmin ? (district || assignedArea) : (taluk || assignedArea)}
+              {isAdmin && <span style={{ opacity: 0.6 }}> (District)</span>}
+              {isEndUser && <span style={{ opacity: 0.6 }}> (Taluk)</span>}
+            </div>
+          )}
+
           <nav style={S.nav}>
             <Link to="/dashboard" style={{ textDecoration: "none" }}>
               <div style={{ ...S.navItem, ...(isActive("/dashboard") ? S.navItemActive : {}) }}>
@@ -45,105 +79,143 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
               </div>
             </Link>
 
-            {/* Select Category */}
-            <Link to="/select-category" style={{ textDecoration: "none" }}>
-              <div style={{ ...S.navItem, ...(isActive("/select-category") ? S.navItemActive : {}), marginBottom: 4, background: activeCat ? "rgba(82,183,136,0.10)" : "transparent", border: activeCat ? "1px solid rgba(82,183,136,0.25)" : "1px solid transparent", borderRadius: 8 }}>
-                <span style={S.navIcon}><CategoryIcon /></span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>Category</div>
-                  {activeCat && (
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.50)", marginTop: 1 }}>
-                      {activeCat === "cloth" ? "👘 Cloth" : "🧵 Yarn"}
-                    </div>
-                  )}
-                </div>
-                {!activeCat && <span style={{ fontSize: 10, color: "rgba(255,200,100,0.85)", fontWeight: 700, letterSpacing: "0.04em" }}>SELECT</span>}
-              </div>
-            </Link>
-
-            {/* Master */}
-            <div style={S.navGroup}>
-              <div style={S.navGroupHeader} onClick={() => setMasterOpen(!masterOpen)}>
-                <span style={S.navIcon}><LayersIcon /></span>
-                <span style={S.navGroupLabel}>Master</span>
-                <span style={{ ...S.chevron, transform: masterOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon /></span>
-              </div>
-              {masterOpen && (
-                <div style={S.navGroupBody}>
-                  <div style={{ ...S.navSubItem, ...(isPrefix("/master/products") ? S.navSubActive : {}) }} onClick={() => setProductsOpen(!productsOpen)}>
-                    <span>Products</span>
-                    <span style={{ ...S.chevron, transform: productsOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon small /></span>
+            {/* Select Category — hidden for end_user (they place orders, not manage catalog) */}
+            {!isEndUser && (
+              <Link to="/select-category" style={{ textDecoration: "none" }}>
+                <div style={{ ...S.navItem, ...(isActive("/select-category") ? S.navItemActive : {}), marginBottom: 4, background: activeCat ? "rgba(82,183,136,0.10)" : "transparent", border: activeCat ? "1px solid rgba(82,183,136,0.25)" : "1px solid transparent", borderRadius: 8 }}>
+                  <span style={S.navIcon}><CategoryIcon /></span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>Category</div>
+                    {activeCat && (
+                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.50)", marginTop: 1 }}>
+                        {activeCat === "cloth" ? "👘 Cloth" : "🧵 Yarn"}
+                      </div>
+                    )}
                   </div>
-                  {productsOpen && (
-                    <div style={S.navLeafGroup}>
-                      <NavLeaf to="/master/products/add" label="Add Product"  active={isActive("/master/products/add")} S={S} />
-                      <NavLeaf to="/master/products"     label="Product List" active={isActive("/master/products")} S={S} />
-                    </div>
-                  )}
+                  {!activeCat && <span style={{ fontSize: 10, color: "rgba(255,200,100,0.85)", fontWeight: 700, letterSpacing: "0.04em" }}>SELECT</span>}
+                </div>
+              </Link>
+            )}
 
-                  <div style={{ ...S.navSubItem, ...(isPrefix("/master/orders") ? S.navSubActive : {}) }} onClick={() => setOrdersOpen(!ordersOpen)}>
-                    <span>Orders</span>
-                    <span style={{ ...S.chevron, transform: ordersOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon small /></span>
+            {/* Master — full version for super_admin / system_admin / admin.
+                end_user gets a trimmed "My Orders" style menu instead. */}
+            {!isEndUser ? (
+              <div style={S.navGroup}>
+                <div style={S.navGroupHeader} onClick={() => setMasterOpen(!masterOpen)}>
+                  <span style={S.navIcon}><LayersIcon /></span>
+                  <span style={S.navGroupLabel}>Master</span>
+                  <span style={{ ...S.chevron, transform: masterOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon /></span>
+                </div>
+                {masterOpen && (
+                  <div style={S.navGroupBody}>
+                    <div style={{ ...S.navSubItem, ...(isPrefix("/master/products") ? S.navSubActive : {}) }} onClick={() => setProductsOpen(!productsOpen)}>
+                      <span>Products</span>
+                      <span style={{ ...S.chevron, transform: productsOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon small /></span>
+                    </div>
+                    {productsOpen && (
+                      <div style={S.navLeafGroup}>
+                        {/* super_admin can view list but not the Add Product form */}
+                        {!isSuperAdmin && (
+                          <NavLeaf to="/master/products/add" label="Add Product" active={isActive("/master/products/add")} S={S} />
+                        )}
+                        <NavLeaf to="/master/products" label="Product List" active={isActive("/master/products")} S={S} />
+                      </div>
+                    )}
+
+                    <div style={{ ...S.navSubItem, ...(isPrefix("/master/orders") ? S.navSubActive : {}) }} onClick={() => setOrdersOpen(!ordersOpen)}>
+                      <span>Orders</span>
+                      <span style={{ ...S.chevron, transform: ordersOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon small /></span>
+                    </div>
+                    {ordersOpen && (
+                      <div style={S.navLeafGroup}>
+                        {!isSuperAdmin && (
+                          <NavLeaf to="/master/orders/add" label="Add Order" active={isActive("/master/orders/add")} S={S} />
+                        )}
+                        <NavLeaf to="/master/orders" label="Order List" active={isActive("/master/orders")} S={S} />
+                      </div>
+                    )}
+
+                    <div style={{ ...S.navSubItem, ...(isPrefix("/master/customers") ? S.navSubActive : {}) }} onClick={() => setCustomersOpen(!customersOpen)}>
+                      <span>Customer</span>
+                      <span style={{ ...S.chevron, transform: customersOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon small /></span>
+                    </div>
+                    {customersOpen && (
+                      <div style={S.navLeafGroup}>
+                        {!isSuperAdmin && (
+                          <NavLeaf to="/master/customers/add" label="Add Customer" active={isActive("/master/customers/add")} S={S} />
+                        )}
+                        <NavLeaf to="/master/customers" label="Customer List" active={isActive("/master/customers")} S={S} />
+                      </div>
+                    )}
                   </div>
-                  {ordersOpen && (
+                )}
+              </div>
+            ) : (
+              /* ── End User trimmed menu — area-scoped orders only ── */
+              <div style={S.navGroup}>
+                <div style={S.navGroupHeader} onClick={() => setOrdersOpen(!ordersOpen)}>
+                  <span style={S.navIcon}><LayersIcon /></span>
+                  <span style={S.navGroupLabel}>My Orders</span>
+                  <span style={{ ...S.chevron, transform: ordersOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon /></span>
+                </div>
+                {ordersOpen && (
+                  <div style={S.navGroupBody}>
                     <div style={S.navLeafGroup}>
-                      <NavLeaf to="/master/orders/add" label="Add Order"  active={isActive("/master/orders/add")} S={S} />
-                      <NavLeaf to="/master/orders"     label="Order List" active={isActive("/master/orders")} S={S} />
+                      <NavLeaf to="/master/orders/add" label="New Order"   active={isActive("/master/orders/add")} S={S} />
+                      <NavLeaf to="/master/orders"     label="Order List"  active={isActive("/master/orders")} S={S} />
                     </div>
-                  )}
-
-                  <div style={{ ...S.navSubItem, ...(isPrefix("/master/customers") ? S.navSubActive : {}) }} onClick={() => setCustomersOpen(!customersOpen)}>
-                    <span>Customer</span>
-                    <span style={{ ...S.chevron, transform: customersOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon small /></span>
                   </div>
-                  {customersOpen && (
-                    <div style={S.navLeafGroup}>
-                      <NavLeaf to="/master/customers/add" label="Add Customer"  active={isActive("/master/customers/add")} S={S} />
-                      <NavLeaf to="/master/customers"     label="Customer List" active={isActive("/master/customers")} S={S} />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Status */}
-            <div style={S.navGroup}>
-              <div style={S.navGroupHeader} onClick={() => setStatusOpen(!statusOpen)}>
-                <span style={S.navIcon}><ActivityIcon /></span>
-                <span style={S.navGroupLabel}>Status</span>
-                <span style={{ ...S.chevron, transform: statusOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon /></span>
+                )}
               </div>
-              {statusOpen && (
-                <div style={S.navGroupBody}>
-                  <NavLeaf to="/status/customers" label="Customers" active={isPrefix("/status/customers")} S={S} />
-                  <NavLeaf to="/status/orders"    label="Orders"    active={isPrefix("/status/orders")} S={S} />
-                  <NavLeaf
-                    to={role === "system_admin" ? "/status/employees/manage" : "/status/employees"}
-                    label="Employees"
-                    active={isPrefix("/status/employees")}
-                    S={S}
-                  />
-                </div>
-              )}
-            </div>
+            )}
 
-            {/* Reports */}
-            <div style={S.navGroup}>
-              <div style={S.navGroupHeader} onClick={() => setReportsOpen(!reportsOpen)}>
-                <span style={S.navIcon}><ChartIcon /></span>
-                <span style={S.navGroupLabel}>Reports</span>
-                <span style={{ ...S.chevron, transform: reportsOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon /></span>
-              </div>
-              {reportsOpen && (
-                <div style={S.navGroupBody}>
-                  <NavLeaf to="/reports/orders"    label="Orders"    active={isActive("/reports/orders")} S={S} />
-                  <NavLeaf to="/reports/products"  label="Products"  active={isActive("/reports/products")} S={S} />
-                  <NavLeaf to="/reports/employees" label="Employees" active={isActive("/reports/employees")} S={S} />
+            {/* Status — visible to all except plain end_user (they don't manage status of others) */}
+            {!isEndUser && (
+              <div style={S.navGroup}>
+                <div style={S.navGroupHeader} onClick={() => setStatusOpen(!statusOpen)}>
+                  <span style={S.navIcon}><ActivityIcon /></span>
+                  <span style={S.navGroupLabel}>Status</span>
+                  <span style={{ ...S.chevron, transform: statusOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon /></span>
                 </div>
-              )}
-            </div>
+                {statusOpen && (
+                  <div style={S.navGroupBody}>
+                    <NavLeaf to="/status/customers" label="Customers" active={isPrefix("/status/customers")} S={S} />
+                    <NavLeaf to="/status/orders"    label="Orders"    active={isPrefix("/status/orders")} S={S} />
+                    {/* super_admin & admin: read-only employee directory */}
+                    {(isSuperAdmin) && (
+                      <NavLeaf to="/status/employees" label="Employees" active={isPrefix("/status/employees")} S={S} />
+                    )}
+                    {/* system_admin: full Admin management — assigns District */}
+                    {isSystemAdmin && (
+                      <NavLeaf to="/status/employees/manage" label="Allocation" active={isPrefix("/status/employees/manage")} S={S} />
+                    )}
+                    {/* admin: End User management — assigns Taluk, scoped to their own district */}
+                    {isAdmin && (
+                      <NavLeaf to="/status/end-users" label="End Users (Assign Taluk)" active={isPrefix("/status/end-users")} S={S} />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Reports — hidden for end_user */}
+            {!isEndUser && (
+              <div style={S.navGroup}>
+                <div style={S.navGroupHeader} onClick={() => setReportsOpen(!reportsOpen)}>
+                  <span style={S.navIcon}><ChartIcon /></span>
+                  <span style={S.navGroupLabel}>Reports</span>
+                  <span style={{ ...S.chevron, transform: reportsOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon /></span>
+                </div>
+                {reportsOpen && (
+                  <div style={S.navGroupBody}>
+                    <NavLeaf to="/reports/orders"    label="Orders"    active={isActive("/reports/orders")} S={S} />
+                    <NavLeaf to="/reports/products"  label="Products"  active={isActive("/reports/products")} S={S} />
+                    <NavLeaf to="/reports/employees" label="Employees" active={isActive("/reports/employees")} S={S} />
+                  </div>
+                )}
+              </div>
+            )}
           </nav>
-          {/* No user chip / logout in sidebar — moved to header dropdown */}
         </div>
 
         {/* ── Right: Header + Scrollable Content + Footer ── */}
@@ -151,6 +223,10 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
           <Header />
           <div style={S.scrollArea}>
             <div style={S.main}>
+              {readOnly && (
+                <div >
+                </div>
+              )}
               {children}
             </div>
             <Footer />
@@ -159,6 +235,16 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
       </div>
     </div>
   );
+}
+
+function roleLabel(role) {
+  switch (role) {
+    case "super_admin":  return "Super Admin";
+    case "system_admin": return "System Admin";
+    case "admin":         return "Admin";
+    case "end_user":      return "End User";
+    default:              return role;
+  }
 }
 
 function NavLeaf({ to, label, active, S }) {
@@ -214,11 +300,35 @@ function buildStyles(colors, isDark) {
     },
     logoWrap: {
       display: "flex", alignItems: "center", gap: 9,
-      paddingLeft: 6, marginBottom: 24,
+      paddingLeft: 6, marginBottom: 14,
     },
     logoText: {
       fontFamily: FONT,
       fontSize: 16, fontWeight: 700, color: "#ffffff", letterSpacing: "-0.3px",
+    },
+    roleBadge: {
+      display: "flex", alignItems: "center", gap: 6,
+      padding: "5px 10px", marginBottom: 6, marginLeft: 4,
+      borderRadius: 6, background: "rgba(255,255,255,0.08)",
+      width: "fit-content",
+    },
+    roleBadgeText: {
+      fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.80)",
+      textTransform: "uppercase", letterSpacing: "0.04em",
+    },
+    roleBadgeTag: {
+      fontSize: 9, fontWeight: 700, color: "#ffd166",
+      background: "rgba(255,209,102,0.15)", padding: "2px 6px", borderRadius: 4,
+      letterSpacing: "0.03em",
+    },
+    areaBadge: {
+      fontSize: 11, color: "rgba(255,255,255,0.55)",
+      marginLeft: 4, marginBottom: 16,
+    },
+    readOnlyBanner: {
+      marginBottom: 18, padding: "10px 16px", borderRadius: 10,
+      background: "rgba(255,209,102,0.12)", border: "1px solid rgba(255,209,102,0.35)",
+      fontSize: 13, color: "#8a6510", fontFamily: FONT, fontWeight: 500,
     },
     nav: { flex: 1 },
     navItem: {

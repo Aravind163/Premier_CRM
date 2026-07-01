@@ -248,28 +248,7 @@ export default function OrderView() {
         </div>
       </div>
 
-      {order.OrderDetails && Object.keys(order.OrderDetails).length > 0 && (
-        <div style={{ ...card, marginTop: 24 }}>
-          <h3 style={cardTitle}>
-            {order.SubType === "dhoti"   && "Dhoti Details"}
-            {order.SubType === "blouse"  && "Blouse Fabric Details"}
-            {order.SubType === "uniform" && "Uniform Details"}
-            {order.SubType === "others"  && "Product Details"}
-            {!["dhoti","blouse","uniform","others"].includes(order.SubType) && "Order Details"}
-          </h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 40px" }}>
-            {Object.entries(order.OrderDetails)
-              .filter(([, v]) => v !== "" && v !== null && v !== undefined)
-              .map(([key, value]) => (
-                <ReadRow
-                  key={key}
-                  label={key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase())}
-                  value={String(value)}
-                />
-              ))}
-          </div>
-        </div>
-      )}
+      
 
       <div style={{ display: "flex", gap: 12, marginTop: 28, justifyContent: "flex-end" }}>
         <button onClick={() => navigate("/master/orders")} style={{ padding: "10px 24px", borderRadius: 9, border: `1px solid ${"rgba(27,77,46,0.18)"}`, background: "#ffffff", color: "#4a7a5a", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 500 }}>

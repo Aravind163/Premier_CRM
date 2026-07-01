@@ -4,8 +4,15 @@ import Layout from "../../components/Layout";
 import { getG, statusColor, G } from "../../theme";
 import API from "../../services/api";
 
-const getThemeColors = () => getG(localStorage.getItem("premier_theme") === "dark");
+// helper: normalise DB value (string / JSON-string / array) → array
+const toArr = (v) => {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.filter(Boolean);
+  try { const p = JSON.parse(v); return Array.isArray(p) ? p.filter(Boolean) : [v]; }
+  catch { return [v]; }
+};
 
+const getThemeColors = () => getG(localStorage.getItem("premier_theme") === "dark");
 
 const Badge = ({ text }) => {
   const s = statusColor(text);
@@ -16,20 +23,26 @@ const Badge = ({ text }) => {
   );
 };
 
-const actionBtn = (bg, color, border) => ({
-  padding: "7px 14px", borderRadius: 8, border: `1px solid ${border}`, background: bg, color,
-  cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 600,
-});
-
+/**
+ * Read-only Employee view.
+ * Used by: super_admin (fully view-only) and admin (view-only for employees;
+ * admin manages END USERS they personally added via a separate flow, but
+ * approval/area-assignment authority always belongs to system_admin).
+ *
+ * Only system_admin gets the editable/assignable version — see
+ * SystemAdminEmployees.jsx — per the rule:
+ *   super_admin = readable/viewable
+ *   system_admin = editable/assignable
+ */
 export default function StatusEmployees() {
   const { isDark } = useTheme();
   const themeG = getG(isDark);
+  const role = localStorage.getItem("role") || "super_admin";
 
-  const [filter, setFilter] = useState("pending");
+  const [filter, setFilter] = useState("all");
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [actingId, setActingId] = useState(null);
   const [selected, setSelected] = useState(null);
 
   const load = async () => {
@@ -46,27 +59,11 @@ export default function StatusEmployees() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
 
-const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain }
-const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(106,163,38,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(124,179,66,0.04)" }
-
-
-  const setStatus = async (id, status) => {
-    setActingId(id);
-    setError("");
-    try {
-      await API.patch(`/employees/${id}/status`, { status });
-      load();
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to update status.");
-    } finally {
-      setActingId(null);
-    }
-  };
-
-
+  const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain };
+  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(106,163,38,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(124,179,66,0.04)" };
 
   return (
-    <Layout pageTitle="Employee Approvals">
+    <Layout pageTitle="Employee Directory">
 
       <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
         {["pending", "approved", "inactive", "all"].map((f) => (
@@ -87,37 +84,32 @@ const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: 
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {["Name", "Designation", "District", "Taluk", "Joined", "Status", "Actions"].map((h) => (
+              {["Name", "Designation", "Districts", "Taluks", "Joined", "Status"].map((h) => (
                 <th key={h} style={th}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} style={{ ...td, textAlign: "center", padding: 30 }}>Loading…</td></tr>
+              <tr><td colSpan={6} style={{ ...td, textAlign: "center", padding: 30 }}>Loading…</td></tr>
             ) : employees.length === 0 ? (
-              <tr><td colSpan={7} style={{ ...td, textAlign: "center", padding: 30, color: themeG.textSub }}>No employees in this filter.</td></tr>
+              <tr><td colSpan={6} style={{ ...td, textAlign: "center", padding: 30, color: themeG.textSub }}>No employees in this filter.</td></tr>
             ) : employees.map((e) => (
               <tr key={e.Id} style={{ borderBottom: "1px solid rgba(106,163,38,0.08)" }}>
                 <td style={{ ...td, fontWeight: 600, color: themeG.accent, cursor: "pointer" }} onClick={() => setSelected(e)}>{e.Name}</td>
                 <td style={td}>{e.Designation}</td>
-                <td style={td}>{e.District}</td>
-                <td style={td}>{e.Taluk}</td>
+                <td style={td}>
+                  {toArr(e.District).length > 0
+                    ? <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>{toArr(e.District).map(d => <span key={d} style={areaPill}>{d}</span>)}</div>
+                    : "—"}
+                </td>
+                <td style={td}>
+                  {toArr(e.Taluk).length > 0
+                    ? <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>{toArr(e.Taluk).map(t => <span key={t} style={{ ...areaPill, background:"rgba(60,130,200,0.10)", color:"#1a5fa0", border:"1px solid rgba(60,130,200,0.22)" }}>{t}</span>)}</div>
+                    : (e.AssignedArea || e.user?.AssignedArea || "—")}
+                </td>
                 <td style={td}>{e.JoinedAt?.substring(0, 10)}</td>
                 <td style={td}><Badge text={e.Status} /></td>
-                <td style={td}>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {e.Status !== "approved" && (
-                      <button disabled={actingId === e.Id} onClick={() => setStatus(e.Id, "approved")} style={actionBtn("rgba(124,179,66,0.12)", themeG.accent, "rgba(124,179,66,0.30)")}>Approve</button>
-                    )}
-                    {e.Status !== "pending" && (
-                      <button disabled={actingId === e.Id} onClick={() => setStatus(e.Id, "pending")} style={actionBtn("rgba(200,160,40,0.10)", "#8a6510", "rgba(200,160,40,0.28)")}>Pending</button>
-                    )}
-                    {e.Status !== "inactive" && (
-                      <button disabled={actingId === e.Id} onClick={() => setStatus(e.Id, "inactive")} style={actionBtn("rgba(150,150,150,0.10)", "#5a5a5a", "rgba(150,150,150,0.26)")}>Set Inactive</button>
-                    )}
-                  </div>
-                </td>
               </tr>
             ))}
           </tbody>
@@ -125,10 +117,10 @@ const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: 
       </div>
 
       <p style={{ marginTop: 14, fontSize: 13, color: themeG.textSub }}>
-        Showing {employees.length} employee{employees.length !== 1 ? "s" : ""} ({filter})
+        Showing {employees.length} employee{employees.length !== 1 ? "s" : ""} ({filter}) · View only — approvals and area assignment are handled by System Admin.
       </p>
 
-      {/* View-only detail panel (no edit form, per Super Admin permissions) */}
+      {/* View-only detail panel — no edit / status actions */}
       {selected && (
         <div style={overlay} onClick={() => setSelected(null)}>
           <div style={modal} onClick={(e) => e.stopPropagation()}>
@@ -137,8 +129,9 @@ const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: 
             </h3>
             {[
               ["Designation", selected.Designation],
-              ["District", selected.District],
-              ["Taluk", selected.Taluk],
+              ["District(s)", toArr(selected.District).join(", ") || "—"],
+              ["Taluk(s)", toArr(selected.Taluk).join(", ") || "—"],
+              ["Assigned Area", selected.AssignedArea || selected.user?.AssignedArea || "—"],
               ["Joined", selected.JoinedAt?.substring(0, 10)],
               ["Linked Login", selected.user?.email ?? "—"],
               ["Status", selected.Status],
@@ -159,3 +152,4 @@ const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: 
 }
 const overlay = { position: "fixed", inset: 0, background: "rgba(20,30,15,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 };
 const modal = { background: "#ffffff", borderRadius: 16, padding: 28, width: 380, boxShadow: "0 12px 40px rgba(0,0,0,0.18)" };
+const areaPill = { display: "inline-block", background: "rgba(106,163,38,0.12)", color: "#3d6b1f", border: "1px solid rgba(106,163,38,0.25)", borderRadius: 12, padding: "2px 9px", fontSize: 11.5, fontWeight: 600 };

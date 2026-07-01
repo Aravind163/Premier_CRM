@@ -7,8 +7,9 @@ import API from "../../services/api";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-const YARN_TYPES  = ["All", "Bundle", "Hank", "Cone"];
-const CLOTH_TYPES = ["All", "Dhoti", "Blouse", "Pant", "Shirt", "Leggings", "Others"];
+// Built-in defaults shown even if no products of that sub-type exist yet
+const YARN_DEFAULTS  = ["Bundle", "Hank", "Cone"];
+const CLOTH_DEFAULTS = ["Dhoti", "Blouse", "Pant", "Shirt", "Leggings", "Others"];
 
 const ColorDot = ({ hex }) => (
   <span style={{ display:"inline-block", width:14, height:14, borderRadius:"50%", background:hex, border:"1.5px solid rgba(0,0,0,0.14)", verticalAlign:"middle", marginRight:7, flexShrink:0 }} />
@@ -71,7 +72,15 @@ export default function ProductList() {
   }, []);
 
   const products = allProducts.filter((p) => p.category === tab);
-  const typeList = tab === "yarn" ? YARN_TYPES : CLOTH_TYPES;
+
+  const defaults = tab === "yarn" ? YARN_DEFAULTS : CLOTH_DEFAULTS;
+  const seenTypes = products.map((p) => p.type).filter(Boolean);
+  // Merge defaults with any sub-types actually present in the data (covers custom sub-types like "Lungi", "Saree", "Towel"),
+  // de-duplicated case-insensitively, defaults first in their usual order, then any extras alphabetically.
+  const extraTypes = [...new Set(seenTypes)]
+    .filter((t) => !defaults.some((d) => d.toLowerCase() === t.toLowerCase()))
+    .sort((a, b) => a.localeCompare(b));
+  const typeList = ["All", ...defaults, ...extraTypes];
 
   const filtered = products.filter((p) => {
     const matchType = subType === "All" || p.type.toLowerCase() === subType.toLowerCase();
@@ -110,7 +119,7 @@ export default function ProductList() {
               background:  subType === t ? "rgba(124,179,66,0.14)" : "transparent",
               color:       subType === t ? themeG.accent : themeG.textSub,
               borderColor: subType === t ? "rgba(124,179,66,0.40)" : themeG.border }}>
-            {t}
+            {t.replace(/_/g, " ")}
           </button>
         ))}
       </div>
@@ -150,7 +159,7 @@ export default function ProductList() {
                   </td>
                   <td style={{ padding:"12px 14px" }}>
                     <span style={{ fontSize:12, fontWeight:600, color:rc.dot, background:`${rc.border}`, border:`1px solid ${rc.border}`, padding:"2px 10px", borderRadius:20, fontFamily:FONT }}>
-                      {p.type.charAt(0).toUpperCase() + p.type.slice(1)}
+                      {p.type.replace(/_/g, " ").charAt(0).toUpperCase() + p.type.replace(/_/g, " ").slice(1)}
                     </span>
                   </td>
                   <td style={{ padding:"12px 14px" }}>

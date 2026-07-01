@@ -14,6 +14,7 @@ class OrderController extends Controller
     public function index(Request $request)
     {
         $query = Order::with(['customer', 'product']);
+        $caller = $request->user();
 
         if ($status = $request->query('status')) {
             $query->where('Status', $status);
@@ -25,6 +26,13 @@ class OrderController extends Controller
 
         if ($category = $request->query('category')) {
             $query->where('Category', $category);
+        }
+
+        // End Users only ever see orders they personally created — not the
+        // full district/company order list. Admins and System/Super Admins
+        // see everything (no scoping) for now.
+        if ($caller && $caller->role === 'end_user') {
+            $query->where('CreatedBy', $caller->id);
         }
 
         return response()->json(
