@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "./ThemeContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import CustomerDashboard from "./pages/CustomerDashboard";
 import SelectCategory from "./pages/SelectCategory";
 import ProductList  from "./pages/master/ProductList";
 import AddProduct   from "./pages/master/AddProduct";
@@ -29,6 +30,7 @@ function App() {
           <Route path="/"        element={<Login />} />
           <Route path="/login"   element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/customer/dashboard" element={<CustomerDashboard />} />
           <Route path="/select-category" element={<SelectCategory />} />
 
           {/* Master – Products */}

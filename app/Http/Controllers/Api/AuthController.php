@@ -22,9 +22,15 @@ class AuthController extends Controller
         // Try email first
         $user = User::where('email', $identifier)->first();
 
-        // If not found by email, try phone
+        // If not found by email, try phone (admin / end_user / system_admin login)
         if (!$user && Schema::hasColumn('users', 'phone')) {
             $user = User::where('phone', $identifier)->first();
+        }
+
+        // Customer self-service login: username = Shop Name. Scoped strictly
+        // to role='customer' so it can never collide with a staff account.
+        if (!$user) {
+            $user = User::where('role', 'customer')->where('name', $identifier)->first();
         }
 
         if (!$user) {

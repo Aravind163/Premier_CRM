@@ -13,7 +13,7 @@ class Customer extends Model
     const UPDATED_AT = 'UpdatedAt';
 
     protected $fillable = [
-        'Code', 'Name', 'Phone', 'Email', 'Type', 'District', 'Taluk',
+        'Code', 'UserId', 'Name', 'Phone', 'Email', 'Type', 'District', 'Taluk',
         'Address', 'CreditLimit', 'Outstanding', 'Status', 'Notes',
         'CreatedBy', 'ApprovedBy',
     ];
@@ -39,6 +39,11 @@ class Customer extends Model
     public function approver()
     {
         return $this->belongsTo(User::class, 'ApprovedBy');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'UserId');
     }
 
     public function orders()

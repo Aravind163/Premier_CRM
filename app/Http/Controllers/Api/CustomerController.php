@@ -4,15 +4,27 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class CustomerController extends Controller
 {
-    /** GET /api/customers */
+    /**
+     * GET /api/customers
+     *
+     * Scoping: a `customer`-role user only ever sees their own record
+     * (matched via Customers.UserId). Staff roles (super/system_admin,
+     * admin, end_user) see the full list — unchanged from before.
+     */
     public function index(Request $request)
     {
-        $query = Customer::query();
+        $query = Customer::with('user');
+        $caller = $request->user();
+
+        if ($caller && $caller->role === 'customer') {
+            $query->where('UserId', $caller->id);
+        }
 
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
@@ -36,18 +48,33 @@ class CustomerController extends Controller
     }
 
     /** GET /api/customers/{id} */
-    public function show($id)
+    public function show(Request $request, $id)
     {
-        $customer = Customer::find($id);
+        $customer = Customer::with('user')->find($id);
 
         if (!$customer) {
             return response()->json(['message' => 'Customer not found'], 404);
         }
 
+        $caller = $request->user();
+        if ($caller && $caller->role === 'customer' && $customer->UserId !== $caller->id) {
+            return response()->json(['message' => 'You can only view your own account.'], 403);
+        }
+
         return response()->json($customer);
     }
 
-    /** POST /api/customers */
+    /**
+     * POST /api/customers
+     *
+     * Creates the Customer record AND a linked `users` row so the
+     * customer can log in themselves — matching the admin/end_user
+     * pattern (username = phone, password = dob), but for customers:
+     *   - username = Shop Name (Customers.Name)
+     *   - password = Phone number (Customers.Phone)
+     * The linked account starts inactive (blocked from login) until
+     * Marketing approves the customer via updateStatus().
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -62,8 +89,18 @@ class CustomerController extends Controller
             'notes'       => 'nullable|string',
         ]);
 
+        $user = User::create([
+            'name'     => $validated['name'],
+            'email'    => $validated['email'] ?? (Str::slug($validated['name']) . '-' . uniqid() . '@premiercrm.com'),
+            'phone'    => $validated['phone'],
+            'password' => $validated['phone'],
+            'role'     => 'customer',
+            'Status'   => 'inactive', // pending approval — login blocked until active
+        ]);
+
         $customer = Customer::create([
             'Code'        => $this->generateCustomerCode(),
+            'UserId'      => $user->id,
             'Name'        => $validated['name'],
             'Phone'       => $validated['phone'],
             'Email'       => $validated['email'] ?? null,
@@ -78,7 +115,7 @@ class CustomerController extends Controller
             'CreatedBy'   => $request->user()->id,
         ]);
 
-        return response()->json($customer, 201);
+        return response()->json($customer->load('user'), 201);
     }
 
     /** PUT /api/customers/{id} */
@@ -124,7 +161,24 @@ class CustomerController extends Controller
 
         $customer->update($update);
 
-        return response()->json($customer);
+        // Keep the linked login account (username = Name, password = Phone)
+        // in sync whenever these change here.
+        if ($customer->user) {
+            $userUpdate = [];
+            if (isset($update['Name']))  $userUpdate['name'] = $update['Name'];
+            if (isset($update['Phone'])) {
+                $userUpdate['phone']    = $update['Phone'];
+                $userUpdate['password'] = $update['Phone'];
+            }
+            if (isset($update['Status'])) {
+                $userUpdate['Status'] = $update['Status'] === 'approved' ? 'active' : 'inactive';
+            }
+            if (!empty($userUpdate)) {
+                $customer->user->update($userUpdate);
+            }
+        }
+
+        return response()->json($customer->load('user'));
     }
 
     /** DELETE /api/customers/{id} */
@@ -136,6 +190,9 @@ class CustomerController extends Controller
             return response()->json(['message' => 'Customer not found'], 404);
         }
 
+        // Deleting the Customer should also remove their login — otherwise
+        // an orphaned account (belonging to no one) stays able to log in.
+        $customer->user?->delete();
         $customer->delete();
 
         return response()->json(['message' => 'Customer deleted']);
@@ -162,7 +219,14 @@ class CustomerController extends Controller
 
         $customer->update($update);
 
-        return response()->json($customer);
+        // Approving a customer unlocks their login; anything else blocks it.
+        if ($customer->user) {
+            $customer->user->update([
+                'Status' => $validated['status'] === 'approved' ? 'active' : 'inactive',
+            ]);
+        }
+
+        return response()->json($customer->load('user'));
     }
 
     private function generateCustomerCode(): string

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class OrderController extends Controller
@@ -35,6 +37,13 @@ class OrderController extends Controller
             $query->where('CreatedBy', $caller->id);
         }
 
+        // Customers only ever see their own orders (for tracking delivery
+        // status) — never the full company order book.
+        if ($caller && $caller->role === 'customer') {
+            $customer = Customer::where('UserId', $caller->id)->first();
+            $query->where('CustomerId', $customer->Id ?? 0);
+        }
+
         return response()->json(
             $query->orderByDesc('Id')->get()
         );
@@ -52,9 +61,20 @@ class OrderController extends Controller
         return response()->json($order);
     }
 
-    /** POST /api/orders */
+    /**
+     * POST /api/orders
+     *
+     * Staff-only (Field Officer / Admin / System Admin) — they set pricing
+     * and discount directly. Customers place orders through the cart/
+     * enquiry flow instead (see storeBulk below), where price always comes
+     * from the Product itself and no self-discount is possible.
+     */
     public function store(Request $request)
     {
+        if ($request->user() && $request->user()->role === 'customer') {
+            return response()->json(['message' => 'Please use the cart to submit an enquiry.'], 403);
+        }
+
         $validated = $request->validate([
             'customerId'   => 'required|integer|exists:Customers,Id',
             'productId'    => 'required|integer|exists:Products,Id',
@@ -94,6 +114,91 @@ class OrderController extends Controller
         ]);
 
         return response()->json($order->load(['customer', 'product']), 201);
+    }
+
+    /**
+     * POST /api/orders/bulk
+     *
+     * Customer "Add to Cart → Submit Enquiry" checkout. Accepts multiple
+     * products in one go and creates one Order (= one enquiry line) per
+     * item, all tied together by a shared CartRef.
+     *
+     * Deliberately customer-only:
+     *   - CustomerId is always the caller's own linked Customer — never
+     *     client-supplied, so a customer can never order on someone else's
+     *     behalf.
+     *   - PricePerUnit always comes from the Product's own price — the
+     *     customer can never set their own price.
+     *   - DiscountPct is always 0 — discounting only happens later, when
+     *     Marketing reviews the enquiry (Step 3 of the O2C flow).
+     */
+    public function storeBulk(Request $request)
+    {
+        $caller = $request->user();
+
+        if (!$caller || $caller->role !== 'customer') {
+            return response()->json(['message' => 'This endpoint is for customer cart checkout only.'], 403);
+        }
+
+        $customer = Customer::where('UserId', $caller->id)->first();
+        if (!$customer) {
+            return response()->json(['message' => 'No customer profile is linked to this account.'], 422);
+        }
+        if ($customer->Status !== 'approved') {
+            return response()->json(['message' => 'Your account is not yet approved to place orders.'], 403);
+        }
+
+        $validated = $request->validate([
+            'items'              => 'required|array|min:1',
+            'items.*.productId'  => 'required|integer|exists:Products,Id',
+            'items.*.qty'        => 'required|integer|min:1',
+            'deliveryDate'       => 'nullable|date',
+            'notes'              => 'nullable|string',
+        ]);
+
+        $cartRef = 'CART-' . now()->format('YmdHis') . '-' . $customer->Id;
+
+        $orders = DB::transaction(function () use ($validated, $customer, $caller, $cartRef) {
+            $created = [];
+            foreach ($validated['items'] as $item) {
+                $product = Product::find($item['productId']);
+                if (!$product || $product->Status !== 'active') {
+                    continue; // skip anything that vanished / went inactive mid-checkout
+                }
+
+                $qty          = (int) $item['qty'];
+                $pricePerUnit = (float) $product->Price;
+                $totalAmount  = round($qty * $pricePerUnit, 2);
+
+                $created[] = Order::create([
+                    'Code'          => $this->generateOrderCode(),
+                    'CustomerId'    => $customer->Id,
+                    'ProductId'     => $product->Id,
+                    'Category'      => $product->Category,
+                    'SubType'       => $product->SubType,
+                    'Quantity'      => $qty,
+                    'PricePerUnit'  => $pricePerUnit,
+                    'DiscountPct'   => 0,
+                    'TotalAmount'   => $totalAmount,
+                    'Status'        => 'pending',
+                    'PaymentStatus' => 'unpaid',
+                    'DeliveryDate'  => $validated['deliveryDate'] ?? null,
+                    'Notes'         => $validated['notes'] ?? null,
+                    'CreatedBy'     => $caller->id,
+                    'OrderDetails'  => json_encode(['CartRef' => $cartRef]),
+                ]);
+            }
+            return $created;
+        });
+
+        if (empty($orders)) {
+            return response()->json(['message' => 'None of the items in your cart are available anymore.'], 422);
+        }
+
+        return response()->json([
+            'message' => count($orders) . ' item(s) submitted as an enquiry.',
+            'orders'  => collect($orders)->map(fn ($o) => $o->load(['customer', 'product'])),
+        ], 201);
     }
 
     /** PUT /api/orders/{id} */

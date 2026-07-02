@@ -13,6 +13,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me',      [AuthController::class, 'me']);
 
+    Route::post('/orders/bulk', [OrderController::class, 'storeBulk']);
     Route::apiResource('customers', CustomerController::class);
     Route::apiResource('products',  ProductController::class);
     Route::apiResource('orders',    OrderController::class);
