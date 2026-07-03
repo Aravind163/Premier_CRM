@@ -31,6 +31,11 @@ export default function StatusOrders() {
   const [error, setError] = useState("");
   const [actingId, setActingId] = useState(null);
 
+  // Dispatch modal (LR Number + Transport Name)
+  const [dispatchTarget, setDispatchTarget] = useState(null);
+  const [lrNumber, setLrNumber] = useState("");
+  const [transportName, setTransportName] = useState("");
+  const [dispatching, setDispatching] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -65,6 +70,34 @@ const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain }
     }
   };
 
+  const openDispatch = (order) => {
+    setDispatchTarget(order);
+    setLrNumber("");
+    setTransportName("");
+    setError("");
+  };
+
+  const submitDispatch = async () => {
+    if (!lrNumber.trim() || !transportName.trim()) {
+      setError("LR Number and Transport Name are both required.");
+      return;
+    }
+    setDispatching(true);
+    setError("");
+    try {
+      await API.patch(`/orders/${dispatchTarget.Id}/dispatch`, {
+        lrNumber: lrNumber.trim(),
+        transportName: transportName.trim(),
+      });
+      setDispatchTarget(null);
+      load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to dispatch order.");
+    } finally {
+      setDispatching(false);
+    }
+  };
+
 
 
   return (
@@ -83,7 +116,7 @@ const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain }
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-        {["pending", "approved", "processing", "delivered", "declined", "all"].map((f) => (
+        {["pending", "approved", "processing", "dispatched", "delivered", "declined", "all"].map((f) => (
           <button key={f} onClick={() => setFilter(f)}
             style={{ padding: "8px 16px", borderRadius: 20, border: "1.5px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, textTransform: "capitalize", background: filter === f ? themeG.accent : themeG.card, color: filter === f ? themeG.card : themeG.textSub, borderColor: filter === f ? themeG.accent : themeG.border }}>
             {f}
@@ -130,10 +163,18 @@ const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain }
                       <button disabled={actingId === o.Id} onClick={() => setStatus(o.Id, "processing")} style={actionBtn("rgba(60,130,200,0.10)", "#1a5fa0", "rgba(60,130,200,0.26)")}>Start Processing</button>
                     )}
                     {o.Status === "processing" && (
+                      <button disabled={actingId === o.Id} onClick={() => openDispatch(o)} style={actionBtn("rgba(124,90,200,0.10)", "#5a3d9e", "rgba(124,90,200,0.28)")}>Dispatch</button>
+                    )}
+                    {o.Status === "dispatched" && (
                       <button disabled={actingId === o.Id} onClick={() => setStatus(o.Id, "delivered")} style={actionBtn("rgba(124,179,66,0.12)", themeG.accent, "rgba(124,179,66,0.30)")}>Mark Delivered</button>
                     )}
+                    {o.Status === "dispatched" && o.LRNumber && (
+                      <span style={{ fontSize: 11.5, color: themeG.textSub }}>LR: {o.LRNumber} · {o.TransportName}</span>
+                    )}
                     {(o.Status === "delivered" || o.Status === "declined") && (
-                      <span style={{ fontSize: 12, color: themeG.textSub }}>No further action</span>
+                      <span style={{ fontSize: 12, color: themeG.textSub }}>
+                        No further action{o.LRNumber ? ` · LR: ${o.LRNumber}` : ""}
+                      </span>
                     )}
                   </div>
                 </td>
@@ -146,6 +187,53 @@ const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain }
       <p style={{ marginTop: 14, fontSize: 13, color: themeG.textSub }}>
         Showing {orders.length} {tab} order{orders.length !== 1 ? "s" : ""} ({filter})
       </p>
+
+      {/* ── Dispatch modal (LR Number + Transport Name) ── */}
+      {dispatchTarget && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(20,30,15,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
+          onClick={() => setDispatchTarget(null)}>
+          <div style={{ background: "#ffffff", borderRadius: 16, padding: 28, width: 400, boxShadow: "0 12px 40px rgba(0,0,0,0.18)" }}
+            onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ fontFamily: "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize: 18, margin: "0 0 4px", color: themeG.textMain }}>
+              Dispatch {dispatchTarget.Code}
+            </h3>
+            <p style={{ fontSize: 12, color: themeG.textSub, margin: "0 0 18px" }}>
+              {dispatchTarget.customer?.Name} · {dispatchTarget.product?.Name}
+            </p>
+
+            {error && (
+              <div style={{ background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 8, padding: "9px 12px", marginBottom: 14, fontSize: 12, color: "#a23528" }}>
+                {error}
+              </div>
+            )}
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#5c6b4d", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 }}>LR Number *</label>
+              <input type="text" value={lrNumber} onChange={(e) => setLrNumber(e.target.value)}
+                placeholder="e.g. LR-48213"
+                style={{ width: "100%", boxSizing: "border-box", background: "#f6f9f0", border: "1px solid rgba(106,163,38,0.22)", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1a3d2b", fontFamily: "inherit", outline: "none" }} />
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#5c6b4d", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 }}>Transport Name *</label>
+              <input type="text" value={transportName} onChange={(e) => setTransportName(e.target.value)}
+                placeholder="e.g. VRL Logistics"
+                style={{ width: "100%", boxSizing: "border-box", background: "#f6f9f0", border: "1px solid rgba(106,163,38,0.22)", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1a3d2b", fontFamily: "inherit", outline: "none" }} />
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+              <button onClick={submitDispatch} disabled={dispatching}
+                style={{ flex: 1, padding: "10px", borderRadius: 9, border: "none", background: themeG.accent, color: "#fff", cursor: dispatching ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: 13.5, fontWeight: 700, opacity: dispatching ? 0.6 : 1 }}>
+                {dispatching ? "Dispatching…" : "Confirm Dispatch"}
+              </button>
+              <button onClick={() => setDispatchTarget(null)}
+                style={{ flex: 1, padding: "10px", borderRadius: 9, border: `1px solid ${themeG.border}`, background: themeG.card, color: themeG.textMain, cursor: "pointer", fontFamily: "inherit", fontSize: 13.5, fontWeight: 600 }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

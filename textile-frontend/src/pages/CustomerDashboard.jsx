@@ -177,7 +177,6 @@ export default function CustomerDashboard() {
           <div>
             <div style={S.brand}>{user.name || "Customer"}</div>
             <div style={S.shopName}>Premier CRM</div>
-            
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -249,16 +248,16 @@ export default function CustomerDashboard() {
           <table style={S.table}>
             <thead>
               <tr>
-                {["Order", "Product", "Qty", "Amount", "Delivery Date", "Status"].map((h) => (
+                {["Order", "Product", "Qty", "Amount", "Delivery Date", "Status", "Tracking"].map((h) => (
                   <th key={h} style={S.th}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} style={{ ...S.td, textAlign: "center", padding: 30 }}>Loading orders…</td></tr>
+                <tr><td colSpan={7} style={{ ...S.td, textAlign: "center", padding: 30 }}>Loading orders…</td></tr>
               ) : orders.length === 0 ? (
-                <tr><td colSpan={6} style={{ ...S.td, textAlign: "center", padding: 30 }}>You have no orders yet.</td></tr>
+                <tr><td colSpan={7} style={{ ...S.td, textAlign: "center", padding: 30 }}>You have no orders yet.</td></tr>
               ) : orders.map((o) => (
                 <tr key={o.Id}>
                   <td style={{ ...S.td, fontWeight: 600, color: themeG.accent }}>{o.Code}</td>
@@ -267,6 +266,16 @@ export default function CustomerDashboard() {
                   <td style={S.td}>₹{parseFloat(o.TotalAmount || 0).toLocaleString()}</td>
                   <td style={S.td}>{o.DeliveryDate ? o.DeliveryDate.substring(0, 10) : "—"}</td>
                   <td style={S.td}><Badge text={o.Status} /></td>
+                  <td style={S.td}>
+                    {o.LRNumber ? (
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{o.LRNumber}</div>
+                        <div style={{ fontSize: 11.5, color: themeG.textSub }}>{o.TransportName}</div>
+                      </div>
+                    ) : (
+                      <span style={{ color: themeG.textSub, fontSize: 12 }}>—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

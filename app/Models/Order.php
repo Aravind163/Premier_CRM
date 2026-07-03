@@ -16,7 +16,9 @@ class Order extends Model
     'Code', 'CustomerId', 'ProductId', 'Category', 'SubType', 'Quantity',
     'PricePerUnit', 'DiscountPct', 'TotalAmount', 'Status', 'PaymentStatus',
     'DeliveryDate', 'Notes', 'CreatedBy', 'ApprovedBy',
-    'OrderDetails',   // ← add this
+    'OrderDetails',
+    // Goods Dispatch (O2C Step 7)
+    'LRNumber', 'TransportName', 'DispatchedAt', 'DispatchedBy',
 ];
 
 protected $casts = [
@@ -24,7 +26,8 @@ protected $casts = [
     'DiscountPct'  => 'decimal:2',
     'TotalAmount'  => 'decimal:2',
     'DeliveryDate' => 'date',
-    'OrderDetails' => 'array',   // ← add this, auto JSON encode/decode
+    'OrderDetails' => 'array',
+    'DispatchedAt' => 'datetime',
 ];
 
     protected static function booted(): void
@@ -53,5 +56,10 @@ protected $casts = [
     public function approver()
     {
         return $this->belongsTo(User::class, 'ApprovedBy');
+    }
+
+    public function dispatcher()
+    {
+        return $this->belongsTo(User::class, 'DispatchedBy');
     }
 }

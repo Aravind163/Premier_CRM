@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\Employee;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -13,9 +14,14 @@ class CustomerController extends Controller
     /**
      * GET /api/customers
      *
-     * Scoping: a `customer`-role user only ever sees their own record
-     * (matched via Customers.UserId). Staff roles (super/system_admin,
-     * admin, end_user) see the full list — unchanged from before.
+     * Scoping:
+     *   - `customer`  → only their own record (Customers.UserId)
+     *   - `end_user`  → only customers whose Taluk matches one of the
+     *                   end_user's own assigned Taluk(s) (Field Officer,
+     *                   area-scoped)
+     *   - `admin`     → only customers whose District matches one of the
+     *                   admin's own assigned District(s)
+     *   - `system_admin` / `super_admin` → full list, unscoped
      */
     public function index(Request $request)
     {
@@ -24,6 +30,30 @@ class CustomerController extends Controller
 
         if ($caller && $caller->role === 'customer') {
             $query->where('UserId', $caller->id);
+        }
+
+        if ($caller && $caller->role === 'end_user') {
+            $taluks = $this->callerAreas($caller, 'Taluk');
+            $query->where(function ($q) use ($taluks) {
+                foreach ($taluks as $t) {
+                    $q->orWhere('Taluk', $t);
+                }
+                if (empty($taluks)) {
+                    $q->whereRaw('1 = 0'); // no assigned taluk yet → see nothing
+                }
+            });
+        }
+
+        if ($caller && $caller->role === 'admin') {
+            $districts = $this->callerAreas($caller, 'District');
+            $query->where(function ($q) use ($districts) {
+                foreach ($districts as $d) {
+                    $q->orWhere('District', $d);
+                }
+                if (empty($districts)) {
+                    $q->whereRaw('1 = 0'); // no assigned district yet → see nothing
+                }
+            });
         }
 
         if ($search = $request->query('search')) {
@@ -47,6 +77,28 @@ class CustomerController extends Controller
         );
     }
 
+    /**
+     * Normalise a caller's own assigned District/Taluk (from their linked
+     * Employee record, falling back to the User row) into a clean array.
+     */
+    private function callerAreas($caller, string $field): array
+    {
+        $employee = Employee::where('UserId', $caller->id)->first();
+        $value = $employee->{$field} ?? $caller->{$field} ?? null;
+
+        if (is_array($value)) {
+            return array_values(array_filter($value, fn ($v) => $v !== null && $v !== ''));
+        }
+        if (is_string($value) && $value !== '') {
+            $decoded = json_decode($value, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                return array_values(array_filter($decoded, fn ($v) => $v !== null && $v !== ''));
+            }
+            return [$value];
+        }
+        return [];
+    }
+
     /** GET /api/customers/{id} */
     public function show(Request $request, $id)
     {
@@ -57,8 +109,23 @@ class CustomerController extends Controller
         }
 
         $caller = $request->user();
+
         if ($caller && $caller->role === 'customer' && $customer->UserId !== $caller->id) {
             return response()->json(['message' => 'You can only view your own account.'], 403);
+        }
+
+        if ($caller && $caller->role === 'end_user') {
+            $taluks = $this->callerAreas($caller, 'Taluk');
+            if (!in_array($customer->Taluk, $taluks, true)) {
+                return response()->json(['message' => 'This customer is outside your assigned Taluk(s).'], 403);
+            }
+        }
+
+        if ($caller && $caller->role === 'admin') {
+            $districts = $this->callerAreas($caller, 'District');
+            if (!in_array($customer->District, $districts, true)) {
+                return response()->json(['message' => 'This customer is outside your assigned District(s).'], 403);
+            }
         }
 
         return response()->json($customer);

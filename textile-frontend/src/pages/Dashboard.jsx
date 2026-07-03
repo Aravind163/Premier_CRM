@@ -35,6 +35,8 @@ export default function Dashboard() {
   const [recentOrders, setRecentOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [o2c, setO2c] = useState(null);
+  const [o2cLoading, setO2cLoading] = useState(true);
 
   const styles = {
     topBar: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 30 },
@@ -58,6 +60,22 @@ export default function Dashboard() {
     tr: { borderBottom: "1px solid rgba(106,163,38,0.08)" },
     td: { padding: "13px 12px", fontSize: 14, color: "#4a5a3a" },
     statusBadge: { padding: "3px 11px", borderRadius: 20, fontSize: 12, fontWeight: 600 },
+
+    // ── O2C widget styles ──
+    sectionTitle: { fontFamily: "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize: 20, fontWeight: 700, margin: "36px 0 4px", color: themeG.textMain },
+    sectionSub: { fontSize: 12.5, color: themeG.textSub, margin: "0 0 16px" },
+    miniGrid: (cols) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 14, marginBottom: 22 }),
+    miniCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 12, padding: "16px 18px", boxShadow: "0 3px 12px rgba(106,163,38,0.05)" },
+    miniLabel: { fontSize: 11, color: themeG.textLabel, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, margin: "0 0 6px" },
+    miniValue: { fontSize: 22, fontWeight: 700, margin: 0, color: themeG.textMain },
+    twoCol: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 22 },
+    widgetBox: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: "0 3px 12px rgba(106,163,38,0.05)", marginBottom: 22 },
+    widgetTitle: { fontSize: 14.5, fontWeight: 700, color: themeG.textMain, margin: "0 0 12px" },
+    smallTable: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 },
+    smallTh: { textAlign: "left", padding: "6px 8px", color: themeG.textLabel, fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: `1px solid ${themeG.border}` },
+    smallTd: { padding: "8px 8px", color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` },
+    emptyNote: { fontSize: 12.5, color: themeG.textSub, padding: "8px 0" },
+    approxNote: { fontSize: 11, color: themeG.textSub, fontStyle: "italic", marginTop: 10 },
   };
 
   useEffect(() => {
@@ -102,6 +120,20 @@ export default function Dashboard() {
         setError("Failed to load dashboard data.");
       } finally {
         setLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await API.get("/dashboard/o2c");
+        setO2c(res.data);
+      } catch {
+        // O2C widgets are supplementary — a failure here shouldn't block the
+        // rest of the dashboard, so we just leave o2c null and hide the section.
+      } finally {
+        setO2cLoading(false);
       }
     })();
   }, []);
@@ -188,6 +220,177 @@ export default function Dashboard() {
           </tbody>
         </table>
       </div>
+
+      {/* ══════════════════ O2C Operations Dashboard ══════════════════ */}
+      {!o2cLoading && o2c && (
+        <>
+          {/* 1. Enquiry Status */}
+          <h2 style={styles.sectionTitle}>Enquiry Status</h2>
+          <p style={styles.sectionSub}>Total enquiries and where they stand right now.</p>
+          <div style={styles.miniGrid(4)}>
+            {[
+              ["Total", o2c.enquiryStatus.total, "#689f38"],
+              ["Pending", o2c.enquiryStatus.pending, "#a3791f"],
+              ["Approved+", o2c.enquiryStatus.approved, "#558b2f"],
+              ["Rejected", o2c.enquiryStatus.rejected, "#a23528"],
+            ].map(([label, val, color]) => (
+              <div key={label} style={styles.miniCard}>
+                <p style={styles.miniLabel}>{label}</p>
+                <p style={{ ...styles.miniValue, color }}>{val}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* 2. Total Orders Placed */}
+          <h2 style={styles.sectionTitle}>Orders Placed</h2>
+          <p style={styles.sectionSub}>Today: <strong>{o2c.ordersPlaced.today}</strong> order(s) placed.</p>
+          <div style={styles.twoCol}>
+            <div style={styles.widgetBox}>
+              <p style={styles.widgetTitle}>Customer-wise (top 10)</p>
+              {o2c.ordersPlaced.customerWise.length === 0 ? <p style={styles.emptyNote}>No data.</p> : (
+                <table style={styles.smallTable}>
+                  <thead><tr><th style={styles.smallTh}>Customer</th><th style={styles.smallTh}>Orders</th><th style={styles.smallTh}>Value</th></tr></thead>
+                  <tbody>
+                    {o2c.ordersPlaced.customerWise.map((c, i) => (
+                      <tr key={i}><td style={styles.smallTd}>{c.customer}</td><td style={styles.smallTd}>{c.count}</td><td style={styles.smallTd}>₹{c.value.toLocaleString()}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div style={styles.widgetBox}>
+              <p style={styles.widgetTitle}>Product-wise (top 10)</p>
+              {o2c.ordersPlaced.productWise.length === 0 ? <p style={styles.emptyNote}>No data.</p> : (
+                <table style={styles.smallTable}>
+                  <thead><tr><th style={styles.smallTh}>Product</th><th style={styles.smallTh}>Orders</th><th style={styles.smallTh}>Qty</th></tr></thead>
+                  <tbody>
+                    {o2c.ordersPlaced.productWise.map((p, i) => (
+                      <tr key={i}><td style={styles.smallTd}>{p.product}</td><td style={styles.smallTd}>{p.count}</td><td style={styles.smallTd}>{p.qty}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Dispatch Status */}
+          <h2 style={styles.sectionTitle}>Dispatch Status</h2>
+          <div style={styles.miniGrid(3)}>
+            {[
+              ["Dispatched", o2c.dispatchStatus.dispatched, "#5a3d9e"],
+              ["Pending Dispatch", o2c.dispatchStatus.pendingDispatch, "#a3791f"],
+              ["Delivered", o2c.dispatchStatus.delivered, "#558b2f"],
+            ].map(([label, val, color]) => (
+              <div key={label} style={styles.miniCard}>
+                <p style={styles.miniLabel}>{label}</p>
+                <p style={{ ...styles.miniValue, color }}>{val}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* 4. Previous Day Pending Dispatch + Aging */}
+          <h2 style={styles.sectionTitle}>Pending Dispatch — Aging</h2>
+          <div style={styles.miniGrid(3)}>
+            {[
+              ["0–1 days", o2c.pendingDispatchAging.buckets["0-1"], "#558b2f"],
+              ["2–3 days", o2c.pendingDispatchAging.buckets["2-3"], "#a3791f"],
+              ["4+ days (priority)", o2c.pendingDispatchAging.buckets["4+"], "#a23528"],
+            ].map(([label, val, color]) => (
+              <div key={label} style={styles.miniCard}>
+                <p style={styles.miniLabel}>{label}</p>
+                <p style={{ ...styles.miniValue, color }}>{val}</p>
+              </div>
+            ))}
+          </div>
+          <div style={styles.widgetBox}>
+            <p style={styles.widgetTitle}>Oldest pending dispatch</p>
+            {o2c.pendingDispatchAging.list.length === 0 ? <p style={styles.emptyNote}>Nothing pending dispatch 🎉</p> : (
+              <table style={styles.smallTable}>
+                <thead><tr><th style={styles.smallTh}>Order</th><th style={styles.smallTh}>Customer</th><th style={styles.smallTh}>Status</th><th style={styles.smallTh}>Days Pending</th></tr></thead>
+                <tbody>
+                  {o2c.pendingDispatchAging.list.map((r, i) => (
+                    <tr key={i}><td style={styles.smallTd}>{r.code}</td><td style={styles.smallTd}>{r.customer}</td><td style={styles.smallTd}>{r.status}</td><td style={styles.smallTd}>{r.days}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* 5. Stock Shortage */}
+          <h2 style={styles.sectionTitle}>Enquiries Awaiting — Stock Shortage</h2>
+          <div style={styles.widgetBox}>
+            {o2c.stockShortage.length === 0 ? <p style={styles.emptyNote}>No enquiries currently blocked by stock shortage.</p> : (
+              <table style={styles.smallTable}>
+                <thead><tr><th style={styles.smallTh}>Order</th><th style={styles.smallTh}>Customer</th><th style={styles.smallTh}>Product</th><th style={styles.smallTh}>Requested</th><th style={styles.smallTh}>Available</th></tr></thead>
+                <tbody>
+                  {o2c.stockShortage.map((r, i) => (
+                    <tr key={i}><td style={styles.smallTd}>{r.code}</td><td style={styles.smallTd}>{r.customer}</td><td style={styles.smallTd}>{r.product}</td><td style={styles.smallTd}>{r.requested}</td><td style={{ ...styles.smallTd, color: "#a23528", fontWeight: 600 }}>{r.available}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* 6. Sales Loss */}
+          <h2 style={styles.sectionTitle}>Sales Loss Indication</h2>
+          <div style={styles.miniGrid(2)}>
+            <div style={styles.miniCard}>
+              <p style={styles.miniLabel}>Declined Enquiries</p>
+              <p style={{ ...styles.miniValue, color: "#a23528" }}>{o2c.salesLoss.count}</p>
+            </div>
+            <div style={styles.miniCard}>
+              <p style={styles.miniLabel}>Opportunity Value Lost</p>
+              <p style={{ ...styles.miniValue, color: "#a23528" }}>₹{o2c.salesLoss.value.toLocaleString()}</p>
+            </div>
+          </div>
+          {o2c.salesLoss.list.length > 0 && (
+            <div style={styles.widgetBox}>
+              <table style={styles.smallTable}>
+                <thead><tr><th style={styles.smallTh}>Order</th><th style={styles.smallTh}>Customer</th><th style={styles.smallTh}>Value</th><th style={styles.smallTh}>Notes</th></tr></thead>
+                <tbody>
+                  {o2c.salesLoss.list.map((r, i) => (
+                    <tr key={i}><td style={styles.smallTd}>{r.code}</td><td style={styles.smallTd}>{r.customer}</td><td style={styles.smallTd}>₹{r.value.toLocaleString()}</td><td style={styles.smallTd}>{r.notes || "—"}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* 7. Invalid Indent List (possible duplicates) */}
+          <h2 style={styles.sectionTitle}>Invalid Indent List</h2>
+          <p style={styles.sectionSub}>Same customer + product with more than one pending enquiry — likely duplicates.</p>
+          <div style={styles.widgetBox}>
+            {o2c.possibleDuplicates.length === 0 ? <p style={styles.emptyNote}>No likely duplicate enquiries found.</p> : (
+              <table style={styles.smallTable}>
+                <thead><tr><th style={styles.smallTh}>Customer</th><th style={styles.smallTh}>Product</th><th style={styles.smallTh}>Pending Count</th></tr></thead>
+                <tbody>
+                  {o2c.possibleDuplicates.map((r, i) => (
+                    <tr key={i}><td style={styles.smallTd}>{r.customer}</td><td style={styles.smallTd}>{r.product}</td><td style={{ ...styles.smallTd, fontWeight: 600 }}>{r.count}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* 8. Long Pending Orders */}
+          <h2 style={styles.sectionTitle}>Long Pending Orders</h2>
+          <p style={styles.sectionSub}>Approved/processing for 3+ days without dispatch — needs escalation.</p>
+          <div style={styles.widgetBox}>
+            {o2c.longPendingOrders.length === 0 ? <p style={styles.emptyNote}>Nothing long-pending 🎉</p> : (
+              <table style={styles.smallTable}>
+                <thead><tr><th style={styles.smallTh}>Order</th><th style={styles.smallTh}>Customer</th><th style={styles.smallTh}>Status</th><th style={styles.smallTh}>Days Pending</th></tr></thead>
+                <tbody>
+                  {o2c.longPendingOrders.map((r, i) => (
+                    <tr key={i}><td style={styles.smallTd}>{r.code}</td><td style={styles.smallTd}>{r.customer}</td><td style={styles.smallTd}>{r.status}</td><td style={{ ...styles.smallTd, color: "#a23528", fontWeight: 600 }}>{r.days}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <p style={styles.approxNote}>{o2c.note}</p>
+        </>
+      )}
     </Layout>
   );
 }

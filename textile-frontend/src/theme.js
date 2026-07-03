@@ -71,6 +71,7 @@ export const statusColor = (s) => {
     inactive:   { bg: "rgba(150,150,150,0.12)", color: "#5a5a5a", border: "rgba(150,150,150,0.28)" },
     delivered:  { bg: "rgba(45,106,79,0.12)",   color: "#1a3d2b", border: "rgba(45,106,79,0.30)" },
     processing: { bg: "rgba(60,130,200,0.10)",  color: "#1a5fa0", border: "rgba(60,130,200,0.26)" },
+    dispatched: { bg: "rgba(124,90,200,0.12)",  color: "#5a3d9e", border: "rgba(124,90,200,0.28)" },
   };
   return map[(s || "").toLowerCase()] || map.pending;
 };

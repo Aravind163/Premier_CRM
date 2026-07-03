@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\Employee;
 use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Http\Request;
@@ -31,10 +32,18 @@ class OrderController extends Controller
         }
 
         // End Users only ever see orders they personally created — not the
-        // full district/company order list. Admins and System/Super Admins
-        // see everything (no scoping) for now.
+        // full district/company order list.
         if ($caller && $caller->role === 'end_user') {
             $query->where('CreatedBy', $caller->id);
+        }
+
+        // Admins only see orders for customers within their own assigned
+        // District(s) — matches the same scoping already applied to which
+        // customers they can see/order for. System/Super Admin unscoped.
+        if ($caller && $caller->role === 'admin') {
+            $districts = $this->callerAreas($caller, 'District');
+            $customerIds = Customer::whereIn('District', $districts)->pluck('Id');
+            $query->whereIn('CustomerId', $customerIds->isEmpty() ? [0] : $customerIds);
         }
 
         // Customers only ever see their own orders (for tracking delivery
@@ -85,6 +94,25 @@ class OrderController extends Controller
             'notes'        => 'nullable|string',
             'orderDetails' => 'nullable|array',   // ← product-specific fields
         ]);
+
+        $orderCustomer = Customer::find($validated['customerId']);
+        $caller = $request->user();
+
+        // Field Officer (end_user) can only place orders for customers in
+        // their own assigned Taluk(s); Admin only within their own assigned
+        // District(s). System/Super Admin unscoped.
+        if ($caller && $caller->role === 'end_user') {
+            $taluks = $this->callerAreas($caller, 'Taluk');
+            if (!$orderCustomer || !in_array($orderCustomer->Taluk, $taluks, true)) {
+                return response()->json(['message' => 'You can only place orders for customers in your own assigned Taluk(s).'], 403);
+            }
+        }
+        if ($caller && $caller->role === 'admin') {
+            $districts = $this->callerAreas($caller, 'District');
+            if (!$orderCustomer || !in_array($orderCustomer->District, $districts, true)) {
+                return response()->json(['message' => 'You can only place orders for customers in your own assigned District(s).'], 403);
+            }
+        }
 
         $product = Product::find($validated['productId']);
 
@@ -214,7 +242,7 @@ class OrderController extends Controller
             'qty'           => 'sometimes|required|integer|min:1',
             'pricePerUnit'  => 'sometimes|required|numeric|min:0',
             'discount'      => 'nullable|numeric|min:0|max:100',
-            'status'        => 'sometimes|required|in:approved,pending,processing,delivered,declined',
+            'status'        => 'sometimes|required|in:approved,pending,processing,dispatched,delivered,declined',
             'paymentStatus' => 'sometimes|required|in:paid,unpaid,partial,refund',
             'deliveryDate'  => 'nullable|date',
             'notes'         => 'nullable|string',
@@ -286,8 +314,14 @@ class OrderController extends Controller
         }
 
         $validated = $request->validate([
-            'status' => 'required|in:approved,pending,processing,delivered,declined',
+            'status' => 'required|in:approved,pending,processing,dispatched,delivered,declined',
         ]);
+
+        // Goods must actually be dispatched (LR number recorded via the
+        // dedicated /dispatch endpoint) before they can be marked delivered.
+        if ($validated['status'] === 'delivered' && $order->Status !== 'dispatched') {
+            return response()->json(['message' => 'Order must be dispatched (with an LR number) before it can be marked delivered.'], 422);
+        }
 
         $update = ['Status' => $validated['status']];
 
@@ -300,11 +334,74 @@ class OrderController extends Controller
         return response()->json($order->load(['customer', 'product']));
     }
 
+    /**
+     * PATCH /api/orders/{id}/dispatch
+     *
+     * Goods Dispatch (O2C Step 7): packing team hands the order to
+     * transport. Records the LR number + transport name and flips Status
+     * to 'dispatched'. Only allowed from 'approved' or 'processing'.
+     */
+    public function dispatch(Request $request, $id)
+    {
+        if ($request->user() && $request->user()->role === 'customer') {
+            return response()->json(['message' => 'Not permitted.'], 403);
+        }
+
+        $order = Order::find($id);
+
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        if (!in_array($order->Status, ['approved', 'processing'], true)) {
+            return response()->json(['message' => 'Only an approved / processing order can be dispatched.'], 422);
+        }
+
+        $validated = $request->validate([
+            'lrNumber'      => 'required|string|max:100',
+            'transportName' => 'required|string|max:150',
+            'dispatchedAt'  => 'nullable|date',
+        ]);
+
+        $order->update([
+            'Status'        => 'dispatched',
+            'LRNumber'      => $validated['lrNumber'],
+            'TransportName' => $validated['transportName'],
+            'DispatchedAt'  => $validated['dispatchedAt'] ?? now(),
+            'DispatchedBy'  => $request->user()->id,
+        ]);
+
+        return response()->json($order->load(['customer', 'product', 'dispatcher']));
+    }
+
     private function generateOrderCode(): string
     {
         $last = Order::orderByDesc('Id')->first();
         $nextNumber = $last ? ((int) Str::after($last->Code, 'ORD-')) + 1 : 1001;
 
         return 'ORD-' . $nextNumber;
+    }
+
+    /**
+     * Normalise a caller's own assigned District/Taluk (from their linked
+     * Employee record, falling back to the User row) into a clean array.
+     * Mirrors CustomerController::callerAreas().
+     */
+    private function callerAreas($caller, string $field): array
+    {
+        $employee = Employee::where('UserId', $caller->id)->first();
+        $value = $employee->{$field} ?? $caller->{$field} ?? null;
+
+        if (is_array($value)) {
+            return array_values(array_filter($value, fn ($v) => $v !== null && $v !== ''));
+        }
+        if (is_string($value) && $value !== '') {
+            $decoded = json_decode($value, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                return array_values(array_filter($decoded, fn ($v) => $v !== null && $v !== ''));
+            }
+            return [$value];
+        }
+        return [];
     }
 }

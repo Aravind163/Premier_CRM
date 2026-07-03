@@ -6,12 +6,16 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\LocationController;
+use App\Http\Controllers\Api\DashboardController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me',      [AuthController::class, 'me']);
+
+    Route::get('/dashboard',     [DashboardController::class, 'index']);
+    Route::get('/dashboard/o2c', [DashboardController::class, 'o2c']);
 
     Route::post('/orders/bulk', [OrderController::class, 'storeBulk']);
     Route::apiResource('customers', CustomerController::class);
@@ -20,6 +24,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::patch('/customers/{id}/status', [CustomerController::class, 'updateStatus']);
     Route::patch('/orders/{id}/status',    [OrderController::class, 'updateStatus']);
+    Route::patch('/orders/{id}/dispatch',  [OrderController::class, 'dispatch']);
     Route::patch('/employees/{id}/status', [EmployeeController::class, 'updateStatus']);
 
     Route::get('/employees',          [EmployeeController::class, 'index']);
