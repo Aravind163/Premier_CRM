@@ -60,12 +60,6 @@ export default function ReportsProducts() {
   const products = allProducts.filter((p) => p.Category === tab);
 
   if (loading) {
-
-
-
-
-
-
     return (
       <Layout pageTitle="Product Reports">
         <p style={{ color: themeG.textSub }}>Loading report…</p>
@@ -83,7 +77,6 @@ export default function ReportsProducts() {
     return acc;
   }, {});
   const maxSubType = Math.max(...Object.values(subTypeCounts), 1);
-
   const qualityCounts = products.reduce((acc, p) => {
     acc[p.Quality] = (acc[p.Quality] || 0) + 1;
     return acc;

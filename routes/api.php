@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\ComplaintController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -21,6 +22,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('customers', CustomerController::class);
     Route::apiResource('products',  ProductController::class);
     Route::apiResource('orders',    OrderController::class);
+
+    // Complaints — customer submits and views their own complaint history
+    Route::get('/complaints',  [ComplaintController::class, 'index']);
+    Route::post('/complaints', [ComplaintController::class, 'store']);
 
     Route::patch('/customers/{id}/status', [CustomerController::class, 'updateStatus']);
     Route::patch('/orders/{id}/status',    [OrderController::class, 'updateStatus']);

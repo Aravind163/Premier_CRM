@@ -1,11 +1,29 @@
+// src/pages/CustomerDashboard.jsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import CustomerLayout from "../components/CustomerLayout";
 import { useTheme } from "../ThemeContext";
 import { getG, statusColor } from "../theme";
 import API from "../services/api";
-import logo from '/premier-icon.png';
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
+const PENDING_DISPATCH_STATUSES = ["approved", "processing"];
+const DECLINED_STATUSES = ["declined", "rejected"];
+
+function formatRevenue(total) {
+  if (total >= 10000000) return `₹${(total / 10000000).toFixed(2)}Cr`;
+  if (total >= 100000)   return `₹${(total / 100000).toFixed(2)}L`;
+  if (total >= 1000)     return `₹${(total / 1000).toFixed(1)}K`;
+  return `₹${total.toLocaleString()}`;
+}
+
+function daysSince(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d)) return null;
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
+}
 
 const Badge = ({ text }) => {
   const s = statusColor(text);
@@ -22,25 +40,49 @@ export default function CustomerDashboard() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-  const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [category, setCategory] = useState("all");
 
-  // Cart: { [productId]: { product, qty } }
-  const [cart, setCart] = useState({});
-  const [cartOpen, setCartOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const styles = {
+    topBar: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 30 },
+    heading: { fontFamily: FONT, fontSize: 28, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
+    headingSub: { fontSize: 13, color: themeG.textSub, margin: 0 },
+    liveBadge: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#3d5a1f", background: "rgba(124,179,66,0.12)", border: "1px solid rgba(124,179,66,0.28)", padding: "5px 14px", borderRadius: 20 },
+    liveDot: { display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#7cb342" },
+    shopBtn: { padding: "9px 18px", borderRadius: 10, border: "none", background: themeG.accent, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT, marginLeft: 12 },
 
-  const loadOrders = async () => {
-    try {
-      const res = await API.get("/orders");
-      setOrders(res.data);
-    } catch {
-      setError("Failed to load your orders.");
-    }
+    grid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 30 },
+    statCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "20px 20px 18px", position: "relative", overflow: "hidden", boxShadow: "0 4px 16px rgba(45,106,79,0.06)" },
+    cardStripe: { position: "absolute", top: 0, left: 0, right: 0, height: 3, borderRadius: "14px 14px 0 0" },
+    cardIcon: { fontSize: 20, marginBottom: 10, display: "block" },
+    cardLabel: { fontSize: 12, color: themeG.textLabel, margin: "0 0 6px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" },
+    cardValue: { fontSize: 28, fontWeight: 700, margin: 0, letterSpacing: "-0.5px" },
+
+    tableBox: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "24px 26px", boxShadow: "0 4px 16px rgba(45,106,79,0.06)" },
+    tableHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
+    tableTitle: { fontFamily: FONT, fontSize: 17, fontWeight: 600, margin: 0, color: themeG.textMain },
+    tableCount: { fontSize: 12, color: themeG.textSub, background: "rgba(45,106,79,0.09)", padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(45,106,79,0.18)" },
+    viewAllLink: { fontSize: 12.5, color: themeG.accent, fontWeight: 600, cursor: "pointer", background: "none", border: "none", fontFamily: FONT },
+    table: { width: "100%", borderCollapse: "collapse" },
+    th: { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "8px 12px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 },
+    tr: { borderBottom: `1px solid ${themeG.border}` },
+    td: { padding: "13px 12px", fontSize: 14, color: themeG.textMain },
+
+    sectionTitle: { fontFamily: FONT, fontSize: 20, fontWeight: 700, margin: "36px 0 4px", color: themeG.textMain },
+    sectionSub: { fontSize: 12.5, color: themeG.textSub, margin: "0 0 16px" },
+    miniGrid: (cols) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 14, marginBottom: 22 }),
+    miniCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 12, padding: "16px 18px", boxShadow: "0 3px 12px rgba(45,106,79,0.05)" },
+    miniLabel: { fontSize: 11, color: themeG.textLabel, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, margin: "0 0 6px" },
+    miniValue: { fontSize: 22, fontWeight: 700, margin: 0, color: themeG.textMain },
+    widgetBox: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: "0 3px 12px rgba(45,106,79,0.05)", marginBottom: 22 },
+    widgetTitle: { fontSize: 14.5, fontWeight: 700, color: themeG.textMain, margin: "0 0 12px" },
+    smallTable: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 },
+    smallTh: { textAlign: "left", padding: "6px 8px", color: themeG.textLabel, fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: `1px solid ${themeG.border}` },
+    smallTd: { padding: "8px 8px", color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` },
+    emptyNote: { fontSize: 12.5, color: themeG.textSub, padding: "8px 0" },
+    approxNote: { fontSize: 11, color: themeG.textSub, fontStyle: "italic", marginTop: 10 },
   };
 
   useEffect(() => {
@@ -48,10 +90,11 @@ export default function CustomerDashboard() {
     if (role !== "customer") { navigate("/login"); return; }
     (async () => {
       try {
-        const [prodRes] = await Promise.all([
+        const [orderRes, prodRes] = await Promise.all([
+          API.get("/orders"),
           API.get("/products", { params: { status: "active" } }),
-          loadOrders(),
         ]);
+        setOrders(orderRes.data);
         setProducts(prodRes.data);
       } catch {
         setError("Failed to load your dashboard. Please refresh.");
@@ -62,278 +105,314 @@ export default function CustomerDashboard() {
     // eslint-disable-next-line
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("user");
-    navigate("/login");
+  const norm = (s) => (s || "").toLowerCase();
+  const createdOf = (o) => o.createdAt || o.CreatedAt || o.EnquiryDate || null;
+
+  // ── Top stat cards ──
+  const total = orders.length;
+  const activeOrders = orders.filter(o => ["pending", "approved", "processing"].includes(norm(o.Status)));
+  const totalRevenue = orders.reduce((sum, o) => sum + (parseFloat(o.TotalAmount) || 0), 0);
+
+  const statCards = [
+    { label: "My Orders",     value: loading ? "—" : total.toLocaleString(), icon: "📦", accent: "#558b2f" },
+    { label: "In Progress",   value: loading ? "—" : activeOrders.length.toLocaleString(), icon: "⏳", accent: "#a3791f" },
+    { label: "Delivered",     value: loading ? "—" : orders.filter(o => norm(o.Status) === "delivered").length.toLocaleString(), icon: "✅", accent: "#689f38" },
+    { label: "Total Value",   value: loading ? "—" : formatRevenue(totalRevenue), icon: "📈", accent: "#5a3d9e" },
+  ];
+
+  // ── Recent orders ──
+  const recentOrders = [...orders]
+    .sort((a, b) => new Date(createdOf(b) || 0) - new Date(createdOf(a) || 0))
+    .slice(0, 4);
+
+  // ── Enquiry Status ──
+  const enquiryStatus = {
+    total,
+    pending: orders.filter(o => norm(o.Status) === "pending").length,
+    approvedPlus: orders.filter(o => ["approved", "processing", "dispatched", "delivered"].includes(norm(o.Status))).length,
+    declined: orders.filter(o => DECLINED_STATUSES.includes(norm(o.Status))).length,
   };
 
-  const addToCart = (product) => {
-    if (!product.Quantity || product.Quantity <= 0) return;
-    setCart((prev) => {
-      const existingQty = prev[product.Id]?.qty || 0;
-      const nextQty = Math.min(existingQty + 1, product.Quantity);
-      return { ...prev, [product.Id]: { product, qty: nextQty } };
-    });
-    setCartOpen(true);
+  // ── Product-wise breakdown of my enquiries ──
+  const productWiseMap = {};
+  orders.forEach((o) => {
+    const name = o.product?.Name || "—";
+    if (!productWiseMap[name]) productWiseMap[name] = { product: name, count: 0, qty: 0 };
+    productWiseMap[name].count += 1;
+    productWiseMap[name].qty += Number(o.Quantity) || 0;
+  });
+  const productWise = Object.values(productWiseMap).sort((a, b) => b.count - a.count).slice(0, 10);
+
+  // ── Dispatch Status ──
+  const dispatchStatus = {
+    dispatched: orders.filter(o => norm(o.Status) === "dispatched").length,
+    pendingDispatch: orders.filter(o => PENDING_DISPATCH_STATUSES.includes(norm(o.Status))).length,
+    delivered: orders.filter(o => norm(o.Status) === "delivered").length,
   };
 
-  const setCartQty = (productId, qty) => {
-    setCart((prev) => {
-      const item = prev[productId];
-      if (!item) return prev;
-      const clamped = Math.max(1, Math.min(qty, item.product.Quantity || qty));
-      return { ...prev, [productId]: { ...item, qty: clamped } };
-    });
-  };
+  // ── Pending Dispatch Aging ──
+  const pendingDispatchOrders = orders
+    .filter(o => PENDING_DISPATCH_STATUSES.includes(norm(o.Status)))
+    .map(o => ({ code: o.Code, customer: user.name || "You", status: o.Status, days: daysSince(createdOf(o)) ?? 0 }))
+    .sort((a, b) => b.days - a.days);
 
-  const removeFromCart = (productId) => {
-    setCart((prev) => {
-      const next = { ...prev };
-      delete next[productId];
-      return next;
-    });
-  };
+  const agingBuckets = { "0-1": 0, "2-3": 0, "4+": 0 };
+  pendingDispatchOrders.forEach((o) => {
+    if (o.days <= 1) agingBuckets["0-1"] += 1;
+    else if (o.days <= 3) agingBuckets["2-3"] += 1;
+    else agingBuckets["4+"] += 1;
+  });
 
-  const cartItems = Object.values(cart);
-  const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
-  const cartTotal = cartItems.reduce((sum, i) => sum + i.qty * parseFloat(i.product.Price || 0), 0);
+  // ── Stock Shortage (my pending enquiries where requested qty exceeds current stock) ──
+  const stockShortage = orders
+    .filter(o => norm(o.Status) === "pending")
+    .map((o) => {
+      const prod = products.find(p => p.Id === o.product?.Id || p.Id === o.ProductId);
+      const available = prod ? prod.Quantity : null;
+      return { code: o.Code, product: o.product?.Name || "—", requested: o.Quantity, available };
+    })
+    .filter(r => r.available !== null && r.requested > r.available);
 
-  const submitEnquiry = async () => {
-    if (cartItems.length === 0) return;
-    setSubmitting(true);
-    setError("");
-    setNotice("");
-    try {
-      const res = await API.post("/orders/bulk", {
-        items: cartItems.map((i) => ({ productId: i.product.Id, qty: i.qty })),
-      });
-      setNotice(res.data.message || "Enquiry submitted.");
-      setCart({});
-      setCartOpen(false);
-      loadOrders();
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to submit enquiry.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  // ── Declined enquiries (value at risk) ──
+  const declinedOrders = orders.filter(o => DECLINED_STATUSES.includes(norm(o.Status)));
+  const declinedValue = declinedOrders.reduce((sum, o) => sum + (parseFloat(o.TotalAmount) || 0), 0);
 
-  const categories = ["all", ...Array.from(new Set(products.map(p => p.Category).filter(Boolean)))];
-  const visibleProducts = category === "all" ? products : products.filter(p => p.Category === category);
+  // ── Possible duplicate enquiries (same product, more than one pending) ──
+  const pendingByProduct = {};
+  orders.filter(o => norm(o.Status) === "pending").forEach((o) => {
+    const name = o.product?.Name || "—";
+    pendingByProduct[name] = (pendingByProduct[name] || 0) + 1;
+  });
+  const possibleDuplicates = Object.entries(pendingByProduct)
+    .filter(([, count]) => count > 1)
+    .map(([product, count]) => ({ product, count }));
 
-  const S = {
-    page: { minHeight: "100vh", background: themeG.bg, fontFamily: FONT },
-    topBar: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 28px", background: themeG.sidebar, color: "#fff" },
-    topBarLeft: { display: "flex", alignItems: "center", gap: 10 },
-    logo: { width: 32, height: 32, objectFit: "contain" },
-    brand: { fontSize: 16, fontWeight: 700 },
-    shopName: { fontSize: 13, color: "rgba(255,255,255,0.7)" },
-    logoutBtn: { padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.25)", background: "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT },
-    main: { padding: "28px", maxWidth: 1100, margin: "0 auto" },
-    sectionHeader: { fontSize: 19, fontWeight: 700, color: themeG.textMain, margin: "0 0 4px" },
-    sectionSub: { fontSize: 13, color: themeG.textSub, margin: "0 0 18px" },
-    card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(45,106,79,0.06)", marginBottom: 34 },
-    filterRow: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 },
-    filterBtn: (active) => ({ padding: "7px 16px", borderRadius: 20, border: "1.5px solid", cursor: "pointer", fontFamily: FONT, fontSize: 12.5, fontWeight: 600, textTransform: "capitalize", background: active ? themeG.accent : themeG.card, color: active ? "#fff" : themeG.textSub, borderColor: active ? themeG.accent : themeG.border }),
-    productGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14, padding: 20 },
-    productCard: { border: `1px solid ${themeG.border}`, borderRadius: 12, padding: 16, background: themeG.bg },
-    productName: { fontSize: 14.5, fontWeight: 700, color: themeG.textMain, margin: "0 0 4px" },
-    productMeta: { fontSize: 12, color: themeG.textSub, margin: "0 0 10px" },
-    stockRow: { display: "flex", alignItems: "center", justifyContent: "space-between" },
-    stockQty: (qty) => ({ fontSize: 13, fontWeight: 700, color: qty > 0 ? "#2d6a4f" : "#a03025" }),
-    price: { fontSize: 13, fontWeight: 600, color: themeG.textMain },
-    table: { width: "100%", borderCollapse: "collapse" },
-    th: { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(45,106,79,0.04)" },
-    td: { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` },
-    addBtn: { width: "100%", marginTop: 12, padding: "8px 0", borderRadius: 8, border: "none", background: themeG.accent, color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT },
-    addBtnDisabled: { width: "100%", marginTop: 12, padding: "8px 0", borderRadius: 8, border: `1px solid ${themeG.border}`, background: "transparent", color: themeG.textSub, fontSize: 12.5, fontWeight: 600, cursor: "not-allowed", fontFamily: FONT },
-    cartFab: { position: "fixed", bottom: 26, right: 26, background: themeG.accent, color: "#fff", border: "none", borderRadius: 30, padding: "13px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 6px 20px rgba(45,106,79,0.35)", display: "flex", alignItems: "center", gap: 8, fontFamily: FONT, zIndex: 50 },
-    cartBadge: { background: "#fff", color: themeG.accent, borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 },
-    overlay: { position: "fixed", inset: 0, background: "rgba(20,30,15,0.35)", display: "flex", alignItems: "center", justifyContent: "flex-end", zIndex: 100 },
-    drawer: { background: themeG.card, width: 380, maxWidth: "92vw", height: "100%", padding: 24, overflowY: "auto", boxShadow: "-8px 0 30px rgba(0,0,0,0.15)" },
-    drawerHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
-    drawerTitle: { fontSize: 17, fontWeight: 700, color: themeG.textMain, margin: 0 },
-    closeBtn: { background: "transparent", border: "none", fontSize: 20, color: themeG.textSub, cursor: "pointer", lineHeight: 1 },
-    cartItem: { display: "flex", alignItems: "center", gap: 10, padding: "12px 0", borderBottom: `1px solid ${themeG.border}` },
-    cartItemName: { fontSize: 13.5, fontWeight: 600, color: themeG.textMain, margin: "0 0 3px" },
-    cartItemMeta: { fontSize: 11.5, color: themeG.textSub },
-    qtyBox: { display: "flex", alignItems: "center", gap: 6 },
-    qtyBtn: { width: 24, height: 24, borderRadius: 6, border: `1px solid ${themeG.border}`, background: themeG.bg, color: themeG.textMain, fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
-    qtyVal: { fontSize: 13, fontWeight: 600, color: themeG.textMain, minWidth: 20, textAlign: "center" },
-    removeBtn: { background: "transparent", border: "none", color: "#a03025", fontSize: 12, cursor: "pointer", fontFamily: FONT },
-    cartTotal: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 0", fontSize: 14.5, fontWeight: 700, color: themeG.textMain },
-    submitBtn: { width: "100%", padding: "12px 0", borderRadius: 9, border: "none", background: themeG.accent, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FONT },
-  };
+  // ── Long pending orders (approved/processing 3+ days, no dispatch yet) ──
+  const longPendingOrders = pendingDispatchOrders.filter(o => o.days >= 3);
 
   return (
-    <div style={S.page}>
+    <CustomerLayout>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-      <div style={S.topBar}>
-        <div style={S.topBarLeft}>
-          <img src={logo} alt="Premier Mills" style={S.logo} />
-          <div>
-            <div style={S.brand}>{user.name || "Customer"}</div>
-            <div style={S.shopName}>Premier CRM</div>
-          </div>
+      {/* Top bar */}
+      <div style={styles.topBar}>
+        <div>
+          <h1 style={styles.heading}>Dashboard</h1>
+          <p style={styles.headingSub}>Welcome back, {user.name || "Customer"}</p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={() => setCartOpen(true)} style={{ ...S.logoutBtn, display: "flex", alignItems: "center", gap: 6 }}>
-            🛒 Cart {cartCount > 0 && <span style={S.cartBadge}>{cartCount}</span>}
-          </button>
-          <button onClick={handleLogout} style={S.logoutBtn}>Logout</button>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          
+          <button style={styles.shopBtn} onClick={() => navigate("/customer/catalog")}>🛍️ Continue Shopping</button>
         </div>
       </div>
 
-      <div style={S.main}>
-        {error && (
-          <div style={{ marginBottom: 20, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
-            {error}
-          </div>
-        )}
-
-        {notice && (
-          <div style={{ marginBottom: 20, background: "rgba(45,106,79,0.08)", border: "1px solid rgba(45,106,79,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: themeG.accent }}>
-            {notice}
-          </div>
-        )}
-
-        {/* ── Stock availability ── */}
-        <h2 style={S.sectionHeader}>Stock Availability</h2>
-        <p style={S.sectionSub}>How much of each product is currently in stock.</p>
-
-        <div style={S.filterRow}>
-          {categories.map((c) => (
-            <button key={c} onClick={() => setCategory(c)} style={S.filterBtn(category === c)}>{c}</button>
-          ))}
+      {error && (
+        <div style={{ marginBottom: 20, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+          {error}
         </div>
-
-        <div style={S.card}>
-          {loading ? (
-            <div style={{ padding: 30, textAlign: "center", color: themeG.textSub, fontSize: 13 }}>Loading stock…</div>
-          ) : visibleProducts.length === 0 ? (
-            <div style={{ padding: 30, textAlign: "center", color: themeG.textSub, fontSize: 13 }}>No products found.</div>
-          ) : (
-            <div style={S.productGrid}>
-              {visibleProducts.map((p) => (
-                <div key={p.Id} style={S.productCard}>
-                  <p style={S.productName}>{p.Name}</p>
-                  <p style={S.productMeta}>{p.Category}{p.SubType ? ` · ${p.SubType}` : ""}</p>
-                  <div style={S.stockRow}>
-                    <span style={S.stockQty(p.Quantity)}>
-                      {p.Quantity > 0 ? `${p.Quantity} in stock` : "Out of stock"}
-                    </span>
-                    <span style={S.price}>₹{parseFloat(p.Price || 0).toLocaleString()}</span>
-                  </div>
-                  {p.Quantity > 0 ? (
-                    <button style={S.addBtn} onClick={() => addToCart(p)}>
-                      {cart[p.Id] ? `In Cart (${cart[p.Id].qty})` : "Add to Cart"}
-                    </button>
-                  ) : (
-                    <button style={S.addBtnDisabled} disabled>Out of Stock</button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ── My orders / delivery status ── */}
-        <h2 style={S.sectionHeader}>My Orders</h2>
-        <p style={S.sectionSub}>Track the delivery status of your own orders.</p>
-
-        <div style={S.card}>
-          <table style={S.table}>
-            <thead>
-              <tr>
-                {["Order", "Product", "Qty", "Amount", "Delivery Date", "Status", "Tracking"].map((h) => (
-                  <th key={h} style={S.th}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={7} style={{ ...S.td, textAlign: "center", padding: 30 }}>Loading orders…</td></tr>
-              ) : orders.length === 0 ? (
-                <tr><td colSpan={7} style={{ ...S.td, textAlign: "center", padding: 30 }}>You have no orders yet.</td></tr>
-              ) : orders.map((o) => (
-                <tr key={o.Id}>
-                  <td style={{ ...S.td, fontWeight: 600, color: themeG.accent }}>{o.Code}</td>
-                  <td style={S.td}>{o.product?.Name || "—"}</td>
-                  <td style={S.td}>{o.Quantity}</td>
-                  <td style={S.td}>₹{parseFloat(o.TotalAmount || 0).toLocaleString()}</td>
-                  <td style={S.td}>{o.DeliveryDate ? o.DeliveryDate.substring(0, 10) : "—"}</td>
-                  <td style={S.td}><Badge text={o.Status} /></td>
-                  <td style={S.td}>
-                    {o.LRNumber ? (
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{o.LRNumber}</div>
-                        <div style={{ fontSize: 11.5, color: themeG.textSub }}>{o.TransportName}</div>
-                      </div>
-                    ) : (
-                      <span style={{ color: themeG.textSub, fontSize: 12 }}>—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Floating cart button — shown whenever cart has items and drawer is closed */}
-      {cartCount > 0 && !cartOpen && (
-        <button style={S.cartFab} onClick={() => setCartOpen(true)}>
-          🛒 View Cart <span style={S.cartBadge}>{cartCount}</span>
-        </button>
       )}
 
-      {/* ── Cart drawer ── */}
-      {cartOpen && (
-        <div style={S.overlay} onClick={() => setCartOpen(false)}>
-          <div style={S.drawer} onClick={(e) => e.stopPropagation()}>
-            <div style={S.drawerHeader}>
-              <h3 style={S.drawerTitle}>Your Cart</h3>
-              <button style={S.closeBtn} onClick={() => setCartOpen(false)}>×</button>
-            </div>
+      {/* Stat cards */}
+      <div style={styles.grid}>
+        {statCards.map((card) => (
+          <div key={card.label} style={styles.statCard}>
+            <div style={{ ...styles.cardStripe, background: card.accent }} />
+            <span style={styles.cardIcon}>{card.icon}</span>
+            <p style={styles.cardLabel}>{card.label}</p>
+            <p style={{ ...styles.cardValue, color: card.accent }}>{card.value}</p>
+          </div>
+        ))}
+      </div>
 
-            {cartItems.length === 0 ? (
-              <p style={{ fontSize: 13, color: themeG.textSub }}>Your cart is empty. Add products to submit an enquiry.</p>
-            ) : (
-              <>
-                {cartItems.map((item) => (
-                  <div key={item.product.Id} style={S.cartItem}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={S.cartItemName}>{item.product.Name}</p>
-                      <p style={S.cartItemMeta}>₹{parseFloat(item.product.Price || 0).toLocaleString()} each</p>
-                    </div>
-                    <div style={S.qtyBox}>
-                      <button style={S.qtyBtn} onClick={() => setCartQty(item.product.Id, item.qty - 1)}>−</button>
-                      <span style={S.qtyVal}>{item.qty}</span>
-                      <button style={S.qtyBtn} onClick={() => setCartQty(item.product.Id, item.qty + 1)}>+</button>
-                    </div>
-                    <button style={S.removeBtn} onClick={() => removeFromCart(item.product.Id)}>Remove</button>
-                  </div>
-                ))}
+      {/* Recent orders table */}
+      <div style={styles.tableBox}>
+        <div style={styles.tableHeader}>
+          <h2 style={styles.tableTitle}>Recent Orders</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={styles.tableCount}>{recentOrders.length} records</span>
+            <button style={styles.viewAllLink} onClick={() => navigate("/customer/orders")}>View all →</button>
+          </div>
+        </div>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              {["Order ID", "Product", "Amount", "Status"].map((h) => (
+                <th key={h} style={styles.th}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={4} style={{ ...styles.td, textAlign: "center", padding: 30 }}>Loading recent orders…</td></tr>
+            ) : recentOrders.length === 0 ? (
+              <tr><td colSpan={4} style={{ ...styles.td, textAlign: "center", padding: 30 }}>No orders yet — head to the Product Catalog to place your first enquiry.</td></tr>
+            ) : recentOrders.map((o) => (
+              <tr key={o.Id} style={styles.tr}>
+                <td style={{ ...styles.td, color: themeG.accent, fontWeight: 600 }}>{o.Code}</td>
+                <td style={styles.td}>{o.product?.Name || "—"}</td>
+                <td style={{ ...styles.td, fontWeight: 600 }}>₹{(parseFloat(o.TotalAmount) || 0).toLocaleString()}</td>
+                <td style={styles.td}><Badge text={o.Status} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-                <div style={S.cartTotal}>
-                  <span>Total</span>
-                  <span>₹{cartTotal.toLocaleString()}</span>
-                </div>
+      {!loading && (
+        <>
+          {/* 1. Enquiry Status */}
+          <h2 style={styles.sectionTitle}>My Enquiry Status</h2>
+          <p style={styles.sectionSub}>All the enquiries you've placed and where they currently stand.</p>
+          <div style={styles.miniGrid(4)}>
+            {[
+              ["Total", enquiryStatus.total, "#689f38"],
+              ["Pending", enquiryStatus.pending, "#a3791f"],
+              ["Approved+", enquiryStatus.approvedPlus, "#558b2f"],
+              ["Declined", enquiryStatus.declined, "#a23528"],
+            ].map(([label, val, color]) => (
+              <div key={label} style={styles.miniCard}>
+                <p style={styles.miniLabel}>{label}</p>
+                <p style={{ ...styles.miniValue, color }}>{val}</p>
+              </div>
+            ))}
+          </div>
 
-                <button style={S.submitBtn} disabled={submitting} onClick={submitEnquiry}>
-                  {submitting ? "Submitting…" : "Submit Enquiry"}
-                </button>
-                <p style={{ fontSize: 11, color: themeG.textSub, marginTop: 10, textAlign: "center" }}>
-                  Prices shown are list price — Marketing may apply discounts when reviewing your enquiry.
-                </p>
-              </>
+          {/* 2. Product-wise breakdown */}
+          <h2 style={styles.sectionTitle}>Products I've Ordered</h2>
+          <p style={styles.sectionSub}>Your most-enquired products, by number of orders.</p>
+          <div style={styles.widgetBox}>
+            {productWise.length === 0 ? <p style={styles.emptyNote}>No orders yet.</p> : (
+              <table style={styles.smallTable}>
+                <thead><tr><th style={styles.smallTh}>Product</th><th style={styles.smallTh}>Orders</th><th style={styles.smallTh}>Total Qty</th></tr></thead>
+                <tbody>
+                  {productWise.map((p, i) => (
+                    <tr key={i}><td style={styles.smallTd}>{p.product}</td><td style={styles.smallTd}>{p.count}</td><td style={styles.smallTd}>{p.qty}</td></tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
-        </div>
+
+          {/* 3. Dispatch Status */}
+          <h2 style={styles.sectionTitle}>Dispatch Status</h2>
+          <div style={styles.miniGrid(3)}>
+            {[
+              ["Dispatched", dispatchStatus.dispatched, "#5a3d9e"],
+              ["Pending Dispatch", dispatchStatus.pendingDispatch, "#a3791f"],
+              ["Delivered", dispatchStatus.delivered, "#558b2f"],
+            ].map(([label, val, color]) => (
+              <div key={label} style={styles.miniCard}>
+                <p style={styles.miniLabel}>{label}</p>
+                <p style={{ ...styles.miniValue, color }}>{val}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* 4. Pending Dispatch Aging */}
+          <h2 style={styles.sectionTitle}>Pending Dispatch — Aging</h2>
+          <p style={styles.sectionSub}>How long your approved orders have been waiting to ship.</p>
+          <div style={styles.miniGrid(3)}>
+            {[
+              ["0–1 days", agingBuckets["0-1"], "#558b2f"],
+              ["2–3 days", agingBuckets["2-3"], "#a3791f"],
+              ["4+ days", agingBuckets["4+"], "#a23528"],
+            ].map(([label, val, color]) => (
+              <div key={label} style={styles.miniCard}>
+                <p style={styles.miniLabel}>{label}</p>
+                <p style={{ ...styles.miniValue, color }}>{val}</p>
+              </div>
+            ))}
+          </div>
+          <div style={styles.widgetBox}>
+            <p style={styles.widgetTitle}>Oldest pending dispatch</p>
+            {pendingDispatchOrders.length === 0 ? <p style={styles.emptyNote}>Nothing pending dispatch 🎉</p> : (
+              <table style={styles.smallTable}>
+                <thead><tr><th style={styles.smallTh}>Order</th><th style={styles.smallTh}>Status</th><th style={styles.smallTh}>Days Pending</th></tr></thead>
+                <tbody>
+                  {pendingDispatchOrders.slice(0, 5).map((r, i) => (
+                    <tr key={i}><td style={styles.smallTd}>{r.code}</td><td style={styles.smallTd}>{r.status}</td><td style={styles.smallTd}>{r.days}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* 5. Stock Shortage on my pending enquiries */}
+          <h2 style={styles.sectionTitle}>Enquiries Awaiting — Stock Shortage</h2>
+          <p style={styles.sectionSub}>Pending enquiries where you've requested more than is currently in stock.</p>
+          <div style={styles.widgetBox}>
+            {stockShortage.length === 0 ? <p style={styles.emptyNote}>None of your pending enquiries are affected by stock shortage.</p> : (
+              <table style={styles.smallTable}>
+                <thead><tr><th style={styles.smallTh}>Order</th><th style={styles.smallTh}>Product</th><th style={styles.smallTh}>Requested</th><th style={styles.smallTh}>Available</th></tr></thead>
+                <tbody>
+                  {stockShortage.map((r, i) => (
+                    <tr key={i}><td style={styles.smallTd}>{r.code}</td><td style={styles.smallTd}>{r.product}</td><td style={styles.smallTd}>{r.requested}</td><td style={{ ...styles.smallTd, color: "#a23528", fontWeight: 600 }}>{r.available}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* 6. Declined enquiries */}
+          <h2 style={styles.sectionTitle}>Declined Enquiries</h2>
+          <div style={styles.miniGrid(2)}>
+            <div style={styles.miniCard}>
+              <p style={styles.miniLabel}>Declined Enquiries</p>
+              <p style={{ ...styles.miniValue, color: "#a23528" }}>{declinedOrders.length}</p>
+            </div>
+            <div style={styles.miniCard}>
+              <p style={styles.miniLabel}>Value Affected</p>
+              <p style={{ ...styles.miniValue, color: "#a23528" }}>₹{declinedValue.toLocaleString()}</p>
+            </div>
+          </div>
+          {declinedOrders.length > 0 && (
+            <div style={styles.widgetBox}>
+              <table style={styles.smallTable}>
+                <thead><tr><th style={styles.smallTh}>Order</th><th style={styles.smallTh}>Value</th><th style={styles.smallTh}>Notes</th></tr></thead>
+                <tbody>
+                  {declinedOrders.map((r, i) => (
+                    <tr key={i}><td style={styles.smallTd}>{r.Code}</td><td style={styles.smallTd}>₹{(parseFloat(r.TotalAmount) || 0).toLocaleString()}</td><td style={styles.smallTd}>{r.Notes || "—"}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* 7. Possible duplicate enquiries */}
+          <h2 style={styles.sectionTitle}>Possible Duplicate Enquiries</h2>
+          <p style={styles.sectionSub}>You have more than one pending enquiry for the same product — you may want to consolidate these.</p>
+          <div style={styles.widgetBox}>
+            {possibleDuplicates.length === 0 ? <p style={styles.emptyNote}>No duplicate pending enquiries found.</p> : (
+              <table style={styles.smallTable}>
+                <thead><tr><th style={styles.smallTh}>Product</th><th style={styles.smallTh}>Pending Count</th></tr></thead>
+                <tbody>
+                  {possibleDuplicates.map((r, i) => (
+                    <tr key={i}><td style={styles.smallTd}>{r.product}</td><td style={{ ...styles.smallTd, fontWeight: 600 }}>{r.count}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* 8. Long pending orders */}
+          <h2 style={styles.sectionTitle}>Long Pending Orders</h2>
+          <p style={styles.sectionSub}>Approved or processing for 3+ days without dispatch — you may want to follow up.</p>
+          <div style={styles.widgetBox}>
+            {longPendingOrders.length === 0 ? <p style={styles.emptyNote}>Nothing long-pending 🎉</p> : (
+              <table style={styles.smallTable}>
+                <thead><tr><th style={styles.smallTh}>Order</th><th style={styles.smallTh}>Status</th><th style={styles.smallTh}>Days Pending</th></tr></thead>
+                <tbody>
+                  {longPendingOrders.map((r, i) => (
+                    <tr key={i}><td style={styles.smallTd}>{r.code}</td><td style={styles.smallTd}>{r.status}</td><td style={{ ...styles.smallTd, color: "#a23528", fontWeight: 600 }}>{r.days}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <p style={styles.approxNote}>All figures above are based on your own orders only.</p>
+        </>
       )}
-    </div>
+    </CustomerLayout>
   );
 }

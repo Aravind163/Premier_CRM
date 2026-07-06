@@ -159,10 +159,7 @@ export default function Dashboard() {
           <h1 style={styles.heading}>Dashboard</h1>
           <p style={styles.headingSub}>Welcome back, {user.name || "Super Admin"}</p>
         </div>
-        <div style={styles.liveBadge}>
-          <span style={styles.liveDot} />
-          Live
-        </div>
+        
       </div>
 
       {error && (

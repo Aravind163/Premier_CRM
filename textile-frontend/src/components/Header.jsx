@@ -19,6 +19,9 @@ const pageTitles = {
   "/reports/orders": "Order Reports",
   "/reports/products": "Product Reports",
   "/reports/employees": "Employee Reports",
+  "/customer/dashboard":"Customer Dashboard",
+  "/customer/shop": "Order Enquiry",
+  "/customer/orders": "My Orders",
 };
 
 
@@ -38,6 +41,7 @@ export default function Header() {
     system_admin: "System Admin",
     admin: "Admin",
     end_user: "End User",
+    customer: "Customer",
   }[role] || role;
 
   const handleLogout = () => {

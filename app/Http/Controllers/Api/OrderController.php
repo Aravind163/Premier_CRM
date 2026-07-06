@@ -136,9 +136,10 @@ class OrderController extends Controller
             'DeliveryDate'  => $validated['deliveryDate'] ?? null,
             'Notes'         => $validated['notes'] ?? null,
             'CreatedBy'     => $request->user()->id,
-            'OrderDetails'  => isset($validated['orderDetails'])   // ← save as JSON
-                                ? json_encode($validated['orderDetails'])
-                                : null,
+            // NOTE: OrderDetails is cast as 'array' on the Order model, so
+            // Eloquent handles the JSON encode/decode itself — pass the
+            // plain array (or null), never a pre-encoded JSON string here.
+            'OrderDetails'  => $validated['orderDetails'] ?? null,
         ]);
 
         return response()->json($order->load(['customer', 'product']), 201);
@@ -180,6 +181,8 @@ class OrderController extends Controller
             'items'              => 'required|array|min:1',
             'items.*.productId'  => 'required|integer|exists:Products,Id',
             'items.*.qty'        => 'required|integer|min:1',
+            'items.*.color'      => 'nullable|string|max:100',
+            'items.*.size'       => 'nullable|string|max:50',
             'deliveryDate'       => 'nullable|date',
             'notes'              => 'nullable|string',
         ]);
@@ -198,6 +201,10 @@ class OrderController extends Controller
                 $pricePerUnit = (float) $product->Price;
                 $totalAmount  = round($qty * $pricePerUnit, 2);
 
+                $orderDetails = ['CartRef' => $cartRef];
+                if (!empty($item['color'])) $orderDetails['Color'] = $item['color'];
+                if (!empty($item['size']))  $orderDetails['Size']  = $item['size'];
+
                 $created[] = Order::create([
                     'Code'          => $this->generateOrderCode(),
                     'CustomerId'    => $customer->Id,
@@ -213,7 +220,8 @@ class OrderController extends Controller
                     'DeliveryDate'  => $validated['deliveryDate'] ?? null,
                     'Notes'         => $validated['notes'] ?? null,
                     'CreatedBy'     => $caller->id,
-                    'OrderDetails'  => json_encode(['CartRef' => $cartRef]),
+                    // Plain array — the model's 'array' cast encodes it for us.
+                    'OrderDetails'  => $orderDetails,
                 ]);
             }
             return $created;
@@ -280,9 +288,8 @@ class OrderController extends Controller
         }
 
         if (array_key_exists('orderDetails', $validated)) {
-            $update['OrderDetails'] = $validated['orderDetails']
-                ? json_encode($validated['orderDetails'])
-                : null;
+            // Plain array (or null) — the model's 'array' cast encodes it.
+            $update['OrderDetails'] = $validated['orderDetails'] ?: null;
         }
 
         $order->update($update);

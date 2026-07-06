@@ -1,8 +1,13 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "./ThemeContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import CustomerDashboard from "./pages/CustomerDashboard";
+import ProductCatalog from "./pages/ProductCatalog";
+import OrderEnquiry from "./pages/OrderEnquiry";
+import CustomerOrders from "./pages/CustomerOrders";
+import TrackOrders from "./pages/TrackOrders";
+import RaiseComplaint from "./pages/RaiseComplaint";
 import SelectCategory from "./pages/SelectCategory";
 import ProductList  from "./pages/master/ProductList";
 import AddProduct   from "./pages/master/AddProduct";
@@ -30,7 +35,22 @@ function App() {
           <Route path="/"        element={<Login />} />
           <Route path="/login"   element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/customer/dashboard" element={<CustomerDashboard />} />
+
+          {/* Customer journey:
+              Dashboard -> Product Catalog (browse + specify color/size)
+              -> Order Enquiry (review cart + submit) -> My Orders
+              -> Track Orders (once dispatched) -> Raise Complaint */}
+          <Route path="/customer/dashboard"  element={<CustomerDashboard />} />
+          <Route path="/customer/catalog"    element={<ProductCatalog />} />
+          <Route path="/customer/enquiry"    element={<OrderEnquiry />} />
+          <Route path="/customer/orders"     element={<CustomerOrders />} />
+          <Route path="/customer/track"      element={<TrackOrders />} />
+          <Route path="/customer/complaints" element={<RaiseComplaint />} />
+
+          {/* Legacy route — old bookmarks/links to the combined Shop page
+              now land on the Product Catalog instead. */}
+          <Route path="/customer/shop" element={<Navigate to="/customer/catalog" replace />} />
+
           <Route path="/select-category" element={<SelectCategory />} />
 
           {/* Master – Products */}
