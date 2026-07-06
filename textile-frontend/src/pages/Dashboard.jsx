@@ -82,6 +82,7 @@ export default function Dashboard() {
     const role = localStorage.getItem("role");
     if (!role) { navigate("/login"); return; }
     if (role === "customer") { navigate("/customer/dashboard"); return; }
+    if (role === "end_user") { navigate("/end-user/dashboard"); return; }
   }, []);
 
   useEffect(() => {

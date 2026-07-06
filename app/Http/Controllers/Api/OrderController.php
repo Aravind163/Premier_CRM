@@ -31,10 +31,20 @@ class OrderController extends Controller
             $query->where('Category', $category);
         }
 
-        // End Users only ever see orders they personally created — not the
-        // full district/company order list.
+        // End Users normally only see orders they personally created.
+        // Pass ?scope=area to instead see every order (any creator) for
+        // customers within their own assigned Taluk(s) — used by the
+        // read-only "Order Enquiry" screen so a field officer can see
+        // what's pending approval across their whole area, not just their
+        // own entries.
         if ($caller && $caller->role === 'end_user') {
-            $query->where('CreatedBy', $caller->id);
+            if ($request->query('scope') === 'area') {
+                $taluks = $this->callerAreas($caller, 'Taluk');
+                $customerIds = Customer::whereIn('Taluk', $taluks)->pluck('Id');
+                $query->whereIn('CustomerId', $customerIds->isEmpty() ? [0] : $customerIds);
+            } else {
+                $query->where('CreatedBy', $caller->id);
+            }
         }
 
         // Admins only see orders for customers within their own assigned

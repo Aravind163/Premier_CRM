@@ -149,6 +149,16 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
                     )}
                   </div>
                 )}
+
+                {/* Quantity Allocation — product-wise & customer-wise: how
+                    much has been ordered vs. how much stock allows each
+                    customer to actually be given. */}
+                <Link to="/master/allocation" style={{ textDecoration: "none" }}>
+                  <div style={{ ...S.navItem, ...(isPrefix("/master/allocation") ? S.navItemActive : {}) }}>
+                    <span style={S.navIcon}><ChartIcon /></span>
+                    <span>Allocation</span>
+                  </div>
+                </Link>
               </div>
             ) : (
               /* ── End User trimmed menu — area-scoped orders only ── */

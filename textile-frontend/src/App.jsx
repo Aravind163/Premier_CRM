@@ -3,6 +3,10 @@ import { ThemeProvider } from "./ThemeContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import CustomerDashboard from "./pages/CustomerDashboard";
+import EndUserDashboard from "./pages/EndUserDashboard";
+import EndUserEnquiry from "./pages/EndUserEnquiry";
+import EndUserComplaints from "./pages/EndUserComplaints";
+import Allocation from "./pages/master/Allocation";
 import ProductCatalog from "./pages/ProductCatalog";
 import OrderEnquiry from "./pages/OrderEnquiry";
 import CustomerOrders from "./pages/CustomerOrders";
@@ -51,6 +55,14 @@ function App() {
               now land on the Product Catalog instead. */}
           <Route path="/customer/shop" element={<Navigate to="/customer/catalog" replace />} />
 
+          {/* End User journey (area/taluk-scoped field officer):
+              Dashboard -> My Orders (New Order / Order List, shared with
+              admin pages via AppLayout) -> Order Enquiry (read-only,
+              area-wide) -> Complaints (read-only, area-wide) */}
+          <Route path="/end-user/dashboard"  element={<EndUserDashboard />} />
+          <Route path="/end-user/enquiry"    element={<EndUserEnquiry />} />
+          <Route path="/end-user/complaints" element={<EndUserComplaints />} />
+
           <Route path="/select-category" element={<SelectCategory />} />
 
           {/* Master – Products */}
@@ -62,6 +74,9 @@ function App() {
           <Route path="/master/customers"     element={<CustomerList />} />
           <Route path="/master/customers/add" element={<AddCustomer />} />
           <Route path="/master/customers/:id" element={<CustomerView />} />
+
+          {/* Master – Quantity Allocation (product-wise & customer-wise) */}
+          <Route path="/master/allocation" element={<Allocation />} />
 
           {/* Master – Orders */}
           <Route path="/master/orders"     element={<OrderList />} />

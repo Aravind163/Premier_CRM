@@ -73,7 +73,7 @@ class DashboardController extends Controller
      *
      * Operational dashboard per the O2C blueprint (Section 5). Scoped the
      * same way as OrderController::index():
-     *   - end_user  → only their own created orders
+     *   - end_user  → only orders for customers in their own assigned Taluk(s)
      *   - admin     → only orders for customers in their own District(s)
      *   - system_admin / super_admin → everything
      *   - customer  → blocked, this is a staff dashboard
@@ -102,7 +102,9 @@ class DashboardController extends Controller
         $query = Order::with(['customer', 'product']);
 
         if ($caller->role === 'end_user') {
-            $query->where('CreatedBy', $caller->id);
+            $taluks = $this->callerAreas($caller, 'Taluk');
+            $customerIds = Customer::whereIn('Taluk', $taluks)->pluck('Id');
+            $query->whereIn('CustomerId', $customerIds->isEmpty() ? [0] : $customerIds);
         }
 
         if ($caller->role === 'admin') {

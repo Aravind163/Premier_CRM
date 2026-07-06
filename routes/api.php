@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ComplaintController;
+use App\Http\Controllers\Api\AllocationController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -26,6 +27,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Complaints — customer submits and views their own complaint history
     Route::get('/complaints',  [ComplaintController::class, 'index']);
     Route::post('/complaints', [ComplaintController::class, 'store']);
+
+    // Quantity Allocation — Admin/System Admin decide how much of a
+    // product each customer actually gets when total orders exceed stock.
+    Route::get('/allocations/products', [AllocationController::class, 'products']);
+    Route::get('/allocations',          [AllocationController::class, 'index']);
+    Route::post('/allocations',         [AllocationController::class, 'store']);
 
     Route::patch('/customers/{id}/status', [CustomerController::class, 'updateStatus']);
     Route::patch('/orders/{id}/status',    [OrderController::class, 'updateStatus']);

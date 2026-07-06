@@ -1,7 +1,7 @@
 import { useTheme } from "../../ThemeContext";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Layout from "../../components/Layout";
+import Layout from "../../components/AppLayout";
 import { getG, G } from "../../theme";
 import API from "../../services/api";
 
