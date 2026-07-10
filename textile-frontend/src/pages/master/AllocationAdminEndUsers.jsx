@@ -1,5 +1,5 @@
 import { useTheme } from "../../ThemeContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import Layout from "../../components/Layout";
 import { getG, statusColor } from "../../theme";
 import API from "../../services/api";
@@ -37,7 +37,9 @@ const inputStyle = {
 const fieldWrap = { marginBottom: 14 };
 const labelStyle = { display: "block", fontSize: 11, fontWeight: 600, color: "#5c6b4d", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 };
 
-export default function StatusEndUsers() {
+export default function AllocationAdminEndUsers({ embedded = false }) {
+  const Wrapper = embedded ? Fragment : Layout;
+  const wrapperProps = embedded ? {} : { pageTitle: "End User Management" };
   const { isDark } = useTheme();
   const themeG = getG(isDark);
 
@@ -64,7 +66,7 @@ export default function StatusEndUsers() {
     return fromLegacy.length > 0 ? fromLegacy : (legacy ? [legacy] : []);
   })();
 
-  const [filter, setFilter] = useState("pending");
+  const [filter, setFilter] = useState("approved");
   const [endUsers, setEndUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -181,7 +183,7 @@ export default function StatusEndUsers() {
       await API.post("/employees", { ...newEndUser, Designation: "end_user" });
       setShowAdd(false);
       setNewEndUser({ Name: "", JoinedAt: "", phone: "", dob: "" });
-      setFilter("pending");
+      setFilter("approved");
       load();
     } catch (err) {
       setAddError(err.response?.data?.message || "Failed to add end user.");
@@ -191,7 +193,7 @@ export default function StatusEndUsers() {
   };
 
   return (
-    <Layout pageTitle="End User Management">
+    <Wrapper {...wrapperProps}>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap", alignItems: "center" }}>
         {["pending", "approved", "inactive", "all"].map((f) => (
@@ -365,7 +367,7 @@ export default function StatusEndUsers() {
           </div>
         </div>
       )}
-    </Layout>
+    </Wrapper>
   );
 }
 

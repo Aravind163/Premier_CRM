@@ -1,12 +1,19 @@
+// src/pages/master/CustomerList.jsx
+//
+// Customers hub — three tabs in one place instead of three separate pages:
+//   1. Customer List   — the master CRUD table (was this file, alone)
+//   2. Customer Orders  — pick a customer, see their order history
+//   3. Customer Status — approve / decline / reset a customer's account
+//                          (was pages/status/StatusCustomers.jsx)
 import { useTheme } from "../../ThemeContext";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
-import { getG, statusColor, G } from "../../theme";
+import { getG, statusColor } from "../../theme";
 import API from "../../services/api";
 
+const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 const getThemeColors = () => getG(localStorage.getItem("premier_theme") === "dark");
-
 
 /* Row color by customer type */
 const typeColors = {
@@ -32,22 +39,74 @@ const TypeBadge = ({ type }) => {
   );
 };
 
+const btnStyle = (color) => ({ padding: "5px 13px", borderRadius: 7, border: `1px solid ${color}40`, background: `${color}14`, color, cursor: "pointer", fontSize: 12, fontFamily: "inherit", fontWeight: 600 });
+
+function FilterPills({ values, active, onSelect }) {
+  const themeG = getThemeColors();
+  return (
+    <div style={{ display: "flex", gap: 6 }}>
+      {values.map((v) => (
+        <button
+          key={v}
+          onClick={() => onSelect(v)}
+          style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 500, transition: "all 0.12s", background: active === v ? "rgba(124,179,66,0.14)" : "transparent", color: active === v ? "#3d6b1f" : "#4a7a5a", borderColor: active === v ? "rgba(124,179,66,0.40)" : "rgba(27,77,46,0.18)" }}
+        >
+          {v}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function CustomerList() {
   const { isDark } = useTheme();
   const themeG = getG(isDark);
-
   const navigate = useNavigate();
-  const [search,      setSearch]      = useState("");
-  const [filterType,  setFilterType]  = useState("All");
-  const [filterStatus,setFilterStatus]= useState("All");
-  const [customers, setCustomers]     = useState([]);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState("");
+
+  const [tab, setTab] = useState("list"); // "list" | "orders" | "status"
+
+  const tabBtn = (key, label) => (
+    <button
+      onClick={() => setTab(key)}
+      style={{
+        padding: "9px 20px", borderRadius: 9, border: "none", cursor: "pointer",
+        fontFamily: FONT, fontSize: 13.5, fontWeight: 700,
+        background: tab === key ? themeG.accent : "transparent",
+        color: tab === key ? "#fff" : themeG.textSub,
+      }}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <Layout pageTitle="Customers">
+      <div style={{ display: "inline-flex", background: themeG.bg, border: `1px solid ${themeG.border}`, borderRadius: 11, padding: 3, marginBottom: 22 }}>
+        {tabBtn("list", "Customer List")}
+        {tabBtn("orders", "Customer Orders")}
+        {tabBtn("status", "Customer Status")}
+      </div>
+
+      {tab === "list" && <CustomerListTab themeG={themeG} navigate={navigate} />}
+      {tab === "orders" && <CustomerOrdersTab themeG={themeG} navigate={navigate} />}
+      {tab === "status" && <CustomerStatusTab themeG={themeG} navigate={navigate} />}
+    </Layout>
+  );
+}
+
+/* ───────────────────────── Tab 1: Customer List ───────────────────────── */
+
+function CustomerListTab({ themeG, navigate }) {
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState("All");
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-
         const res = await API.get("/customers");
         const mapped = res.data.map((c) => ({
           id: c.Code,
@@ -72,49 +131,38 @@ export default function CustomerList() {
 
   const filtered = customers.filter((c) => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.id.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search);
-    const matchType   = filterType   === "All" || c.type   === filterType.toLowerCase();
+    const matchType = filterType === "All" || c.type === filterType.toLowerCase();
     const matchStatus = filterStatus === "All" || c.status === filterStatus.toLowerCase();
     return matchSearch && matchType && matchStatus;
   });
 
-  if (loading) {
-
-
-    return (
-      <Layout pageTitle="Customers">
-        <p style={{ color: themeG.textSub }}>Loading customers…</p>
-      </Layout>
-    );
-  }
+  if (loading) return <p style={{ color: themeG.textSub }}>Loading customers…</p>;
 
   return (
-    <Layout pageTitle="Customers">
-
+    <>
       {error && (
         <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
           {error}
         </div>
       )}
 
-      {/* ── Filters ─────────────────────────────────────────── */}
       <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
         <input
           placeholder="Search name, ID or phone…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ padding: "9px 14px", borderRadius: 9, border: `1px solid ${themeG.border}`, fontSize: 13, width: 260, fontFamily: "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", background: themeG.card, outline: "none", color: themeG.textMain }}
+          style={{ padding: "9px 14px", borderRadius: 9, border: `1px solid ${themeG.border}`, fontSize: 13, width: 260, fontFamily: FONT, background: themeG.card, outline: "none", color: themeG.textMain }}
         />
-        <FilterPills label="Type"   values={["All","Wholesale","Retail"]}                           active={filterType}   onSelect={setFilterType} />
-        <FilterPills label="Status" values={["All","Approved","Pending","Declined"]}                active={filterStatus} onSelect={setFilterStatus} />
+        <FilterPills label="Type" values={["All", "Wholesale", "Retail"]} active={filterType} onSelect={setFilterType} />
+        <FilterPills label="Status" values={["All", "Approved", "Pending", "Declined"]} active={filterStatus} onSelect={setFilterStatus} />
         <button
           onClick={() => navigate("/master/customers/add")}
-          style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, padding: "9px 20px", borderRadius: 9, background: themeG.accent, color: themeG.card, border: "none", fontFamily: "inherit", fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 10px rgba(124,179,66,0.32)" }}
+          style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, padding: "9px 20px", borderRadius: 9, background: themeG.accent, color: themeG.card, border: "none", fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 10px rgba(124,179,66,0.32)" }}
         >
           + Add Customer
         </button>
       </div>
 
-      {/* ── Table ──────────────────────────────────────────── */}
       <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(106,163,38,0.06)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -166,25 +214,253 @@ export default function CustomerList() {
           Showing {filtered.length} of {customers.length} customers
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 
-function FilterPills({ values, active, onSelect }) {
-  const themeG = getThemeColors();
+/* ──────────────────────── Tab 2: Customer Orders ───────────────────────── */
+
+function CustomerOrdersTab({ themeG, navigate }) {
+  const [customers, setCustomers] = useState([]);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await API.get("/customers");
+        setCustomers(res.data);
+        if (res.data.length > 0) setSelected(res.data[0]);
+      } catch (err) {
+        setError("Failed to load customers.");
+      } finally {
+        setListLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!selected) return;
+    (async () => {
+      setOrdersLoading(true);
+      try {
+        const res = await API.get("/orders", { params: { customer_id: selected.Id } });
+        setOrders(res.data);
+      } catch (err) {
+        setError("Failed to load orders for this customer.");
+      } finally {
+        setOrdersLoading(false);
+      }
+    })();
+  }, [selected]);
+
+  const filteredCustomers = customers.filter((c) =>
+    c.Name.toLowerCase().includes(search.toLowerCase()) || c.Code.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const totalValue = orders.reduce((s, o) => s + (parseFloat(o.TotalAmount) || 0), 0);
+
   return (
-    <div style={{ display: "flex", gap: 6 }}>
-      {values.map((v) => (
-        <button
-          key={v}
-          onClick={() => onSelect(v)}
-          style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 500, transition: "all 0.12s", background: active === v ? "rgba(124,179,66,0.14)" : "transparent", color: active === v ? "#3d6b1f" : "#4a7a5a", borderColor: active === v ? "rgba(124,179,66,0.40)" : "rgba(27,77,46,0.18)" }}
-        >
-          {v}
-        </button>
-      ))}
+    <div style={{ display: "grid", gridTemplateColumns: "270px 1fr", gap: 18, alignItems: "start" }}>
+      {/* ── Customer picker ── */}
+      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(106,163,38,0.05)" }}>
+        <div style={{ padding: 12, borderBottom: `1px solid ${themeG.border}` }}>
+          <input
+            placeholder="Search customer…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: 8, border: `1px solid ${themeG.border}`, fontSize: 13, fontFamily: FONT, background: themeG.bg, outline: "none", color: themeG.textMain }}
+          />
+        </div>
+        <div style={{ maxHeight: 520, overflowY: "auto" }}>
+          {listLoading ? (
+            <p style={{ padding: 20, fontSize: 13, color: themeG.textSub }}>Loading…</p>
+          ) : filteredCustomers.length === 0 ? (
+            <p style={{ padding: 20, fontSize: 13, color: themeG.textSub }}>No customers found.</p>
+          ) : filteredCustomers.map((c) => (
+            <div
+              key={c.Id}
+              onClick={() => setSelected(c)}
+              style={{
+                padding: "11px 14px", cursor: "pointer", borderBottom: `1px solid ${themeG.border}`,
+                background: selected?.Id === c.Id ? "rgba(45,106,79,0.08)" : "transparent",
+                borderLeft: selected?.Id === c.Id ? `3px solid ${themeG.accent}` : "3px solid transparent",
+              }}
+            >
+              <p style={{ margin: "0 0 2px", fontSize: 13.5, fontWeight: 600, color: themeG.textMain }}>{c.Name}</p>
+              <p style={{ margin: 0, fontSize: 11.5, color: themeG.textSub }}>{c.Code} · {c.orders_count ?? 0} order(s)</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Orders for selected customer ── */}
+      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 22, boxShadow: "0 4px 16px rgba(106,163,38,0.05)" }}>
+        {error && (
+          <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+            {error}
+          </div>
+        )}
+        {!selected ? (
+          <p style={{ color: themeG.textSub, fontSize: 13.5 }}>Select a customer to see their order history.</p>
+        ) : (
+          <>
+            <h3 style={{ fontFamily: FONT, fontSize: 17, fontWeight: 700, color: themeG.textMain, margin: "0 0 4px" }}>{selected.Name}</h3>
+            <p style={{ fontSize: 12.5, color: themeG.textSub, margin: "0 0 16px" }}>
+              {selected.Code} · {orders.length} order(s) · Total value ₹{totalValue.toLocaleString()}
+            </p>
+
+            {ordersLoading ? (
+              <p style={{ fontSize: 13, color: themeG.textSub }}>Loading orders…</p>
+            ) : orders.length === 0 ? (
+              <p style={{ fontSize: 13, color: themeG.textSub }}>No orders placed by this customer yet.</p>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    {["Order", "Product", "Qty", "Amount", "Date", "Status", "Payment"].map((h) => (
+                      <th key={h} style={{ textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 12px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((o) => (
+                    <tr key={o.Id}>
+                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.accent, fontWeight: 700, cursor: "pointer", borderBottom: `1px solid ${themeG.border}` }} onClick={() => navigate(`/master/orders/${o.Id}`)}>{o.Code}</td>
+                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` }}>{o.product?.Name ?? "—"}</td>
+                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` }}>{o.Quantity}</td>
+                      <td style={{ padding: "11px 12px", fontSize: 13, fontWeight: 600, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` }}>₹{parseFloat(o.TotalAmount).toLocaleString()}</td>
+                      <td style={{ padding: "11px 12px", fontSize: 12, color: themeG.textSub, borderBottom: `1px solid ${themeG.border}` }}>{o.CreatedAt?.substring(0, 10)}</td>
+                      <td style={{ padding: "11px 12px", borderBottom: `1px solid ${themeG.border}` }}><Badge text={o.Status} /></td>
+                      <td style={{ padding: "11px 12px", borderBottom: `1px solid ${themeG.border}` }}><Badge text={o.PaymentStatus} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
-;
-const btnStyle = (color) => ({ padding: "5px 13px", borderRadius: 7, border: `1px solid ${color}40`, background: `${color}14`, color, cursor: "pointer", fontSize: 12, fontFamily: "inherit", fontWeight: 600 });
+
+/* ──────────────────────── Tab 3: Customer Status ───────────────────────── */
+
+function CustomerStatusTab({ themeG, navigate }) {
+  const [filter, setFilter] = useState("approved");
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [actingId, setActingId] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await API.get("/customers", { params: filter !== "all" ? { status: filter } : {} });
+      setCustomers(res.data);
+    } catch (err) {
+      setError("Failed to load customers.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
+
+  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(106,163,38,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(124,179,66,0.04)" };
+  const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain };
+
+  const actionBtn = (bg, color, border) => ({
+    padding: "7px 16px", borderRadius: 8, border: `1px solid ${border}`, background: bg, color,
+    cursor: "pointer", fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap",
+  });
+
+  const setStatus = async (id, status) => {
+    setActingId(id);
+    setError("");
+    try {
+      await API.patch(`/customers/${id}/status`, { status });
+      setCustomers((list) => list.filter((c) => c.Id !== id || filter === "all"));
+      load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update status.");
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  return (
+    <>
+      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+        {["pending", "approved", "declined", "all"].map((f) => (
+          <button key={f} onClick={() => setFilter(f)}
+            style={{ padding: "8px 18px", borderRadius: 20, border: "1.5px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, textTransform: "capitalize", background: filter === f ? themeG.accent : themeG.card, color: filter === f ? themeG.card : themeG.textSub, borderColor: filter === f ? themeG.accent : themeG.border }}>
+            {f}
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(106,163,38,0.05)" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              {["ID", "Name", "Phone", "District", "Type", "Status", "Actions"].map((h) => (
+                <th key={h} style={th}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={7} style={{ ...td, textAlign: "center", padding: 30 }}>Loading…</td></tr>
+            ) : customers.length === 0 ? (
+              <tr><td colSpan={7} style={{ ...td, textAlign: "center", padding: 30, color: themeG.textSub }}>No customers in this filter.</td></tr>
+            ) : customers.map((c) => (
+              <tr key={c.Id} style={{ borderBottom: "1px solid rgba(106,163,38,0.08)" }}>
+                <td style={{ ...td, fontWeight: 600, color: themeG.accent, cursor: "pointer" }} onClick={() => navigate(`/master/customers/${c.Id}`)}>{c.Code}</td>
+                <td style={td}>{c.Name}</td>
+                <td style={td}>{c.Phone}</td>
+                <td style={td}>{c.District}</td>
+                <td style={td}>{c.Type}</td>
+                <td style={td}><Badge text={c.Status} /></td>
+                <td style={td}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {c.Status !== "approved" && (
+                      <button disabled={actingId === c.Id} onClick={() => setStatus(c.Id, "approved")} style={actionBtn("rgba(124,179,66,0.12)", themeG.accent, "rgba(124,179,66,0.30)")}>
+                        Approve
+                      </button>
+                    )}
+                    {c.Status !== "declined" && (
+                      <button disabled={actingId === c.Id} onClick={() => setStatus(c.Id, "declined")} style={actionBtn("rgba(192,57,43,0.08)", "#a23528", "rgba(192,57,43,0.26)")}>
+                        Decline
+                      </button>
+                    )}
+                    {c.Status !== "pending" && (
+                      <button disabled={actingId === c.Id} onClick={() => setStatus(c.Id, "pending")} style={actionBtn("rgba(200,160,40,0.10)", "#8a6510", "rgba(200,160,40,0.28)")}>
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p style={{ marginTop: 14, fontSize: 13, color: themeG.textSub }}>
+        Showing {customers.length} customer{customers.length !== 1 ? "s" : ""} ({filter})
+      </p>
+    </>
+  );
+}

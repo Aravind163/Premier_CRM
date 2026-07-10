@@ -23,12 +23,10 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
   const location = useLocation();
   const { colors, isDark } = useTheme();
   const role = localStorage.getItem("role") || "super_admin";
-  // Admins are scoped by District; End Users are scoped by Taluk (within
-  // their admin's district). assignedArea is kept as a generic fallback
-  // display value for either.
-  const district = localStorage.getItem("District") || "";
-  const taluk    = localStorage.getItem("Taluk") || "";
-  const assignedArea = localStorage.getItem("assignedArea") || district || taluk || "";
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const district = (Array.isArray(user.District) ? user.District.join(", ") : "") || localStorage.getItem("District") || "";
+  const taluk    = (Array.isArray(user.Taluk) ? user.Taluk.join(", ") : "") || localStorage.getItem("Taluk") || "";
+  const assignedArea = user.AssignedArea || localStorage.getItem("assignedArea") || district || taluk || "";
   const activeCat = getActiveCat();
 
   const isSuperAdmin  = role === "super_admin";
@@ -96,6 +94,20 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
                 </div>
               </Link>
             )}
+              <Link to="/master/allocation" style={{ textDecoration: "none" }}>
+                  <div style={{ ...S.navItem, ...(isPrefix("/master/allocation") ? S.navItemActive : {}) }}>
+                    <span style={S.navIcon}><ChartIcon /></span>
+                    <span>Allocation</span>
+                  </div>
+                </Link>
+            {/* Order Enquiry — the entry point of the O2C flow, so it sits
+                before Master: Assign -> Approve -> Add Order (in Master). */}
+            <Link to="/master/enquiry" style={{ textDecoration: "none" }}>
+              <div style={{ ...S.navItem, ...(isPrefix("/master/enquiry") ? S.navItemActive : {}) }}>
+                <span style={S.navIcon}><ActivityIcon /></span>
+                <span> Enquiry Order</span>
+              </div>
+            </Link>
 
             {/* Master — full version for super_admin / system_admin / admin.
                 end_user gets a trimmed "My Orders" style menu instead. */}
@@ -153,12 +165,7 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
                 {/* Quantity Allocation — product-wise & customer-wise: how
                     much has been ordered vs. how much stock allows each
                     customer to actually be given. */}
-                <Link to="/master/allocation" style={{ textDecoration: "none" }}>
-                  <div style={{ ...S.navItem, ...(isPrefix("/master/allocation") ? S.navItemActive : {}) }}>
-                    <span style={S.navIcon}><ChartIcon /></span>
-                    <span>Allocation</span>
-                  </div>
-                </Link>
+                
               </div>
             ) : (
               /* ── End User trimmed menu — area-scoped orders only ── */
@@ -179,34 +186,7 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
               </div>
             )}
 
-            {/* Status — visible to all except plain end_user (they don't manage status of others) */}
-            {!isEndUser && (
-              <div style={S.navGroup}>
-                <div style={S.navGroupHeader} onClick={() => setStatusOpen(!statusOpen)}>
-                  <span style={S.navIcon}><ActivityIcon /></span>
-                  <span style={S.navGroupLabel}>Status</span>
-                  <span style={{ ...S.chevron, transform: statusOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon /></span>
-                </div>
-                {statusOpen && (
-                  <div style={S.navGroupBody}>
-                    <NavLeaf to="/status/customers" label="Customers" active={isPrefix("/status/customers")} S={S} />
-                    <NavLeaf to="/status/orders"    label="Orders"    active={isPrefix("/status/orders")} S={S} />
-                    {/* super_admin & admin: read-only employee directory */}
-                    {(isSuperAdmin) && (
-                      <NavLeaf to="/status/employees" label="Employees" active={isPrefix("/status/employees")} S={S} />
-                    )}
-                    {/* system_admin: full Admin management — assigns District */}
-                    {isSystemAdmin && (
-                      <NavLeaf to="/status/employees/manage" label="Allocation" active={isPrefix("/status/employees/manage")} S={S} />
-                    )}
-                    {/* admin: End User management — assigns Taluk, scoped to their own district */}
-                    {isAdmin && (
-                      <NavLeaf to="/status/end-users" label="End Users (Assign Taluk)" active={isPrefix("/status/end-users")} S={S} />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+            
 
             {/* Reports — hidden for end_user */}
             {!isEndUser && (

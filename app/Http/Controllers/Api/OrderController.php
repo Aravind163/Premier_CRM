@@ -16,11 +16,21 @@ class OrderController extends Controller
     /** GET /api/orders */
     public function index(Request $request)
     {
-        $query = Order::with(['customer', 'product']);
+        $query = Order::with(['customer', 'product', 'assignee']);
         $caller = $request->user();
 
         if ($status = $request->query('status')) {
             $query->where('Status', $status);
+        }
+
+        // Comma-separated list of statuses — used by the Order Enquiry
+        // screen to pull everything still "in the enquiry pipeline"
+        // (pending + assigned + approved) in one call.
+        if ($statusIn = $request->query('status_in')) {
+            $statuses = array_filter(array_map('trim', explode(',', $statusIn)));
+            if (!empty($statuses)) {
+                $query->whereIn('Status', $statuses);
+            }
         }
 
         if ($paymentStatus = $request->query('payment_status')) {
@@ -322,6 +332,48 @@ class OrderController extends Controller
     }
 
     /** PATCH /api/orders/{id}/status */
+    /**
+     * PATCH /api/orders/{id}/assign
+     *
+     * Order Enquiry step 1: before anyone can approve a freshly-submitted
+     * enquiry (Status = 'pending'), it has to be assigned to whoever is
+     * going to handle it — usually the caller themselves ("Assign to me").
+     * Admin / System Admin can also hand it to a specific staff member by
+     * passing assignedTo explicitly. Only valid starting from 'pending' —
+     * an enquiry that's already assigned/approved doesn't get reassigned
+     * from this screen (avoids two people fighting over the same order).
+     */
+    public function assign(Request $request, $id)
+    {
+        $order = Order::find($id);
+
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        $caller = $request->user();
+        $allowedRoles = ['admin', 'system_admin', 'end_user'];
+        if (!$caller || !in_array($caller->role, $allowedRoles, true)) {
+            return response()->json(['message' => 'Not permitted to assign enquiries.'], 403);
+        }
+
+        if ($order->Status !== 'pending') {
+            return response()->json(['message' => "Only a pending enquiry can be assigned (this one is '{$order->Status}')."], 422);
+        }
+
+        $validated = $request->validate([
+            'assignedTo' => 'nullable|integer|exists:users,id',
+        ]);
+
+        $order->update([
+            'Status'     => 'assigned',
+            'AssignedTo' => $validated['assignedTo'] ?? $caller->id,
+            'AssignedAt' => now(),
+        ]);
+
+        return response()->json($order->load(['customer', 'product', 'assignee']));
+    }
+
     public function updateStatus(Request $request, $id)
     {
         $order = Order::find($id);
@@ -331,7 +383,7 @@ class OrderController extends Controller
         }
 
         $validated = $request->validate([
-            'status' => 'required|in:approved,pending,processing,dispatched,delivered,declined',
+            'status' => 'required|in:pending,assigned,approved,processing,dispatched,delivered,declined',
         ]);
 
         // Goods must actually be dispatched (LR number recorded via the
@@ -380,15 +432,76 @@ class OrderController extends Controller
             'dispatchedAt'  => 'nullable|date',
         ]);
 
+        $dispatchedAt = $validated['dispatchedAt'] ?? now();
+
         $order->update([
             'Status'        => 'dispatched',
             'LRNumber'      => $validated['lrNumber'],
             'TransportName' => $validated['transportName'],
-            'DispatchedAt'  => $validated['dispatchedAt'] ?? now(),
+            'DispatchedAt'  => $dispatchedAt,
             'DispatchedBy'  => $request->user()->id,
+            // Bill's payment clock starts at dispatch — default credit
+            // term (15 days unless already customized) counts from here.
+            // Never overwrite a due date someone has already manually set.
+            'PaymentDueDate' => $order->PaymentDueDate
+                ?? \Carbon\Carbon::parse($dispatchedAt)->addDays($order->PaymentTermDays ?? 15)->toDateString(),
         ]);
 
         return response()->json($order->load(['customer', 'product', 'dispatcher']));
+    }
+
+    /**
+     * PATCH /api/orders/{id}/payment-due
+     *
+     * Manually reassign a bill's payment due date — e.g. a customer asks
+     * for more time. Callable by Admin, System Admin, Super Admin, or the
+     * End User (Field Officer) who owns/created the order, per the
+     * business rule that the time limit is "assigned by specific (end
+     * user, admin)". Accepts either an explicit new date or a fresh term
+     * length in days from today.
+     */
+    public function updatePaymentDue(Request $request, $id)
+    {
+        $order = Order::find($id);
+
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        $caller = $request->user();
+        $allowedRoles = ['admin', 'system_admin', 'super_admin', 'end_user'];
+        if (!$caller || !in_array($caller->role, $allowedRoles, true)) {
+            return response()->json(['message' => 'Not permitted to change the payment due date.'], 403);
+        }
+
+        $validated = $request->validate([
+            'paymentDueDate'  => 'nullable|date',
+            'paymentTermDays' => 'nullable|integer|min:1|max:365',
+            'note'            => 'nullable|string|max:255',
+        ]);
+
+        if (empty($validated['paymentDueDate']) && empty($validated['paymentTermDays'])) {
+            return response()->json(['message' => 'Provide either a new due date or a new term length in days.'], 422);
+        }
+
+        $update = [
+            'PaymentDueDateSetBy' => $caller->id,
+            'PaymentDueDateNote'  => $validated['note'] ?? null,
+        ];
+
+        if (!empty($validated['paymentTermDays'])) {
+            $update['PaymentTermDays'] = $validated['paymentTermDays'];
+            $from = $order->DispatchedAt ?? now();
+            $update['PaymentDueDate'] = \Carbon\Carbon::parse($from)->addDays($validated['paymentTermDays'])->toDateString();
+        }
+
+        if (!empty($validated['paymentDueDate'])) {
+            $update['PaymentDueDate'] = $validated['paymentDueDate'];
+        }
+
+        $order->update($update);
+
+        return response()->json($order->load(['customer', 'product', 'dueDateSetter']));
     }
 
     private function generateOrderCode(): string

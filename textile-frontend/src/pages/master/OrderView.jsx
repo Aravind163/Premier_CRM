@@ -129,6 +129,34 @@ export default function OrderView() {
     }
   };
 
+  const role = localStorage.getItem("role") || "";
+  const canManageDue = ["admin", "system_admin", "super_admin", "end_user"].includes(role);
+
+  const [dueEditing, setDueEditing] = useState(false);
+  const [dueDate, setDueDate] = useState("");
+  const [dueSaving, setDueSaving] = useState(false);
+  const [dueError, setDueError] = useState("");
+
+  const startDueEdit = () => {
+    setDueDate(order.PaymentDueDate ? order.PaymentDueDate.substring(0, 10) : "");
+    setDueError("");
+    setDueEditing(true);
+  };
+
+  const saveDueDate = async () => {
+    if (!dueDate) { setDueError("Pick a date."); return; }
+    setDueSaving(true); setDueError("");
+    try {
+      const res = await API.patch(`/orders/${id}/payment-due`, { paymentDueDate: dueDate });
+      setOrder(res.data);
+      setDueEditing(false);
+    } catch (err) {
+      setDueError(err.response?.data?.message || "Failed to update due date.");
+    } finally {
+      setDueSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <Layout pageTitle="Order">
@@ -246,6 +274,47 @@ export default function OrderView() {
             </>
           )}
         </div>
+      </div>
+
+      <div style={{ ...card, marginTop: 24 }}>
+        <h3 style={cardTitle}>Payment Due Date</h3>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+          <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
+            <ReadRow label="Credit Term" value={`${order.PaymentTermDays ?? 15} days`} />
+            <div>
+              <p style={{ fontSize: 12, color: themeG.textSub, margin: "0 0 4px" }}>Due Date</p>
+              <p style={{ fontSize: 15, fontWeight: 700, margin: 0, color: order.is_overdue ? "#a23528" : themeG.textMain }}>
+                {order.PaymentDueDate ? order.PaymentDueDate.substring(0, 10) : "Set on dispatch"}
+                {order.is_overdue && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#a23528", background: "rgba(200,60,50,0.10)", border: "1px solid rgba(200,60,50,0.26)", borderRadius: 10, padding: "1px 8px" }}>Overdue</span>}
+              </p>
+            </div>
+            {order.PaymentDueDateNote && (
+              <div>
+                <p style={{ fontSize: 12, color: themeG.textSub, margin: "0 0 4px" }}>Note</p>
+                <p style={{ fontSize: 13, margin: 0, color: themeG.textMain }}>{order.PaymentDueDateNote}</p>
+              </div>
+            )}
+          </div>
+
+          {canManageDue && (
+            dueEditing ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} style={{ width: 160 }} />
+                <button onClick={saveDueDate} disabled={dueSaving} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#2d6a4f", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                  {dueSaving ? "Saving…" : "Save"}
+                </button>
+                <button onClick={() => setDueEditing(false)} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${themeG.border}`, background: themeG.card, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button onClick={startDueEdit} style={{ padding: "8px 18px", borderRadius: 8, border: `1px solid rgba(45,106,79,0.30)`, background: "rgba(45,106,79,0.06)", color: "#2d6a4f", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                Reassign Due Date
+              </button>
+            )
+          )}
+        </div>
+        {dueError && <p style={{ color: "#a23528", fontSize: 12.5, marginTop: 10 }}>{dueError}</p>}
       </div>
 
       

@@ -30,13 +30,18 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Quantity Allocation — Admin/System Admin decide how much of a
     // product each customer actually gets when total orders exceed stock.
-    Route::get('/allocations/products', [AllocationController::class, 'products']);
+    Route::get('/allocations/products',    [AllocationController::class, 'products']);
+    Route::get('/allocations/customers',   [AllocationController::class, 'customers']);
+    Route::get('/allocations/by-customer', [AllocationController::class, 'byCustomer']);
+    Route::post('/allocations/by-customer',[AllocationController::class, 'storeByCustomer']);
     Route::get('/allocations',          [AllocationController::class, 'index']);
     Route::post('/allocations',         [AllocationController::class, 'store']);
 
     Route::patch('/customers/{id}/status', [CustomerController::class, 'updateStatus']);
     Route::patch('/orders/{id}/status',    [OrderController::class, 'updateStatus']);
+    Route::patch('/orders/{id}/assign',    [OrderController::class, 'assign']);
     Route::patch('/orders/{id}/dispatch',  [OrderController::class, 'dispatch']);
+    Route::patch('/orders/{id}/payment-due', [OrderController::class, 'updatePaymentDue']);
     Route::patch('/employees/{id}/status', [EmployeeController::class, 'updateStatus']);
 
     Route::get('/employees',          [EmployeeController::class, 'index']);

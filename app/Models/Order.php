@@ -9,6 +9,8 @@ class Order extends Model
     protected $table = 'Orders';
     protected $primaryKey = 'Id';
 
+    protected $appends = ['is_overdue'];
+
     const CREATED_AT = 'CreatedAt';
     const UPDATED_AT = 'UpdatedAt';
 
@@ -17,8 +19,12 @@ class Order extends Model
     'PricePerUnit', 'DiscountPct', 'TotalAmount', 'Status', 'PaymentStatus',
     'DeliveryDate', 'Notes', 'CreatedBy', 'ApprovedBy',
     'OrderDetails',
+    // Order Enquiry workflow (assign -> approve -> convert to order)
+    'AssignedTo', 'AssignedAt',
     // Goods Dispatch (O2C Step 7)
     'LRNumber', 'TransportName', 'DispatchedAt', 'DispatchedBy',
+    // Payment due date / credit term
+    'PaymentTermDays', 'PaymentDueDate', 'PaymentDueDateSetBy', 'PaymentDueDateNote',
 ];
 
 protected $casts = [
@@ -28,6 +34,8 @@ protected $casts = [
     'DeliveryDate' => 'date',
     'OrderDetails' => 'array',
     'DispatchedAt' => 'datetime',
+    'PaymentDueDate' => 'date',
+    'AssignedAt' => 'datetime',
 ];
 
     protected static function booted(): void
@@ -61,5 +69,24 @@ protected $casts = [
     public function dispatcher()
     {
         return $this->belongsTo(User::class, 'DispatchedBy');
+    }
+
+    public function dueDateSetter()
+    {
+        return $this->belongsTo(User::class, 'PaymentDueDateSetBy');
+    }
+
+    public function assignee()
+    {
+        return $this->belongsTo(User::class, 'AssignedTo');
+    }
+
+    /** True once PaymentDueDate has passed and the bill still isn't fully paid. */
+    public function getIsOverdueAttribute(): bool
+    {
+        if (!$this->PaymentDueDate || in_array($this->PaymentStatus, ['paid'], true)) {
+            return false;
+        }
+        return $this->PaymentDueDate->isPast();
     }
 }

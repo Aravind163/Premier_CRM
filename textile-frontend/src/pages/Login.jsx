@@ -1,15 +1,48 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import API from "../services/api";
 import logo from '/premier-icon.png';
 import bgImage from '/textile.jpg';
 
+// Staff roles selectable from the login dropdown. Customer login is kept
+// completely separate (a single "Shop Name" field) since a customer
+// account can never collide with a staff role.
+const STAFF_ROLES = [
+  { value: "end_user",    label: "End User" },
+  { value: "admin",       label: "Admin" },
+  { value: "system_admin",label: "System Admin" },
+  { value: "super_admin", label: "Super Admin" },
+];
+
+const ROLE_HOME = {
+  super_admin:  "/dashboard",
+  system_admin: "/dashboard",
+  admin:        "/dashboard",
+  end_user:     "/end-user/dashboard",
+  customer:     "/customer/dashboard",
+};
+
 export default function Login() {
+  const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState(searchParams.get("mode") === "staff" ? "staff" : "customer");
+  const [selectedRole, setSelectedRole] = useState(
+    STAFF_ROLES.some((r) => r.value === searchParams.get("role")) ? searchParams.get("role") : STAFF_ROLES[0].value
+  );
+
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword]     = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError]           = useState("");
   const [loading, setLoading]       = useState(false);
   const navigate = useNavigate();
+
+  const switchMode = (next) => {
+    setMode(next);
+    setError("");
+    setIdentifier("");
+    setPassword("");
+    setShowPassword(false);
+  };
 
   const handleLogin = async () => {
     setError("");
@@ -18,20 +51,27 @@ export default function Login() {
     try {
       const res = await API.post("/login", { identifier, password });
       const { token, role } = res.data;
+
+      // The role actually comes back from the server (each account has
+      // exactly one role) — the dropdown/tab is the person's own
+      // declaration of who they are, so if it doesn't match the account
+      // that just authenticated, stop them here rather than silently
+      // dropping them into a portal they didn't mean to open.
+      const expectedRole = mode === "customer" ? "customer" : selectedRole;
+      if (role !== expectedRole) {
+        setError(`This login belongs to a different role (${roleLabel(role)}). Please select "${roleLabel(expectedRole)}" and try again, or switch tabs.`);
+        setLoading(false);
+        return;
+      }
+
       localStorage.setItem("token", token);
       localStorage.setItem("role", role);
       localStorage.setItem("user", JSON.stringify(res.data.user));
-      if (["super_admin", "system_admin", "admin"].includes(role)) {
-        navigate("/dashboard");
-      } else if (role === "end_user") {
-        navigate("/end-user/dashboard");
-      } else if (role === "customer") {
-        navigate("/customer/dashboard");
-      } else {
-        setError("Access denied.");
-        localStorage.removeItem("token");
-        localStorage.removeItem("role");
-      }
+      localStorage.setItem("District", JSON.stringify(res.data.user.District || []));
+      localStorage.setItem("Taluk", JSON.stringify(res.data.user.Taluk || []));
+      localStorage.setItem("assignedArea", res.data.user.AssignedArea || "");
+
+      navigate(ROLE_HOME[role] || "/dashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Login failed. Please try again.");
     } finally {
@@ -51,17 +91,51 @@ export default function Login() {
           <img src={logo} alt="Premier Mills" style={styles.logo} />
         </div>
 
+        {/* ── Customer / Staff mode switch ── */}
+        <div style={styles.modeSwitch}>
+          <button
+            type="button"
+            style={styles.modeBtn(mode === "customer")}
+            onClick={() => switchMode("customer")}
+          >
+            Customer
+          </button>
+          <button
+            type="button"
+            style={styles.modeBtn(mode === "staff")}
+            onClick={() => switchMode("staff")}
+          >
+            Staff Login
+          </button>
+        </div>
+
+        {/* ── Role dropdown, staff mode only ── */}
+        {mode === "staff" && (
+          <div style={styles.inputWrap}>
+            <select
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value)}
+              style={styles.select}
+            >
+              {STAFF_ROLES.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+            <span style={styles.inputIcon}><ChevronIcon /></span>
+          </div>
+        )}
+
         {error && (
           <div style={styles.errorBox}>
             <AlertIcon /><span>{error}</span>
           </div>
         )}
 
-        {/* Email input */}
+        {/* Identifier input */}
         <div style={styles.inputWrap}>
           <input
             type="text"
-            placeholder="Username"
+            placeholder={mode === "customer" ? "Shop Name" : "Username / Email / Phone"}
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -74,15 +148,24 @@ export default function Login() {
         {/* Password input */}
         <div style={styles.inputWrap}>
           <input
-            type="password"
+            type={showPassword ? "text" : "password"}
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={handleKeyDown}
-            style={styles.input}
+            style={{ ...styles.input, paddingRight: 44 }}
             autoComplete="current-password"
           />
-          <span style={styles.inputIcon}><LockIcon /></span>
+          <span
+            style={{ ...styles.inputIcon, pointerEvents: "auto", cursor: "pointer" }}
+            onClick={() => setShowPassword((v) => !v)}
+            role="button"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowPassword((v) => !v); } }}
+          >
+            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+          </span>
         </div>
 
         <button
@@ -99,6 +182,12 @@ export default function Login() {
   );
 }
 
+function roleLabel(role) {
+  if (role === "customer") return "Customer";
+  const found = STAFF_ROLES.find((r) => r.value === role);
+  return found ? found.label : role;
+}
+
 function UserIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -107,11 +196,11 @@ function UserIcon() {
     </svg>
   );
 }
-function LockIcon() {
+
+function ChevronIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
     </svg>
   );
 }
@@ -121,6 +210,22 @@ function AlertIcon() {
       <circle cx="12" cy="12" r="10" />
       <line x1="12" y1="8" x2="12" y2="12" />
       <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  );
+}
+function EyeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+function EyeOffIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 7 11 7a21.7 21.7 0 0 1-3.22 4.36M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
     </svg>
   );
 }
@@ -171,6 +276,47 @@ logo: {
   objectFit: "contain",
 },
 
+modeSwitch: {
+  display: "flex",
+  gap: 6,
+  background: "rgba(0,0,0,0.05)",
+  border: "1px solid rgba(0,0,0,0.08)",
+  borderRadius: 9,
+  padding: 4,
+  marginBottom: 14,
+},
+
+modeBtn: (active) => ({
+  flex: 1,
+  padding: "8px 0",
+  borderRadius: 6,
+  border: "none",
+  cursor: "pointer",
+  fontFamily: "inherit",
+  fontSize: 12.5,
+  fontWeight: 700,
+  letterSpacing: "0.02em",
+  background: active ? "#4a90b8" : "transparent",
+  color: active ? "#fff" : "#556",
+  boxShadow: active ? "0 2px 8px rgba(74,144,184,0.35)" : "none",
+  transition: "all 0.15s",
+}),
+
+select: {
+  width: "100%",
+  boxSizing: "border-box",
+  background: "rgba(255,255,255,0.90)",
+  border: "1px solid rgba(0,0,0,0.12)",
+  borderRadius: 8,
+  padding: "12px 44px 12px 16px",
+  fontSize: 14,
+  color: "#333",
+  fontFamily: "inherit",
+  outline: "none",
+  appearance: "none",
+  cursor: "pointer",
+},
+
 inputWrap: {
   position: "relative",
   marginBottom: 12,
@@ -218,8 +364,6 @@ btn: {
     color: "#a23528",
   },
 
-
-
   inputIcon: {
     position: "absolute",
     right: 14,
@@ -228,11 +372,13 @@ btn: {
     color: "#888",
     display: "flex",
     alignItems: "center",
+    pointerEvents: "none",
   },
 
- 
-
-  btnDisabled: { opacity: 0.6, cursor: "not-allowed" },
+  btnDisabled: { 
+    opacity: 0.6,
+    cursor: "not-allowed" 
+  },
 
   footerText: {
     textAlign: "center",

@@ -186,6 +186,222 @@ class AllocationController extends Controller
         return response()->json(['message' => 'Allocation saved.']);
     }
 
+    /**
+     * GET /api/allocations/customers
+     *
+     * One row per customer who currently has any active (pending/approved/
+     * processing) order demand — used to populate the customer picker on
+     * the Customer-wise tab of the Allocation screen.
+     */
+    public function customers(Request $request)
+    {
+        $this->authorizeStaff($request);
+
+        $rows = Order::whereIn('Status', ALLOCATION_ACTIVE_STATUSES)
+            ->select('CustomerId', DB::raw('COUNT(DISTINCT ProductId) as ProductCount'), DB::raw('SUM(Quantity) as TotalOrdered'))
+            ->groupBy('CustomerId')
+            ->get()
+            ->keyBy('CustomerId');
+
+        if ($rows->isEmpty()) {
+            return response()->json([]);
+        }
+
+        $customers = Customer::whereIn('Id', $rows->keys())->get()->keyBy('Id');
+
+        $productIds = Order::whereIn('CustomerId', $rows->keys())
+            ->whereIn('Status', ALLOCATION_ACTIVE_STATUSES)
+            ->pluck('ProductId')
+            ->unique();
+
+        $productTotals = Order::whereIn('ProductId', $productIds)
+            ->whereIn('Status', ALLOCATION_ACTIVE_STATUSES)
+            ->select('ProductId', DB::raw('SUM(Quantity) as TotalOrdered'))
+            ->groupBy('ProductId')
+            ->get()
+            ->keyBy('ProductId');
+
+        $products = Product::whereIn('Id', $productIds)->get()->keyBy('Id');
+
+        $shortageByCustomer = Order::whereIn('CustomerId', $rows->keys())
+            ->whereIn('Status', ALLOCATION_ACTIVE_STATUSES)
+            ->get()
+            ->groupBy('CustomerId')
+            ->map(function ($orders) use ($productTotals, $products) {
+                foreach ($orders as $o) {
+                    $product = $products->get($o->ProductId);
+                    $totalOrdered = (int) ($productTotals->get($o->ProductId)->TotalOrdered ?? 0);
+                    if ($product && $totalOrdered > (int) $product->Quantity) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+
+        $result = [];
+        foreach ($rows as $customerId => $row) {
+            $customer = $customers->get($customerId);
+            if (!$customer) continue;
+
+            $result[] = [
+                'customerId'   => $customer->Id,
+                'code'         => $customer->Code,
+                'name'         => $customer->Name,
+                'district'     => $customer->District,
+                'taluk'        => $customer->Taluk,
+                'productCount' => (int) $row->ProductCount,
+                'totalOrdered' => (int) $row->TotalOrdered,
+                'hasShortage'  => (bool) ($shortageByCustomer->get($customerId) ?? false),
+            ];
+        }
+
+        usort($result, fn ($a, $b) => $b['hasShortage'] <=> $a['hasShortage']);
+
+        return response()->json($result);
+    }
+
+    /**
+     * GET /api/allocations/by-customer?customer_id=X
+     *
+     * Per-product breakdown for one customer: every product they currently
+     * have active demand for, how much they ordered vs. have been
+     * allocated, plus enough stock context (total stock, total ordered by
+     * everyone, allocated to everyone else) to safely edit this customer's
+     * share without re-fetching the product-wise screen.
+     */
+    public function byCustomer(Request $request)
+    {
+        $this->authorizeStaff($request);
+
+        $validated = $request->validate([
+            'customer_id' => 'required|integer|exists:Customers,Id',
+        ]);
+
+        $customer = Customer::find($validated['customer_id']);
+
+        $ordered = Order::where('CustomerId', $customer->Id)
+            ->whereIn('Status', ALLOCATION_ACTIVE_STATUSES)
+            ->select('ProductId', DB::raw('SUM(Quantity) as OrderedQty'))
+            ->groupBy('ProductId')
+            ->get()
+            ->keyBy('ProductId');
+
+        if ($ordered->isEmpty()) {
+            return response()->json([
+                'customer' => ['id' => $customer->Id, 'code' => $customer->Code, 'name' => $customer->Name],
+                'products' => [],
+            ]);
+        }
+
+        $products = Product::whereIn('Id', $ordered->keys())->get()->keyBy('Id');
+
+        $allTotalOrdered = Order::whereIn('ProductId', $ordered->keys())
+            ->whereIn('Status', ALLOCATION_ACTIVE_STATUSES)
+            ->select('ProductId', DB::raw('SUM(Quantity) as TotalOrdered'))
+            ->groupBy('ProductId')
+            ->get()
+            ->keyBy('ProductId');
+
+        $allAllocated = ProductAllocation::whereIn('ProductId', $ordered->keys())
+            ->select('ProductId', DB::raw('SUM(AllocatedQty) as TotalAllocated'))
+            ->groupBy('ProductId')
+            ->get()
+            ->keyBy('ProductId');
+
+        $myAllocated = ProductAllocation::where('CustomerId', $customer->Id)
+            ->whereIn('ProductId', $ordered->keys())
+            ->get()
+            ->keyBy('ProductId');
+
+        $rows = [];
+        foreach ($ordered as $productId => $row) {
+            $product = $products->get($productId);
+            if (!$product) continue;
+
+            $availableQty      = (int) $product->Quantity;
+            $totalOrdered      = (int) ($allTotalOrdered->get($productId)->TotalOrdered ?? 0);
+            $totalAllocated    = (int) ($allAllocated->get($productId)->TotalAllocated ?? 0);
+            $myAllocatedQty    = (int) ($myAllocated->get($productId)->AllocatedQty ?? 0);
+            $allocatedToOthers = $totalAllocated - $myAllocatedQty;
+
+            $rows[] = [
+                'productId'         => $product->Id,
+                'code'              => $product->Code,
+                'name'              => $product->Name,
+                'category'          => $product->Category,
+                'availableQty'      => $availableQty,
+                'totalOrdered'      => $totalOrdered,
+                'orderedQty'        => (int) $row->OrderedQty,
+                'allocatedQty'      => $myAllocatedQty,
+                'allocatedToOthers' => $allocatedToOthers,
+                'shortfall'         => max(0, $totalOrdered - $availableQty),
+            ];
+        }
+
+        usort($rows, fn ($a, $b) => $b['shortfall'] <=> $a['shortfall']);
+
+        return response()->json([
+            'customer' => ['id' => $customer->Id, 'code' => $customer->Code, 'name' => $customer->Name, 'district' => $customer->District, 'taluk' => $customer->Taluk],
+            'products' => $rows,
+        ]);
+    }
+
+    /**
+     * POST /api/allocations/by-customer
+     * Body: { customerId, allocations: [{ productId, allocatedQty }] }
+     *
+     * Same rule as the product-wise store(): can never push a product's
+     * grand total (this customer + everyone else already allocated) past
+     * its available stock. Checked per line item since a customer-wise
+     * save can touch several different products at once.
+     */
+    public function storeByCustomer(Request $request)
+    {
+        $this->authorizeStaff($request);
+
+        $validated = $request->validate([
+            'customerId'                  => 'required|integer|exists:Customers,Id',
+            'allocations'                 => 'required|array|min:1',
+            'allocations.*.productId'     => 'required|integer|exists:Products,Id',
+            'allocations.*.allocatedQty'  => 'required|integer|min:0',
+        ]);
+
+        $productIds = array_column($validated['allocations'], 'productId');
+        $products = Product::whereIn('Id', $productIds)->get()->keyBy('Id');
+
+        $allocatedElsewhere = ProductAllocation::whereIn('ProductId', $productIds)
+            ->where('CustomerId', '!=', $validated['customerId'])
+            ->select('ProductId', DB::raw('SUM(AllocatedQty) as TotalAllocated'))
+            ->groupBy('ProductId')
+            ->get()
+            ->keyBy('ProductId');
+
+        foreach ($validated['allocations'] as $item) {
+            $product = $products->get($item['productId']);
+            if (!$product) continue;
+
+            $others = (int) ($allocatedElsewhere->get($item['productId'])->TotalAllocated ?? 0);
+            $grandTotal = $others + $item['allocatedQty'];
+
+            if ($grandTotal > (int) $product->Quantity) {
+                return response()->json([
+                    'message' => "Total allocated for {$product->Name} ({$grandTotal}) can't exceed available stock (" . (int) $product->Quantity . ").",
+                ], 422);
+            }
+        }
+
+        DB::transaction(function () use ($validated, $request) {
+            foreach ($validated['allocations'] as $item) {
+                ProductAllocation::updateOrCreate(
+                    ['ProductId' => $item['productId'], 'CustomerId' => $validated['customerId']],
+                    ['AllocatedQty' => $item['allocatedQty'], 'AllocatedBy' => $request->user()->id]
+                );
+            }
+        });
+
+        return response()->json(['message' => 'Allocation saved.']);
+    }
+
     /** Only Admin / System Admin may view or set allocations; Super Admin can view but not save. */
     private function authorizeStaff(Request $request): void
     {

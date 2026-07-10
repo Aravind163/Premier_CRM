@@ -1,5 +1,5 @@
 import { useTheme } from "../../ThemeContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import Layout from "../../components/Layout";
 import { getG, statusColor, G } from "../../theme";
 import API from "../../services/api";
@@ -34,7 +34,9 @@ const Badge = ({ text }) => {
  *   super_admin = readable/viewable
  *   system_admin = editable/assignable
  */
-export default function StatusEmployees() {
+export default function AllocationEmployeeDirectory({ embedded = false }) {
+  const Wrapper = embedded ? Fragment : Layout;
+  const wrapperProps = embedded ? {} : { pageTitle: "Employee Directory" };
   const { isDark } = useTheme();
   const themeG = getG(isDark);
   const role = localStorage.getItem("role") || "super_admin";
@@ -63,7 +65,7 @@ export default function StatusEmployees() {
   const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(106,163,38,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(124,179,66,0.04)" };
 
   return (
-    <Layout pageTitle="Employee Directory">
+    <Wrapper {...wrapperProps}>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
         {["pending", "approved", "inactive", "all"].map((f) => (
@@ -147,7 +149,7 @@ export default function StatusEmployees() {
           </div>
         </div>
       )}
-    </Layout>
+    </Wrapper>
   );
 }
 const overlay = { position: "fixed", inset: 0, background: "rgba(20,30,15,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 };

@@ -1,5 +1,5 @@
 import { useTheme } from "../../ThemeContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import Layout from "../../components/Layout";
 import { getG, statusColor } from "../../theme";
 import API from "../../services/api";
@@ -37,9 +37,11 @@ const inputStyle = {
 const fieldWrap = { marginBottom: 14 };
 const labelStyle = { display: "block", fontSize: 11, fontWeight: 600, color: "#5c6b4d", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 };
 
-export default function SystemAdminEmployees() {
+export default function AllocationSystemAdmin({ embedded = false }) {
   const { isDark } = useTheme();
   const themeG = getG(isDark);
+  const Wrapper = embedded ? Fragment : Layout;
+  const wrapperProps = embedded ? {} : { pageTitle: "Employee Allocation" };
 
   // Which record type System Admin is currently managing. System Admin is
   // the only role that manages BOTH Admins and End Users:
@@ -47,7 +49,7 @@ export default function SystemAdminEmployees() {
   //   - "end_user" → both District and Taluk are assignable
   const [manageRole, setManageRole] = useState("admin");
 
-  const [filter, setFilter] = useState("pending");
+  const [filter, setFilter] = useState("approved");
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -131,7 +133,7 @@ export default function SystemAdminEmployees() {
   // vice versa).
   const switchManageRole = (role) => {
     setManageRole(role);
-    setFilter("pending");
+    setFilter("approved");
     setAssignTarget(null);
     setSelected(null);
     setShowAdd(false);
@@ -256,7 +258,7 @@ export default function SystemAdminEmployees() {
   const isAdminMode = manageRole === "admin";
 
   return (
-    <Layout pageTitle="Area Assignment — Admins & End Users">
+    <Wrapper {...wrapperProps}>
 
       
 
@@ -557,7 +559,7 @@ export default function SystemAdminEmployees() {
           </div>
         </div>
       )}
-    </Layout>
+    </Wrapper>
   );
 }
 

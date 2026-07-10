@@ -1,6 +1,6 @@
 import { useTheme } from "../../ThemeContext";
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "../../components/AppLayout";
 import { getG, G } from "../../theme";
 import API from "../../services/api";
@@ -225,6 +225,11 @@ export default function AddOrder() {
   const cardTitle = { fontFamily:"'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize:16, fontWeight:600, margin:"0 0 20px", color:themeG.textMain };
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromEnquiry = searchParams.get("fromEnquiry");
+  const prefillCustomerId = searchParams.get("customerId");
+  const prefillProductId = searchParams.get("productId");
+
   const getStoredCat = () => localStorage.getItem("premier_category") || "cloth";
   const [tab,     setTab]     = useState(getStoredCat);
   const [subType, setSubType] = useState(() => getStoredCat() === "yarn" ? "bundle" : "dhoti");
@@ -243,12 +248,32 @@ export default function AddOrder() {
         const [custRes, prodRes] = await Promise.all([API.get("/customers"), API.get("/products")]);
         setCustomers(custRes.data);
         setProducts(prodRes.data);
+
+        
+        if (fromEnquiry && prefillProductId) {
+          const p = prodRes.data.find((pr) => String(pr.Id) === String(prefillProductId));
+          if (p) {
+            localStorage.setItem("premier_category", p.Category);
+            setTab(p.Category);
+            setSubType(p.SubType);
+            if (p.Category === "cloth" && ["dhoti", "blouse", "uniform", "others"].includes(p.SubType)) {
+              setDetails({ ...defaultDetails[p.SubType] });
+            }
+          }
+          setForm((f) => ({
+            ...f,
+            customerId: prefillCustomerId || "",
+            productId: prefillProductId || "",
+            pricePerUnit: p ? p.Price : f.pricePerUnit,
+          }));
+        }
       } catch {
         setError("Failed to load customers/products.");
       } finally {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line
   }, []);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -300,6 +325,14 @@ export default function AddOrder() {
         notes:        form.notes || null,
         orderDetails: details || null,
       });
+
+      // This Add Order call came from an approved enquiry — mark that
+      // enquiry as converted so it drops off the Order Enquiry list
+      // (the newly-placed order above is now the record of truth).
+      if (fromEnquiry) {
+        try { await API.patch(`/orders/${fromEnquiry}/status`, { status: "processing" }); } catch { /* non-fatal */ }
+      }
+
       navigate("/master/orders");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to place order.");
@@ -322,7 +355,7 @@ export default function AddOrder() {
     <Layout pageTitle="Add Order">
 
       {/* ── Category locked badge ── */}
-      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:28 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12, flexWrap: "wrap" }}>
         <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"8px 18px", borderRadius:10, background:themeG.card, border:`1px solid ${themeG.border}`, boxShadow:"0 2px 8px rgba(106,163,38,0.06)" }}>
           <span style={{ fontSize:18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily:"inherit", fontSize:14, fontWeight:700, color:themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"}</span>
@@ -332,6 +365,12 @@ export default function AddOrder() {
             onClick={() => navigate("/select-category")}>Switch category</span>
         </span>
       </div>
+
+      {fromEnquiry && (
+        <div style={{ marginBottom: 20, background: "rgba(90,61,158,0.08)", border: "1px solid rgba(90,61,158,0.25)", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: "#5a3d9e", fontWeight: 600 }}>
+          Converting approved enquiry #{fromEnquiry} — customer and product are pre-filled below. Confirm price, discount and delivery date, then Place Order.
+        </div>
+      )}
 
       <div style={{ display:"grid", gridTemplateColumns: showDetailsCard ? "repeat(3, minmax(0, 1fr))" : "repeat(2, minmax(0, 1fr))", gap:24, alignItems:"start" }}>
 

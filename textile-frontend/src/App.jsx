@@ -4,11 +4,11 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import EndUserDashboard from "./pages/EndUserDashboard";
-import EndUserEnquiry from "./pages/EndUserEnquiry";
 import EndUserComplaints from "./pages/EndUserComplaints";
 import Allocation from "./pages/master/Allocation";
 import ProductCatalog from "./pages/ProductCatalog";
 import OrderEnquiry from "./pages/OrderEnquiry";
+import StaffOrderEnquiry from "./pages/master/OrderEnquiry";
 import CustomerOrders from "./pages/CustomerOrders";
 import TrackOrders from "./pages/TrackOrders";
 import RaiseComplaint from "./pages/RaiseComplaint";
@@ -22,11 +22,9 @@ import CustomerView from "./pages/master/CustomerView";
 import OrderList    from "./pages/master/OrderList";
 import AddOrder     from "./pages/master/AddOrder";
 import OrderView    from "./pages/master/OrderView";
-import StatusCustomers from "./pages/status/StatusCustomers";
-import StatusOrders    from "./pages/status/StatusOrders";
-import StatusEmployees from "./pages/status/StatusEmployees";
-import SystemAdminEmployees from "./pages/status/SystemAdminEmployees";
-import StatusEndUsers from "./pages/status/StatusEndUsers";
+import AllocationEmployeeDirectory from "./pages/master/AllocationEmployeeDirectory";
+import AllocationSystemAdmin from "./pages/master/AllocationSystemAdmin";
+import AllocationAdminEndUsers from "./pages/master/AllocationAdminEndUsers";
 import ReportsOrders    from "./pages/reports/ReportsOrders";
 import ReportsProducts  from "./pages/reports/ReportsProducts";
 import ReportsEmployees from "./pages/reports/ReportsEmployees";
@@ -56,14 +54,19 @@ function App() {
           <Route path="/customer/shop" element={<Navigate to="/customer/catalog" replace />} />
 
           {/* End User journey (area/taluk-scoped field officer):
-              Dashboard -> My Orders (New Order / Order List, shared with
-              admin pages via AppLayout) -> Order Enquiry (read-only,
-              area-wide) -> Complaints (read-only, area-wide) */}
+              Dashboard -> Order Enquiry (Assign -> Approve -> Add Order,
+              shared with admin via AppLayout) -> My Orders (New Order /
+              Order List) -> Complaints (read-only, area-wide) */}
           <Route path="/end-user/dashboard"  element={<EndUserDashboard />} />
-          <Route path="/end-user/enquiry"    element={<EndUserEnquiry />} />
+          <Route path="/end-user/enquiry"    element={<Navigate to="/master/enquiry" replace />} />
           <Route path="/end-user/complaints" element={<EndUserComplaints />} />
 
           <Route path="/select-category" element={<SelectCategory />} />
+
+          {/* Master – Order Enquiry (Admin / System Admin / End User act
+              on it; Super Admin views read-only). Sits before the rest of
+              Master since it's the entry point of the O2C flow. */}
+          <Route path="/master/enquiry" element={<StaffOrderEnquiry />} />
 
           {/* Master – Products */}
           <Route path="/master/products"     element={<ProductList />} />
@@ -83,12 +86,14 @@ function App() {
           <Route path="/master/orders/add" element={<AddOrder />} />
           <Route path="/master/orders/:id" element={<OrderView />} />
 
-          {/* Status */}
-          <Route path="/status/customers"        element={<StatusCustomers />} />
-          <Route path="/status/orders"           element={<StatusOrders />} />
-          <Route path="/status/employees"        element={<StatusEmployees />} />
-          <Route path="/status/employees/manage" element={<SystemAdminEmployees />} />
-          <Route path="/status/end-users"        element={<StatusEndUsers />} />
+          {/* Status — StatusCustomers/StatusOrders were merged into the
+              "Status" tab of CustomerList / OrderList; the employee-status
+              pages were renamed under pages/master/Allocation*. */}
+          <Route path="/status/customers"        element={<CustomerList />} />
+          <Route path="/status/orders"           element={<OrderList />} />
+          <Route path="/status/employees"        element={<AllocationEmployeeDirectory />} />
+          <Route path="/status/employees/manage" element={<AllocationSystemAdmin />} />
+          <Route path="/status/end-users"        element={<AllocationAdminEndUsers />} />
 
           {/* Reports */}
           <Route path="/reports/orders"    element={<ReportsOrders />} />

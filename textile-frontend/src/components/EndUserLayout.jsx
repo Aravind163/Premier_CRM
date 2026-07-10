@@ -22,12 +22,12 @@ export default function EndUserLayout({ children }) {
   const { colors, isDark } = useTheme();
   const location = useLocation();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const taluks = readTaluks();
+  const taluks = readTaluks(user);
 
   const isDashboard   = location.pathname === "/end-user/dashboard";
   const isNewOrder    = location.pathname === "/master/orders/add";
   const isOrderList   = location.pathname.startsWith("/master/orders") && !isNewOrder;
-  const isEnquiry     = location.pathname.startsWith("/end-user/enquiry");
+  const isEnquiry     = location.pathname.startsWith("/master/enquiry");
   const isComplaints  = location.pathname.startsWith("/end-user/complaints");
 
   const [ordersOpen, setOrdersOpen] = useState(isNewOrder || isOrderList);
@@ -64,6 +64,15 @@ export default function EndUserLayout({ children }) {
               </div>
             </Link>
 
+            {/* Order Enquiry — entry point of the O2C flow, so it comes
+                before My Orders: Assign -> Approve -> Add Order. */}
+            <Link to="/master/enquiry" style={{ textDecoration: "none" }}>
+              <div style={{ ...S.navItem, ...(isEnquiry ? S.navItemActive : {}) }}>
+                <span style={S.navIcon}><ActivityIcon /></span>
+                <span>Order Enquiry</span>
+              </div>
+            </Link>
+
             <div style={S.navGroup}>
               <div style={S.navGroupHeader} onClick={() => setOrdersOpen(!ordersOpen)}>
                 <span style={S.navIcon}><OrdersIcon /></span>
@@ -77,13 +86,6 @@ export default function EndUserLayout({ children }) {
                 </div>
               )}
             </div>
-
-            <Link to="/end-user/enquiry" style={{ textDecoration: "none" }}>
-              <div style={{ ...S.navItem, ...(isEnquiry ? S.navItemActive : {}) }}>
-                <span style={S.navIcon}><ActivityIcon /></span>
-                <span>Order Enquiry</span>
-              </div>
-            </Link>
 
             <Link to="/end-user/complaints" style={{ textDecoration: "none" }}>
               <div style={{ ...S.navItem, ...(isComplaints ? S.navItemActive : {}) }}>
@@ -113,8 +115,8 @@ export default function EndUserLayout({ children }) {
 
 // Taluk is stored as a JSON array (or a plain string, for older records).
 // Normalise either shape into a clean string array for display.
-function readTaluks() {
-  const raw = localStorage.getItem("Taluk") || localStorage.getItem("assignedArea") || "";
+function readTaluks(user) {
+  const raw = user.Taluk || localStorage.getItem("Taluk") || localStorage.getItem("assignedArea") || "";
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);

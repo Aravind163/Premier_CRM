@@ -64,8 +64,9 @@ export function getRowColors(isDark) {
 
 export const statusColor = (s) => {
   const map = {
-    approved:   { bg: "rgba(45,106,79,0.12)",  color: "#1a5fa0", border: "rgba(45,106,79,0.30)" },
     pending:    { bg: "rgba(200,160,40,0.12)",  color: "#8a6510", border: "rgba(200,160,40,0.30)" },
+    assigned:   { bg: "rgba(123,76,199,0.12)",  color: "#5a3d9e", border: "rgba(123,76,199,0.30)" },
+    approved:   { bg: "rgba(45,106,79,0.12)",  color: "#1a5fa0", border: "rgba(45,106,79,0.30)" },
     declined:   { bg: "rgba(200,60,50,0.10)",   color: "#a03025", border: "rgba(200,60,50,0.26)" },
     active:     { bg: "rgba(45,106,79,0.12)",   color: "#1a5fa0", border: "rgba(45,106,79,0.30)" },
     inactive:   { bg: "rgba(150,150,150,0.12)", color: "#5a5a5a", border: "rgba(150,150,150,0.28)" },

@@ -25,16 +25,33 @@ const pageTitles = {
 };
 
 
+const CUSTOMER_ROLES = [
+  { value: "customer",      label: "Customer" },
+];
+
+const STAFF_ROLES = [
+  { value: "end_user",      label: "End User" },
+  { value: "admin",         label: "Admin" },
+  { value: "system_admin",  label: "System Admin" },
+  { value: "super_admin",   label: "Super Admin" },
+];
+
 export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleTheme, colors } = useTheme();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const role = localStorage.getItem("role") || "";
+  // Customers only ever see "Customer" in this dropdown; staff (End User /
+  // Admin / System Admin / Super Admin) only ever see the other three
+  // staff roles plus themselves — the two groups never mix.
+  const visibleRoles = role === "customer" ? CUSTOMER_ROLES : STAFF_ROLES;
   const pageTitle = pageTitles[location.pathname] || "Premier CRM";
 
   const [dropOpen, setDropOpen] = useState(false);
+  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const dropRef = useRef(null);
+  const roleMenuRef = useRef(null);
 
   const roleLabel = {
     super_admin: "Super Admin",
@@ -51,10 +68,27 @@ export default function Header() {
     navigate("/login");
   };
 
+  // Jumping to a different role logs the current session out and sends
+  // the person to the login screen pre-set to that role/tab — a quick
+  // shortcut rather than a real role switch (each account still only
+  // ever has the one role the server assigns it).
+  const handleRoleJump = (targetRole) => {
+    setRoleMenuOpen(false);
+    if (targetRole === role) return;
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("role");
+    const params = targetRole === "customer" ? "mode=customer" : `mode=staff&role=${targetRole}`;
+    navigate(`/login?${params}`);
+  };
+
   useEffect(() => {
     function handleClick(e) {
       if (dropRef.current && !dropRef.current.contains(e.target)) {
         setDropOpen(false);
+      }
+      if (roleMenuRef.current && !roleMenuRef.current.contains(e.target)) {
+        setRoleMenuOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -90,7 +124,71 @@ export default function Header() {
 
       {/* Right */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        
+
+        {/* Current-role dropdown — quick jump to a different login */}
+        <div ref={roleMenuRef} style={{ position: "relative" }}>
+          <button
+            onClick={() => setRoleMenuOpen((p) => !p)}
+            title="Switch login role"
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              background: "rgba(255,255,255,0.12)",
+              border: "1.5px solid rgba(255,255,255,0.25)",
+              borderRadius: 20,
+              padding: "5px 12px",
+              cursor: "pointer",
+              color: "#ffffff",
+              fontSize: 12,
+              fontWeight: 600,
+              fontFamily: FONT,
+            }}
+          >
+            <RoleIcon />
+            <span>{roleLabel}</span>
+            <ChevronDownIcon />
+          </button>
+
+          {roleMenuOpen && (
+            <div style={{
+              position: "absolute", top: "calc(100% + 10px)", left: 0,
+              background: isDark ? colors.card : "#ffffff",
+              border: `1px solid ${isDark ? colors.border : '#e2e8f0'}`,
+              borderRadius: 10,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+              minWidth: 190,
+              zIndex: 999,
+              overflow: "hidden",
+              fontFamily: FONT,
+            }}>
+              <div style={{ padding: "10px 14px", fontSize: 10.5, fontWeight: 700, color: isDark ? colors.textSecondary : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: `1px solid ${isDark ? colors.border : '#f1f5f9'}` }}>
+                Login as
+              </div>
+              {visibleRoles.map((r) => {
+                const active = r.value === role;
+                return (
+                  <button
+                    key={r.value}
+                    onClick={() => handleRoleJump(r.value)}
+                    disabled={active}
+                    style={{
+                      width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "10px 14px", background: active ? (isDark ? colors.surface : "#f0f7f2") : "none",
+                      border: "none", cursor: active ? "default" : "pointer",
+                      color: active ? "#2d6a4f" : (isDark ? colors.textPrimary : "#0f172a"),
+                      fontSize: 13, fontWeight: active ? 700 : 500, fontFamily: FONT, textAlign: "left",
+                    }}
+                    onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "#f8fafc"; }}
+                    onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "none"; }}
+                  >
+                    {r.label}
+                    {active && <CheckIcon />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         <button
           onClick={toggleTheme}
           title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
@@ -210,6 +308,21 @@ export default function Header() {
   );
 }
 
+function RoleIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2d6a4f" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
 function PersonIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
