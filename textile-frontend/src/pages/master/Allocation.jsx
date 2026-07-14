@@ -1,18 +1,3 @@
-// src/pages/master/Allocation.jsx
-//
-// Quantity Allocation (Admin / System Admin).
-//
-// Scenario this solves: 5 customers order 200 units of a product each,
-// but only 400 units are actually in stock. Someone has to decide how
-// much each customer actually gets. This screen supports two views:
-//
-//   1. Product-wise — pick a product, see every customer who ordered it,
-//      Ordered Qty (computed live from Orders) vs an editable Allocated
-//      Qty, with a running "remaining stock" total that refuses to let
-//      you allocate more than what's on hand.
-//   2. Customer-wise — pick a customer, see every product they currently
-//      have active demand for, same Ordered vs Allocated editing, each
-//      product still checked against its own available stock.
 import { useEffect, useState } from "react";
 import Layout from "../../components/AppLayout";
 import { useTheme } from "../../ThemeContext";
@@ -28,9 +13,7 @@ export default function Allocation() {
   const { isDark } = useTheme();
   const themeG = getG(isDark);
   const role = localStorage.getItem("role") || "";
-
   const [topTab, setTopTab] = useState("employee"); 
-
   const topTabBtn = (key, label) => (
     <button
       onClick={() => setTopTab(key)}
