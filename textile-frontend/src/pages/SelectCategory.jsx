@@ -21,7 +21,7 @@ export default function SelectCategory() {
         <p style={{ fontFamily: FONT, fontSize: 13, color: G.textSub, marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600 }}>
           Step 1 of 2
         </p>
-        <h2 style={{ fontFamily: FONT, fontSize: 26, fontWeight: 700, color: G.textMain, margin: "0 0 8px", letterSpacing: "-0.4px" }}>
+        <h2 style={{ fontFamily: "'Space Grotesk', " + FONT, fontSize: 26, fontWeight: 700, color: G.textMain, margin: "0 0 8px", letterSpacing: "-0.4px" }}>
           What are you working with?
         </h2>
         <p style={{ fontFamily: FONT, fontSize: 14, color: G.textSub, margin: "0 0 40px" }}>
@@ -34,9 +34,9 @@ export default function SelectCategory() {
             title="Cloth"
             desc="Dhoti, Blouse, Pant, Shirt, Leggings, and other fabric products"
             subtypes={["Dhoti", "Blouse", "Pant", "Shirt", "Leggings", "Others"]}
-            accentColor="#2d6a4f"
-            accentLight="rgba(45,106,79,0.12)"
-            borderActive="rgba(45,106,79,0.40)"
+            accentColor="#1F5C99"
+            accentLight="rgba(15,33,56,0.12)"
+            borderActive="rgba(15,33,56,0.40)"
             onClick={() => choose("cloth")}
             G={G}
           />
@@ -45,9 +45,9 @@ export default function SelectCategory() {
             title="Yarn"
             desc="Bundle, Hank, Cone and other yarn / thread products"
             subtypes={["Bundle", "Hank", "Cone"]}
-            accentColor="#1565C0"
-            accentLight="rgba(21,101,192,0.10)"
-            borderActive="rgba(21,101,192,0.35)"
+            accentColor="#3A5C8C"
+            accentLight="rgba(58,92,140,0.10)"
+            borderActive="rgba(58,92,140,0.35)"
             onClick={() => choose("yarn")}
             G={G}
           />
@@ -80,7 +80,7 @@ function CategoryCard({ emoji, title, desc, subtypes, accentColor, accentLight, 
       onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = `0 4px 20px ${accentLight}`; }}
     >
       <div style={{ fontSize: 44, marginBottom: 14 }}>{emoji}</div>
-      <h3 style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: accentColor, margin: "0 0 8px" }}>{title}</h3>
+      <h3 style={{ fontFamily: "'Space Grotesk', " + FONT, fontSize: 20, fontWeight: 700, color: accentColor, margin: "0 0 8px" }}>{title}</h3>
       <p style={{ fontFamily: FONT, fontSize: 13, color: G.textSub, margin: "0 0 16px", lineHeight: 1.5 }}>{desc}</p>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {subtypes.map(s => (

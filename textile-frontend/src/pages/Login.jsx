@@ -31,7 +31,6 @@ export default function Login() {
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword]     = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError]           = useState("");
   const [loading, setLoading]       = useState(false);
   const navigate = useNavigate();
@@ -41,7 +40,6 @@ export default function Login() {
     setError("");
     setIdentifier("");
     setPassword("");
-    setShowPassword(false);
   };
 
   const handleLogin = async () => {
@@ -67,9 +65,6 @@ export default function Login() {
       localStorage.setItem("token", token);
       localStorage.setItem("role", role);
       localStorage.setItem("user", JSON.stringify(res.data.user));
-      localStorage.setItem("District", JSON.stringify(res.data.user.District || []));
-      localStorage.setItem("Taluk", JSON.stringify(res.data.user.Taluk || []));
-      localStorage.setItem("assignedArea", res.data.user.AssignedArea || "");
 
       navigate(ROLE_HOME[role] || "/dashboard");
     } catch (err) {
@@ -148,24 +143,15 @@ export default function Login() {
         {/* Password input */}
         <div style={styles.inputWrap}>
           <input
-            type={showPassword ? "text" : "password"}
+            type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={handleKeyDown}
-            style={{ ...styles.input, paddingRight: 44 }}
+            style={styles.input}
             autoComplete="current-password"
           />
-          <span
-            style={{ ...styles.inputIcon, pointerEvents: "auto", cursor: "pointer" }}
-            onClick={() => setShowPassword((v) => !v)}
-            role="button"
-            aria-label={showPassword ? "Hide password" : "Show password"}
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowPassword((v) => !v); } }}
-          >
-            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-          </span>
+          <span style={styles.inputIcon}><LockIcon /></span>
         </div>
 
         <button
@@ -196,7 +182,14 @@ function UserIcon() {
     </svg>
   );
 }
-
+function LockIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
 function ChevronIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -206,26 +199,10 @@ function ChevronIcon() {
 }
 function AlertIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c0392b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B23A3A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
       <circle cx="12" cy="12" r="10" />
       <line x1="12" y1="8" x2="12" y2="12" />
       <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  );
-}
-function EyeIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-function EyeOffIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 7 11 7a21.7 21.7 0 0 1-3.22 4.36M14.12 14.12a3 3 0 1 1-4.24-4.24" />
-      <line x1="1" y1="1" x2="23" y2="23" />
     </svg>
   );
 }
@@ -296,7 +273,7 @@ modeBtn: (active) => ({
   fontSize: 12.5,
   fontWeight: 700,
   letterSpacing: "0.02em",
-  background: active ? "#4a90b8" : "transparent",
+  background: active ? "#1F5C99" : "transparent",
   color: active ? "#fff" : "#556",
   boxShadow: active ? "0 2px 8px rgba(74,144,184,0.35)" : "none",
   transition: "all 0.15s",
@@ -338,7 +315,7 @@ input: {
 btn: {
   width: "100%",
   padding: "12px 0",
-  background: "#4a90b8",
+  background: "#1F5C99",
   border: "none",
   borderRadius: 8,
   fontSize: 15,
@@ -355,14 +332,16 @@ btn: {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    background: "rgba(192,57,43,0.08)",
-    border: "1px solid rgba(192,57,43,0.25)",
+    background: "rgba(178,58,58,0.08)",
+    border: "1px solid rgba(178,58,58,0.25)",
     borderRadius: 8,
     padding: "10px 14px",
     marginBottom: 14,
     fontSize: 13,
-    color: "#a23528",
+    color: "#B23A3A",
   },
+
+
 
   inputIcon: {
     position: "absolute",
@@ -375,10 +354,9 @@ btn: {
     pointerEvents: "none",
   },
 
-  btnDisabled: { 
-    opacity: 0.6,
-    cursor: "not-allowed" 
-  },
+ 
+
+  btnDisabled: { opacity: 0.6, cursor: "not-allowed" },
 
   footerText: {
     textAlign: "center",

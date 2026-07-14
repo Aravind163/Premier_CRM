@@ -98,8 +98,8 @@ export default function Header() {
   return (
     <div style={{
       height: 62,
-      background: colors.headerBg,
-      borderBottom: `1px solid ${isDark ? colors.border : '#2d6a4f'}`,
+      background: isDark ? colors.headerBg : "linear-gradient(180deg, #173456, #0F2138)",
+      borderBottom: `1px solid ${isDark ? colors.border : '#0F2138'}`,
       display: "flex",
       alignItems: "center",
       justifyContent: "space-between",
@@ -113,7 +113,7 @@ export default function Header() {
       {/* Left */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <span style={{ fontSize: 20, fontWeight: 700, color: "#ffffff", fontFamily: FONT, letterSpacing: "-0.3px", lineHeight: 1.1 }}>
+          <span style={{ fontSize: 20, fontWeight: 700, color: "#ffffff", fontFamily: "'Space Grotesk', " + FONT, letterSpacing: "-0.3px", lineHeight: 1.1 }}>
             {pageTitle}
           </span>
           <span style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", letterSpacing: "0.10em", fontFamily: FONT }}>
@@ -152,7 +152,7 @@ export default function Header() {
             <div style={{
               position: "absolute", top: "calc(100% + 10px)", left: 0,
               background: isDark ? colors.card : "#ffffff",
-              border: `1px solid ${isDark ? colors.border : '#e2e8f0'}`,
+              border: `1px solid ${isDark ? colors.border : '#DBE3EC'}`,
               borderRadius: 10,
               boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
               minWidth: 190,
@@ -160,7 +160,7 @@ export default function Header() {
               overflow: "hidden",
               fontFamily: FONT,
             }}>
-              <div style={{ padding: "10px 14px", fontSize: 10.5, fontWeight: 700, color: isDark ? colors.textSecondary : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: `1px solid ${isDark ? colors.border : '#f1f5f9'}` }}>
+              <div style={{ padding: "10px 14px", fontSize: 10.5, fontWeight: 700, color: isDark ? colors.textSecondary : "#8C96A3", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: `1px solid ${isDark ? colors.border : '#EAEFF5'}` }}>
                 Login as
               </div>
               {visibleRoles.map((r) => {
@@ -172,12 +172,12 @@ export default function Header() {
                     disabled={active}
                     style={{
                       width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                      padding: "10px 14px", background: active ? (isDark ? colors.surface : "#f0f7f2") : "none",
+                      padding: "10px 14px", background: active ? (isDark ? colors.surface : "#EAEFF5") : "none",
                       border: "none", cursor: active ? "default" : "pointer",
-                      color: active ? "#2d6a4f" : (isDark ? colors.textPrimary : "#0f172a"),
+                      color: active ? "#1F5C99" : (isDark ? colors.textPrimary : "#0F2138"),
                       fontSize: 13, fontWeight: active ? 700 : 500, fontFamily: FONT, textAlign: "left",
                     }}
-                    onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "#f8fafc"; }}
+                    onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "#F5F7FA"; }}
                     onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "none"; }}
                   >
                     {r.label}
@@ -253,7 +253,7 @@ export default function Header() {
               top: "calc(100% + 10px)",
               right: 0,
               background: isDark ? colors.card : "#ffffff",
-              border: `1px solid ${isDark ? colors.border : '#e2e8f0'}`,
+              border: `1px solid ${isDark ? colors.border : '#DBE3EC'}`,
               borderRadius: 10,
               boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
               minWidth: 200,
@@ -264,13 +264,13 @@ export default function Header() {
               {/* User Info */}
               <div style={{
                 padding: "14px 16px",
-                borderBottom: `1px solid ${isDark ? colors.border : '#f1f5f9'}`,
-                background: isDark ? colors.surface : '#f8fafc',
+                borderBottom: `1px solid ${isDark ? colors.border : '#EAEFF5'}`,
+                background: isDark ? colors.surface : '#F5F7FA',
               }}>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: isDark ? colors.textPrimary : '#0f172a', fontFamily: FONT }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: isDark ? colors.textPrimary : '#0F2138', fontFamily: FONT }}>
                   {user.name || user.email || "User"}
                 </p>
-                <p style={{ margin: "2px 0 0", fontSize: 11, color: isDark ? colors.textSecondary : '#64748b', fontFamily: FONT }}>
+                <p style={{ margin: "2px 0 0", fontSize: 11, color: isDark ? colors.textSecondary : '#526073', fontFamily: FONT }}>
                   {roleLabel}
                 </p>
               </div>
@@ -287,7 +287,7 @@ export default function Header() {
                   background: "none",
                   border: "none",
                   cursor: "pointer",
-                  color: isDark ? colors.error : '#e11d48',
+                  color: isDark ? colors.error : '#B23A3A',
                   fontSize: 13,
                   fontFamily: FONT,
                   fontWeight: 600,
@@ -318,7 +318,7 @@ function RoleIcon() {
 }
 function CheckIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2d6a4f" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1F5C99" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );

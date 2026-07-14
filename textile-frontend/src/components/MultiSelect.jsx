@@ -48,7 +48,7 @@ export default function MultiSelect({ value = [], options = [], onChange, placeh
 
       <div style={listBox}>
         {filtered.length === 0 ? (
-          <div style={{ padding: "10px 12px", fontSize: 12.5, color: "#8a988a" }}>{emptyText}</div>
+          <div style={{ padding: "10px 12px", fontSize: 12.5, color: "#8C96A3" }}>{emptyText}</div>
         ) : (
           filtered.map((opt) => (
             <label key={opt} style={optRow}>
@@ -56,7 +56,7 @@ export default function MultiSelect({ value = [], options = [], onChange, placeh
                 type="checkbox"
                 checked={value.includes(opt)}
                 onChange={() => toggle(opt)}
-                style={{ marginRight: 9, accentColor: "#6aa326" }}
+                style={{ marginRight: 9, accentColor: "#1F5C99" }}
               />
               <span style={{ fontSize: 13 }}>{opt}</span>
             </label>
@@ -69,26 +69,26 @@ export default function MultiSelect({ value = [], options = [], onChange, placeh
 
 const chip = {
   display: "inline-flex", alignItems: "center", gap: 6,
-  background: "rgba(106,163,38,0.13)", color: "#3d6b1f",
-  border: "1px solid rgba(106,163,38,0.3)", borderRadius: 16,
+  background: "rgba(46,122,114,0.13)", color: "#101B28",
+  border: "1px solid rgba(46,122,114,0.3)", borderRadius: 16,
   padding: "4px 6px 4px 12px", fontSize: 12, fontWeight: 600,
 };
 const chipX = {
   background: "transparent", border: "none", cursor: "pointer",
-  color: "#3d6b1f", fontSize: 15, lineHeight: 1, padding: "0 4px",
+  color: "#101B28", fontSize: 15, lineHeight: 1, padding: "0 4px",
   fontFamily: "inherit",
 };
 const searchInput = {
-  width: "100%", boxSizing: "border-box", background: "#f6f9f0",
-  border: "1px solid rgba(106,163,38,0.22)", borderRadius: 8,
-  padding: "7px 11px", fontSize: 12.5, color: "#1a3d2b",
+  width: "100%", boxSizing: "border-box", background: "#F5F7FA",
+  border: "1px solid rgba(46,122,114,0.22)", borderRadius: 8,
+  padding: "7px 11px", fontSize: 12.5, color: "#0F2138",
   fontFamily: "inherit", outline: "none", marginBottom: 6,
 };
 const listBox = {
-  maxHeight: 160, overflowY: "auto", border: "1px solid rgba(106,163,38,0.18)",
+  maxHeight: 160, overflowY: "auto", border: "1px solid rgba(46,122,114,0.18)",
   borderRadius: 8, background: "#fff",
 };
 const optRow = {
   display: "flex", alignItems: "center", padding: "8px 12px", cursor: "pointer",
-  borderBottom: "1px solid rgba(106,163,38,0.06)", color: "#1a3d2b",
+  borderBottom: "1px solid rgba(46,122,114,0.06)", color: "#0F2138",
 };

@@ -80,7 +80,7 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
             {/* Select Category — hidden for end_user (they place orders, not manage catalog) */}
             {!isEndUser && (
               <Link to="/select-category" style={{ textDecoration: "none" }}>
-                <div style={{ ...S.navItem, ...(isActive("/select-category") ? S.navItemActive : {}), marginBottom: 4, background: activeCat ? "rgba(82,183,136,0.10)" : "transparent", border: activeCat ? "1px solid rgba(82,183,136,0.25)" : "1px solid transparent", borderRadius: 8 }}>
+                <div style={{ ...S.navItem, ...(isActive("/select-category") ? S.navItemActive : {}), marginBottom: 4, background: activeCat ? "rgba(91,155,217,0.10)" : "transparent", border: activeCat ? "1px solid rgba(91,155,217,0.25)" : "1px solid transparent", borderRadius: 8 }}>
                   <span style={S.navIcon}><CategoryIcon /></span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>Category</div>
@@ -276,7 +276,14 @@ function buildStyles(colors, isDark) {
     },
     main: {
       padding: "24px 20px",
-      background: colors.background,
+      background: isDark
+        ? colors.background
+        : "#F5F7FA",
+      backgroundImage: isDark
+        ? "none"
+        : "radial-gradient(circle at 1px 1px, rgba(15,33,56,0.05) 1px, transparent 0), radial-gradient(1200px 500px at 100% -10%, rgba(31,92,153,0.07), transparent 60%)",
+      backgroundSize: "22px 22px, 100% 100%",
+      backgroundAttachment: "fixed, fixed",
       minHeight: "calc(100vh - 62px - 46px)",
     },
     sidebar: {
@@ -293,7 +300,7 @@ function buildStyles(colors, isDark) {
       paddingLeft: 6, marginBottom: 14,
     },
     logoText: {
-      fontFamily: FONT,
+      fontFamily: "'Space Grotesk', " + FONT,
       fontSize: 16, fontWeight: 700, color: "#ffffff", letterSpacing: "-0.3px",
     },
     roleBadge: {
@@ -308,7 +315,7 @@ function buildStyles(colors, isDark) {
     },
     roleBadgeTag: {
       fontSize: 9, fontWeight: 700, color: "#ffd166",
-      background: "rgba(255,209,102,0.15)", padding: "2px 6px", borderRadius: 4,
+      background: "rgba(238,193,94,0.15)", padding: "2px 6px", borderRadius: 4,
       letterSpacing: "0.03em",
     },
     areaBadge: {
@@ -317,8 +324,8 @@ function buildStyles(colors, isDark) {
     },
     readOnlyBanner: {
       marginBottom: 18, padding: "10px 16px", borderRadius: 10,
-      background: "rgba(255,209,102,0.12)", border: "1px solid rgba(255,209,102,0.35)",
-      fontSize: 13, color: "#8a6510", fontFamily: FONT, fontWeight: 500,
+      background: "rgba(238,193,94,0.12)", border: "1px solid rgba(238,193,94,0.35)",
+      fontSize: 13, color: "#8A5A0E", fontFamily: FONT, fontWeight: 500,
     },
     nav: { flex: 1 },
     navItem: {
@@ -331,7 +338,7 @@ function buildStyles(colors, isDark) {
     navItemActive: {
       background: colors.sidebarActive,
       color: "#ffffff", fontWeight: 600,
-      borderLeft: `3px solid ${colors.accentLight}`,
+      borderLeft: "3px solid #D69426",
     },
     navIcon: { display: "flex", alignItems: "center", color: "inherit" },
     navGroup: { marginBottom: 2 },
@@ -356,7 +363,7 @@ function buildStyles(colors, isDark) {
     },
     navSubActive: {
       background: colors.sidebarActive, color: "#ffffff", fontWeight: 600,
-      borderLeft: `3px solid ${colors.accentLight}`,
+      borderLeft: "3px solid #D69426",
     },
     navLeafGroup: { paddingLeft: 12, marginBottom: 2 },
     navLeafItem: {
@@ -365,13 +372,13 @@ function buildStyles(colors, isDark) {
       borderRadius: 6, transition: "all 0.15s", fontFamily: FONT,
     },
     navLeafActive: {
-      background: "rgba(82,183,136,0.20)",
+      background: "rgba(91,155,217,0.20)",
       color: "#ffffff", fontWeight: 600,
-      borderLeft: `2px solid ${colors.accentLight}`,
+      borderLeft: "2px solid #D69426",
     },
     pageHeader: { marginBottom: 24 },
     pageHeading: {
-      fontFamily: FONT,
+      fontFamily: "'Space Grotesk', " + FONT,
       fontSize: 26, fontWeight: 700, margin: "0 0 4px",
       color: colors.textPrimary, letterSpacing: "-0.4px",
     },

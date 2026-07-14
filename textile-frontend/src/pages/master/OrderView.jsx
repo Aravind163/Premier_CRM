@@ -19,17 +19,17 @@ const Field = ({ label, children }) => (
 );
 
 const Input = (props) => (
-  <input {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(27,77,46,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: tG.textMain, background: tG.card, outline: "none", boxSizing: "border-box" }} />
+  <input {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(15,33,56,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: tG.textMain, background: tG.card, outline: "none", boxSizing: "border-box" }} />
 );
 
 const Select = ({ children, ...props }) => (
-  <select {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(27,77,46,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: tG.textMain, background: tG.card, outline: "none", boxSizing: "border-box" }}>
+  <select {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(15,33,56,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: tG.textMain, background: tG.card, outline: "none", boxSizing: "border-box" }}>
     {children}
   </select>
 );
 
 const ReadRow = ({ label, value }) => (
-  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid rgba(106,163,38,0.08)" }}>
+  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
     <span style={{ fontSize: 13, color: tG.textSub }}>{label}</span>
     <span style={{ fontSize: 13, fontWeight: 600, color: tG.textMain }}>{value ?? "—"}</span>
   </div>
@@ -38,10 +38,10 @@ const ReadRow = ({ label, value }) => (
 const paymentColor = (p) => {
   const tG = getThemeColors();
   const map = {
-    paid:    { bg: "rgba(124,179,66,0.12)", color: "#2d6a4f", border: "rgba(124,179,66,0.30)" },
-    unpaid:  { bg: "rgba(200,60,50,0.10)",  color: "#a03025", border: "rgba(200,60,50,0.26)" },
-    partial: { bg: "rgba(200,160,40,0.12)", color: "#8a6510", border: "rgba(200,160,40,0.30)" },
-    refund:  { bg: "rgba(130,80,200,0.10)", color: "#6a30c0", border: "rgba(130,80,200,0.26)" },
+    paid:    { bg: "rgba(91,155,217,0.12)", color: "#1F5C99", border: "rgba(91,155,217,0.30)" },
+    unpaid:  { bg: "rgba(178,58,58,0.10)",  color: "#96302F", border: "rgba(178,58,58,0.26)" },
+    partial: { bg: "rgba(214,148,38,0.12)", color: "#8A5A0E", border: "rgba(214,148,38,0.30)" },
+    refund:  { bg: "rgba(74,46,122,0.10)", color: "#6a30c0", border: "rgba(74,46,122,0.26)" },
   };
   return map[p] || map.unpaid;
 };
@@ -61,7 +61,7 @@ export default function OrderView() {
   const themeG = getG(isDark);
   const navigate = useNavigate();
 
-  const card = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 24, boxShadow: "0 4px 16px rgba(106,163,38,0.05)" };
+  const card = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 24, boxShadow: "0 4px 16px rgba(46,122,114,0.05)" };
   const cardTitle = { fontFamily: "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize: 16, fontWeight: 600, margin: "0 0 20px", color: themeG.textMain };
 
   const { id } = useParams();
@@ -168,7 +168,7 @@ export default function OrderView() {
   if (!order) {
     return (
       <Layout pageTitle="Order">
-        <p style={{ color: "#a23528" }}>{error || "Order not found."}</p>
+        <p style={{ color: "#B23A3A" }}>{error || "Order not found."}</p>
         <button onClick={() => navigate("/master/orders")} style={{ marginTop: 12, padding: "9px 20px", borderRadius: 9, border: `1px solid ${themeG.border}`, background: themeG.card, cursor: "pointer", fontFamily: "inherit" }}>
           Back to Orders
         </button>
@@ -180,7 +180,7 @@ export default function OrderView() {
     <Layout pageTitle={`${editMode ? "Edit Order" : "Order Details"} · ${order.customer?.Name ?? ""}`}>
 
       {error && (
-        <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}
@@ -245,31 +245,31 @@ export default function OrderView() {
               </Field>
               <Field label="Notes">
                 <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={4}
-                  style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(27,77,46,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: "#1a3d2b", background: "#ffffff", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+                  style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(15,33,56,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: "#0F2138", background: "#ffffff", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
               </Field>
 
-              <div style={{ marginTop: 12, padding: "16px 18px", borderRadius: 12, border: `2px solid rgba(124,179,66,0.25)`, background: "rgba(124,179,66,0.05)" }}>
+              <div style={{ marginTop: 12, padding: "16px 18px", borderRadius: 12, border: `2px solid rgba(91,155,217,0.25)`, background: "rgba(91,155,217,0.05)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 13, color: "#4a7a5a" }}>New Total</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: "#2d6a4f" }}>₹{parseFloat(total).toLocaleString()}</span>
+                  <span style={{ fontSize: 13, color: "#526073" }}>New Total</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "#1F5C99" }}>₹{parseFloat(total).toLocaleString()}</span>
                 </div>
               </div>
             </>
           ) : (
             <>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0" }}>
-                <span style={{ fontSize: 13, color: "#4a7a5a" }}>Status</span>
+                <span style={{ fontSize: 13, color: "#526073" }}>Status</span>
                 <Badge text={order.Status} colorFn={statusColor} />
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0" }}>
-                <span style={{ fontSize: 13, color: "#4a7a5a" }}>Payment</span>
+                <span style={{ fontSize: 13, color: "#526073" }}>Payment</span>
                 <Badge text={order.PaymentStatus} colorFn={paymentColor} />
               </div>
               <ReadRow label="Delivery Date" value={order.DeliveryDate ? order.DeliveryDate.substring(0, 10) : "—"} />
               <ReadRow label="Created" value={order.CreatedAt?.substring(0, 10)} />
               <div style={{ marginTop: 10 }}>
-                <p style={{ fontSize: 12, color: "#3d6b50", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Notes</p>
-                <p style={{ fontSize: 13, color: "#1a3d2b", margin: 0 }}>{order.Notes || "—"}</p>
+                <p style={{ fontSize: 12, color: "#101B28", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Notes</p>
+                <p style={{ fontSize: 13, color: "#0F2138", margin: 0 }}>{order.Notes || "—"}</p>
               </div>
             </>
           )}
@@ -283,9 +283,9 @@ export default function OrderView() {
             <ReadRow label="Credit Term" value={`${order.PaymentTermDays ?? 15} days`} />
             <div>
               <p style={{ fontSize: 12, color: themeG.textSub, margin: "0 0 4px" }}>Due Date</p>
-              <p style={{ fontSize: 15, fontWeight: 700, margin: 0, color: order.is_overdue ? "#a23528" : themeG.textMain }}>
+              <p style={{ fontSize: 15, fontWeight: 700, margin: 0, color: order.is_overdue ? "#B23A3A" : themeG.textMain }}>
                 {order.PaymentDueDate ? order.PaymentDueDate.substring(0, 10) : "Set on dispatch"}
-                {order.is_overdue && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#a23528", background: "rgba(200,60,50,0.10)", border: "1px solid rgba(200,60,50,0.26)", borderRadius: 10, padding: "1px 8px" }}>Overdue</span>}
+                {order.is_overdue && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#B23A3A", background: "rgba(178,58,58,0.10)", border: "1px solid rgba(178,58,58,0.26)", borderRadius: 10, padding: "1px 8px" }}>Overdue</span>}
               </p>
             </div>
             {order.PaymentDueDateNote && (
@@ -300,7 +300,7 @@ export default function OrderView() {
             dueEditing ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} style={{ width: 160 }} />
-                <button onClick={saveDueDate} disabled={dueSaving} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#2d6a4f", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                <button onClick={saveDueDate} disabled={dueSaving} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#1F5C99", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                   {dueSaving ? "Saving…" : "Save"}
                 </button>
                 <button onClick={() => setDueEditing(false)} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${themeG.border}`, background: themeG.card, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
@@ -308,37 +308,37 @@ export default function OrderView() {
                 </button>
               </div>
             ) : (
-              <button onClick={startDueEdit} style={{ padding: "8px 18px", borderRadius: 8, border: `1px solid rgba(45,106,79,0.30)`, background: "rgba(45,106,79,0.06)", color: "#2d6a4f", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+              <button onClick={startDueEdit} style={{ padding: "8px 18px", borderRadius: 8, border: `1px solid rgba(15,33,56,0.30)`, background: "rgba(15,33,56,0.06)", color: "#1F5C99", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                 Reassign Due Date
               </button>
             )
           )}
         </div>
-        {dueError && <p style={{ color: "#a23528", fontSize: 12.5, marginTop: 10 }}>{dueError}</p>}
+        {dueError && <p style={{ color: "#B23A3A", fontSize: 12.5, marginTop: 10 }}>{dueError}</p>}
       </div>
 
       
 
       <div style={{ display: "flex", gap: 12, marginTop: 28, justifyContent: "flex-end" }}>
-        <button onClick={() => navigate("/master/orders")} style={{ padding: "10px 24px", borderRadius: 9, border: `1px solid ${"rgba(27,77,46,0.18)"}`, background: "#ffffff", color: "#4a7a5a", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 500 }}>
+        <button onClick={() => navigate("/master/orders")} style={{ padding: "10px 24px", borderRadius: 9, border: `1px solid ${"rgba(15,33,56,0.18)"}`, background: "#ffffff", color: "#526073", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 500 }}>
           Back
         </button>
 
         {editMode ? (
           <>
-            <button onClick={cancelEdit} style={{ padding: "10px 24px", borderRadius: 9, border: `1px solid ${"rgba(27,77,46,0.18)"}`, background: "#ffffff", color: "#4a7a5a", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 500 }}>
+            <button onClick={cancelEdit} style={{ padding: "10px 24px", borderRadius: 9, border: `1px solid ${"rgba(15,33,56,0.18)"}`, background: "#ffffff", color: "#526073", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 500 }}>
               Cancel
             </button>
-            <button onClick={handleSave} disabled={saving} style={{ padding: "10px 28px", borderRadius: 9, border: "none", background: "#2d6a4f", color: "#ffffff", cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, boxShadow: "0 2px 10px rgba(124,179,66,0.32)", opacity: saving ? 0.6 : 1 }}>
+            <button onClick={handleSave} disabled={saving} style={{ padding: "10px 28px", borderRadius: 9, border: "none", background: "#1F5C99", color: "#ffffff", cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, boxShadow: "0 2px 10px rgba(91,155,217,0.32)", opacity: saving ? 0.6 : 1 }}>
               {saving ? "Saving…" : "Save Changes"}
             </button>
           </>
         ) : (
           <>
-            <button onClick={handleDelete} style={{ padding: "10px 24px", borderRadius: 9, border: "1px solid rgba(192,57,43,0.30)", background: "rgba(192,57,43,0.06)", color: "#a23528", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 600 }}>
+            <button onClick={handleDelete} style={{ padding: "10px 24px", borderRadius: 9, border: "1px solid rgba(178,58,58,0.30)", background: "rgba(178,58,58,0.06)", color: "#B23A3A", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 600 }}>
               Delete
             </button>
-            <button onClick={enterEdit} style={{ padding: "10px 28px", borderRadius: 9, border: "none", background: "#2d6a4f", color: "#ffffff", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, boxShadow: "0 2px 10px rgba(124,179,66,0.32)" }}>
+            <button onClick={enterEdit} style={{ padding: "10px 28px", borderRadius: 9, border: "none", background: "#1F5C99", color: "#ffffff", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, boxShadow: "0 2px 10px rgba(91,155,217,0.32)" }}>
               Edit Order
             </button>
           </>

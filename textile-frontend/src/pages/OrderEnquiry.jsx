@@ -52,9 +52,9 @@ export default function OrderEnquiry() {
   };
 
   const S = {
-    heading: { fontFamily: FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
+    heading: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
     headingSub: { fontSize: 13, color: themeG.textSub, margin: "0 0 24px" },
-    card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(45,106,79,0.06)" },
+    card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
     empty: { padding: 50, textAlign: "center" },
     emptyText: { fontSize: 14, color: themeG.textSub, margin: "0 0 16px" },
     browseBtn: { padding: "10px 22px", borderRadius: 9, border: "none", background: themeG.accent, color: "#fff", fontWeight: 700, fontSize: 13.5, cursor: "pointer", fontFamily: FONT },
@@ -63,12 +63,12 @@ export default function OrderEnquiry() {
     itemInfo: { flex: 1, minWidth: 0 },
     itemName: { fontSize: 14.5, fontWeight: 700, color: themeG.textMain, margin: "0 0 3px" },
     itemMeta: { fontSize: 12, color: themeG.textSub, margin: 0 },
-    reqPill: { display: "inline-block", fontSize: 11, fontWeight: 600, color: themeG.accent, background: "rgba(45,106,79,0.08)", border: `1px solid ${themeG.border}`, borderRadius: 12, padding: "2px 9px", marginRight: 6, marginTop: 6 },
+    reqPill: { display: "inline-block", fontSize: 11, fontWeight: 600, color: themeG.accent, background: "rgba(15,33,56,0.08)", border: `1px solid ${themeG.border}`, borderRadius: 12, padding: "2px 9px", marginRight: 6, marginTop: 6 },
     qtyBox: { display: "flex", alignItems: "center", gap: 8 },
     qtyBtn: { width: 26, height: 26, borderRadius: 7, border: `1px solid ${themeG.border}`, background: themeG.bg, color: themeG.textMain, fontSize: 14, fontWeight: 700, cursor: "pointer" },
     qtyVal: { fontSize: 13.5, fontWeight: 600, color: themeG.textMain, minWidth: 22, textAlign: "center" },
     lineTotal: { fontSize: 14, fontWeight: 700, color: themeG.textMain, minWidth: 90, textAlign: "right" },
-    removeBtn: { background: "transparent", border: "none", color: "#a03025", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: FONT },
+    removeBtn: { background: "transparent", border: "none", color: "#96302F", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: FONT },
 
     footer: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", background: themeG.bg },
     totalLabel: { fontSize: 13, color: themeG.textSub },
@@ -84,13 +84,13 @@ export default function OrderEnquiry() {
       <p style={S.headingSub}>Review the products and requirements you've selected before submitting.</p>
 
       {error && (
-        <div style={{ marginBottom: 20, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 20, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}
 
       {notice && (
-        <div style={{ marginBottom: 20, background: "rgba(45,106,79,0.08)", border: "1px solid rgba(45,106,79,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: themeG.accent }}>
+        <div style={{ marginBottom: 20, background: "rgba(15,33,56,0.08)", border: "1px solid rgba(15,33,56,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: themeG.accent }}>
           {notice}
         </div>
       )}

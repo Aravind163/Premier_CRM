@@ -112,18 +112,14 @@ export default function OrderEnquiry() {
           ? "Read-only — enquiries move Pending → Assigned → Approved before becoming a formal order."
           : "Assign an enquiry to yourself, approve it, then Add Order to finalize pricing and place it."}
       </p>
- 
-      {error && <div style={S.alertError}>{error}</div>}
-       <button onClick={() => navigate("/master/orders/add")}
-          style={{ marginLeft: "auto",gap:"14px", padding: "9px 20px", borderRadius: 9, background: themeG.accent, color: themeG.card, border: "none", fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 10px rgba(124,179,66,0.32)" }}>
-          + Add Order
-        </button>
-      <div style={S.card}>     
 
+      {error && <div style={S.alertError}>{error}</div>}
+
+      <div style={S.card}>
         {loading ? (
           <p style={S.empty}>Loading…</p>
         ) : orders.length === 0 ? (
-          <p style={S.empty}>No enquiries waiting right now </p>
+          <p style={S.empty}>No enquiries waiting right now 🎉</p>
         ) : (
           <table style={S.table}>
             <thead>
@@ -133,7 +129,7 @@ export default function OrderEnquiry() {
                 <th style={S.th}>Product</th>
                 <th style={S.th}>Qty</th>
                 <th style={S.th}>Amount</th>
-                <th style={S.th}>Follow person</th>
+                <th style={S.th}>Assigned To</th>
                 <th style={S.th}>Status</th>
                 {!readOnly && <th style={S.th}>Action</th>}
               </tr>
@@ -144,7 +140,7 @@ export default function OrderEnquiry() {
                 const iOwnIt = o.AssignedTo && user.id && String(o.AssignedTo) === String(user.id);
                 return (
                   <tr key={o.Id}>
-                    <td style={{ ...S.td, fontWeight: 700, color: themeG.accent || "#2d6a4f" }}>{o.Code}</td>
+                    <td style={{ ...S.td, fontWeight: 700, color: themeG.accent || "#1F5C99" }}>{o.Code}</td>
                     <td style={S.td}>{o.customer?.Name ?? "—"}</td>
                     <td style={S.td}>{o.product?.Name ?? "—"}</td>
                     <td style={S.td}>{o.Quantity}</td>
@@ -156,15 +152,15 @@ export default function OrderEnquiry() {
                         {!canAct ? (
                           <span style={{ fontSize: 12, color: themeG.textSub }}>—</span>
                         ) : o.Status === "pending" ? (
-                          <button style={S.actionBtn("#5a3d9e")} disabled={isBusy} onClick={() => assignToMe(o.Id)}>
+                          <button style={S.actionBtn("#3A2560")} disabled={isBusy} onClick={() => assignToMe(o.Id)}>
                             {isBusy ? "…" : "Assign to me"}
                           </button>
                         ) : o.Status === "assigned" ? (
-                          <button style={S.actionBtn("#2d6a4f")} disabled={isBusy} onClick={() => approve(o.Id)}>
+                          <button style={S.actionBtn("#1F5C99")} disabled={isBusy} onClick={() => approve(o.Id)}>
                             {isBusy ? "…" : "Approve"}
                           </button>
                         ) : o.Status === "approved" ? (
-                          <button style={S.actionBtn("#1a5fa0")} disabled={isBusy} onClick={() => addOrder(o)}>
+                          <button style={S.actionBtn("#3A5C8C")} disabled={isBusy} onClick={() => addOrder(o)}>
                             Add Order
                           </button>
                         ) : (
@@ -207,15 +203,15 @@ function Arrow() {
 
 function buildStyles(themeG) {
   return {
-    heading: { fontFamily: FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
+    heading: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
     headingSub: { fontSize: 13, color: themeG.textSub, margin: "0 0 22px" },
-    card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(45,106,79,0.06)" },
+    card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
     table: { width: "100%", borderCollapse: "collapse" },
     th: { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 18px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 },
     td: { padding: "13px 18px", fontSize: 13.5, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` },
     empty: { padding: 50, textAlign: "center", fontSize: 14, color: themeG.textSub },
     actionBtn: (color) => ({ padding: "6px 14px", borderRadius: 8, border: "none", background: color, color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT, whiteSpace: "nowrap" }),
-    alertError: { marginBottom: 18, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" },
+    alertError: { marginBottom: 18, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" },
     legend: { display: "flex", alignItems: "center", gap: 14, justifyContent: "center", marginTop: 24, padding: "16px 10px", color: themeG.textSub },
   };
 }

@@ -47,36 +47,36 @@ export default function CustomerDashboard() {
 
   const styles = {
     topBar: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 30 },
-    heading: { fontFamily: FONT, fontSize: 28, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
+    heading: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 28, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
     headingSub: { fontSize: 13, color: themeG.textSub, margin: 0 },
-    liveBadge: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#3d5a1f", background: "rgba(124,179,66,0.12)", border: "1px solid rgba(124,179,66,0.28)", padding: "5px 14px", borderRadius: 20 },
-    liveDot: { display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#7cb342" },
+    liveBadge: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#164672", background: "rgba(91,155,217,0.12)", border: "1px solid rgba(91,155,217,0.28)", padding: "5px 14px", borderRadius: 20 },
+    liveDot: { display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#2E7A72" },
     shopBtn: { padding: "9px 18px", borderRadius: 10, border: "none", background: themeG.accent, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT, marginLeft: 12 },
 
     grid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 30 },
-    statCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "20px 20px 18px", position: "relative", overflow: "hidden", boxShadow: "0 4px 16px rgba(45,106,79,0.06)" },
+    statCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "20px 20px 18px", position: "relative", overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
     cardStripe: { position: "absolute", top: 0, left: 0, right: 0, height: 3, borderRadius: "14px 14px 0 0" },
     cardIcon: { fontSize: 20, marginBottom: 10, display: "block" },
     cardLabel: { fontSize: 12, color: themeG.textLabel, margin: "0 0 6px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" },
     cardValue: { fontSize: 28, fontWeight: 700, margin: 0, letterSpacing: "-0.5px" },
 
-    tableBox: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "24px 26px", boxShadow: "0 4px 16px rgba(45,106,79,0.06)" },
+    tableBox: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "24px 26px", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
     tableHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
     tableTitle: { fontFamily: FONT, fontSize: 17, fontWeight: 600, margin: 0, color: themeG.textMain },
-    tableCount: { fontSize: 12, color: themeG.textSub, background: "rgba(45,106,79,0.09)", padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(45,106,79,0.18)" },
+    tableCount: { fontSize: 12, color: themeG.textSub, background: "rgba(15,33,56,0.09)", padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(15,33,56,0.18)" },
     viewAllLink: { fontSize: 12.5, color: themeG.accent, fontWeight: 600, cursor: "pointer", background: "none", border: "none", fontFamily: FONT },
     table: { width: "100%", borderCollapse: "collapse" },
     th: { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "8px 12px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 },
     tr: { borderBottom: `1px solid ${themeG.border}` },
     td: { padding: "13px 12px", fontSize: 14, color: themeG.textMain },
 
-    sectionTitle: { fontFamily: FONT, fontSize: 20, fontWeight: 700, margin: "36px 0 4px", color: themeG.textMain },
+    sectionTitle: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 20, fontWeight: 700, margin: "36px 0 4px", color: themeG.textMain },
     sectionSub: { fontSize: 12.5, color: themeG.textSub, margin: "0 0 16px" },
     miniGrid: (cols) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 14, marginBottom: 22 }),
-    miniCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 12, padding: "16px 18px", boxShadow: "0 3px 12px rgba(45,106,79,0.05)" },
+    miniCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 12, padding: "16px 18px", boxShadow: "0 3px 12px rgba(15,33,56,0.05)" },
     miniLabel: { fontSize: 11, color: themeG.textLabel, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, margin: "0 0 6px" },
     miniValue: { fontSize: 22, fontWeight: 700, margin: 0, color: themeG.textMain },
-    widgetBox: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: "0 3px 12px rgba(45,106,79,0.05)", marginBottom: 22 },
+    widgetBox: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: "0 3px 12px rgba(15,33,56,0.05)", marginBottom: 22 },
     widgetTitle: { fontSize: 14.5, fontWeight: 700, color: themeG.textMain, margin: "0 0 12px" },
     smallTable: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 },
     smallTh: { textAlign: "left", padding: "6px 8px", color: themeG.textLabel, fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: `1px solid ${themeG.border}` },
@@ -114,10 +114,10 @@ export default function CustomerDashboard() {
   const totalRevenue = orders.reduce((sum, o) => sum + (parseFloat(o.TotalAmount) || 0), 0);
 
   const statCards = [
-    { label: "My Orders",     value: loading ? "—" : total.toLocaleString(), icon: "📦", accent: "#558b2f" },
-    { label: "In Progress",   value: loading ? "—" : activeOrders.length.toLocaleString(), icon: "⏳", accent: "#a3791f" },
-    { label: "Delivered",     value: loading ? "—" : orders.filter(o => norm(o.Status) === "delivered").length.toLocaleString(), icon: "✅", accent: "#689f38" },
-    { label: "Total Value",   value: loading ? "—" : formatRevenue(totalRevenue), icon: "📈", accent: "#5a3d9e" },
+    { label: "My Orders",     value: loading ? "—" : total.toLocaleString(), icon: "📦", accent: "#1E4A45" },
+    { label: "In Progress",   value: loading ? "—" : activeOrders.length.toLocaleString(), icon: "⏳", accent: "#D69426" },
+    { label: "Delivered",     value: loading ? "—" : orders.filter(o => norm(o.Status) === "delivered").length.toLocaleString(), icon: "✅", accent: "#2E7A72" },
+    { label: "Total Value",   value: loading ? "—" : formatRevenue(totalRevenue), icon: "📈", accent: "#3A2560" },
   ];
 
   // ── Recent orders ──
@@ -207,7 +207,7 @@ export default function CustomerDashboard() {
       </div>
 
       {error && (
-        <div style={{ marginBottom: 20, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 20, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}
@@ -265,10 +265,10 @@ export default function CustomerDashboard() {
           <p style={styles.sectionSub}>All the enquiries you've placed and where they currently stand.</p>
           <div style={styles.miniGrid(4)}>
             {[
-              ["Total", enquiryStatus.total, "#689f38"],
-              ["Pending", enquiryStatus.pending, "#a3791f"],
-              ["Approved+", enquiryStatus.approvedPlus, "#558b2f"],
-              ["Declined", enquiryStatus.declined, "#a23528"],
+              ["Total", enquiryStatus.total, "#2E7A72"],
+              ["Pending", enquiryStatus.pending, "#D69426"],
+              ["Approved+", enquiryStatus.approvedPlus, "#1E4A45"],
+              ["Declined", enquiryStatus.declined, "#B23A3A"],
             ].map(([label, val, color]) => (
               <div key={label} style={styles.miniCard}>
                 <p style={styles.miniLabel}>{label}</p>
@@ -297,9 +297,9 @@ export default function CustomerDashboard() {
           <h2 style={styles.sectionTitle}>Dispatch Status</h2>
           <div style={styles.miniGrid(3)}>
             {[
-              ["Dispatched", dispatchStatus.dispatched, "#5a3d9e"],
-              ["Pending Dispatch", dispatchStatus.pendingDispatch, "#a3791f"],
-              ["Delivered", dispatchStatus.delivered, "#558b2f"],
+              ["Dispatched", dispatchStatus.dispatched, "#3A2560"],
+              ["Pending Dispatch", dispatchStatus.pendingDispatch, "#D69426"],
+              ["Delivered", dispatchStatus.delivered, "#1E4A45"],
             ].map(([label, val, color]) => (
               <div key={label} style={styles.miniCard}>
                 <p style={styles.miniLabel}>{label}</p>
@@ -313,9 +313,9 @@ export default function CustomerDashboard() {
           <p style={styles.sectionSub}>How long your approved orders have been waiting to ship.</p>
           <div style={styles.miniGrid(3)}>
             {[
-              ["0–1 days", agingBuckets["0-1"], "#558b2f"],
-              ["2–3 days", agingBuckets["2-3"], "#a3791f"],
-              ["4+ days", agingBuckets["4+"], "#a23528"],
+              ["0–1 days", agingBuckets["0-1"], "#1E4A45"],
+              ["2–3 days", agingBuckets["2-3"], "#D69426"],
+              ["4+ days", agingBuckets["4+"], "#B23A3A"],
             ].map(([label, val, color]) => (
               <div key={label} style={styles.miniCard}>
                 <p style={styles.miniLabel}>{label}</p>
@@ -346,7 +346,7 @@ export default function CustomerDashboard() {
                 <thead><tr><th style={styles.smallTh}>Order</th><th style={styles.smallTh}>Product</th><th style={styles.smallTh}>Requested</th><th style={styles.smallTh}>Available</th></tr></thead>
                 <tbody>
                   {stockShortage.map((r, i) => (
-                    <tr key={i}><td style={styles.smallTd}>{r.code}</td><td style={styles.smallTd}>{r.product}</td><td style={styles.smallTd}>{r.requested}</td><td style={{ ...styles.smallTd, color: "#a23528", fontWeight: 600 }}>{r.available}</td></tr>
+                    <tr key={i}><td style={styles.smallTd}>{r.code}</td><td style={styles.smallTd}>{r.product}</td><td style={styles.smallTd}>{r.requested}</td><td style={{ ...styles.smallTd, color: "#B23A3A", fontWeight: 600 }}>{r.available}</td></tr>
                   ))}
                 </tbody>
               </table>
@@ -358,11 +358,11 @@ export default function CustomerDashboard() {
           <div style={styles.miniGrid(2)}>
             <div style={styles.miniCard}>
               <p style={styles.miniLabel}>Declined Enquiries</p>
-              <p style={{ ...styles.miniValue, color: "#a23528" }}>{declinedOrders.length}</p>
+              <p style={{ ...styles.miniValue, color: "#B23A3A" }}>{declinedOrders.length}</p>
             </div>
             <div style={styles.miniCard}>
               <p style={styles.miniLabel}>Value Affected</p>
-              <p style={{ ...styles.miniValue, color: "#a23528" }}>₹{declinedValue.toLocaleString()}</p>
+              <p style={{ ...styles.miniValue, color: "#B23A3A" }}>₹{declinedValue.toLocaleString()}</p>
             </div>
           </div>
           {declinedOrders.length > 0 && (
@@ -403,7 +403,7 @@ export default function CustomerDashboard() {
                 <thead><tr><th style={styles.smallTh}>Order</th><th style={styles.smallTh}>Status</th><th style={styles.smallTh}>Days Pending</th></tr></thead>
                 <tbody>
                   {longPendingOrders.map((r, i) => (
-                    <tr key={i}><td style={styles.smallTd}>{r.code}</td><td style={styles.smallTd}>{r.status}</td><td style={{ ...styles.smallTd, color: "#a23528", fontWeight: 600 }}>{r.days}</td></tr>
+                    <tr key={i}><td style={styles.smallTd}>{r.code}</td><td style={styles.smallTd}>{r.status}</td><td style={{ ...styles.smallTd, color: "#B23A3A", fontWeight: 600 }}>{r.days}</td></tr>
                   ))}
                 </tbody>
               </table>

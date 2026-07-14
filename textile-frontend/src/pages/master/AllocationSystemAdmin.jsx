@@ -28,14 +28,14 @@ const actionBtn = (bg, color, border) => ({
 });
 
 const inputStyle = {
-  width: "100%", boxSizing: "border-box", background: "#f6f9f0",
-  border: "1px solid rgba(106,163,38,0.22)", borderRadius: 8,
-  padding: "9px 12px", fontSize: 13, color: "#1a3d2b",
+  width: "100%", boxSizing: "border-box", background: "#F5F7FA",
+  border: "1px solid rgba(46,122,114,0.22)", borderRadius: 8,
+  padding: "9px 12px", fontSize: 13, color: "#0F2138",
   fontFamily: "inherit", outline: "none",
 };
 
 const fieldWrap = { marginBottom: 14 };
-const labelStyle = { display: "block", fontSize: 11, fontWeight: 600, color: "#5c6b4d", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 };
+const labelStyle = { display: "block", fontSize: 11, fontWeight: 600, color: "#526073", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 };
 
 export default function AllocationSystemAdmin({ embedded = false }) {
   const { isDark } = useTheme();
@@ -142,7 +142,7 @@ export default function AllocationSystemAdmin({ embedded = false }) {
   };
 
   const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain };
-  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(106,163,38,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(124,179,66,0.04)" };
+  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.04)" };
 
   const openAssign = (emp) => {
     setAssignTarget(emp);
@@ -279,7 +279,7 @@ export default function AllocationSystemAdmin({ embedded = false }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-        {["pending", "approved", "inactive", "all"].map((f) => (
+        {["All","pending", "approved", "inactive"].map((f) => (
           <button key={f} onClick={() => setFilter(f)}
             style={{ padding: "8px 18px", borderRadius: 20, border: "1.5px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, textTransform: "capitalize", background: filter === f ? themeG.accent : themeG.card, color: filter === f ? themeG.card : themeG.textSub, borderColor: filter === f ? themeG.accent : themeG.border }}>
             {f}
@@ -293,12 +293,12 @@ export default function AllocationSystemAdmin({ embedded = false }) {
       </div>
 
       {error && (
-        <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}
 
-      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(106,163,38,0.05)" }}>
+      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.05)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -319,18 +319,18 @@ export default function AllocationSystemAdmin({ embedded = false }) {
               const dists = toArr(e.District);
               const taluks = toArr(e.Taluk);
               return (
-                <tr key={e.Id} style={{ borderBottom: "1px solid rgba(106,163,38,0.08)" }}>
+                <tr key={e.Id} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
                   <td style={{ ...td, fontWeight: 600, color: themeG.accent, cursor: "pointer" }} onClick={() => openEdit(e)}>{e.Name}</td>
                   <td style={td}>{e.user?.phone || "—"}</td>
                   <td style={td}>
                     {dists.length > 0
                       ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{dists.map(d => <span key={d} style={areaPill}>{d}</span>)}</div>
-                      : <span style={{ color: "#a23528" }}>Not assigned</span>}
+                      : <span style={{ color: "#B23A3A" }}>Not assigned</span>}
                   </td>
                   {!isAdminMode && (
                     <td style={td}>
                       {taluks.length > 0
-                        ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{taluks.map(t => <span key={t} style={{ ...areaPill, background: "rgba(60,130,200,0.10)", color: "#1a5fa0", border: "1px solid rgba(60,130,200,0.22)" }}>{t}</span>)}</div>
+                        ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{taluks.map(t => <span key={t} style={{ ...areaPill, background: "rgba(58,92,140,0.10)", color: "#3A5C8C", border: "1px solid rgba(58,92,140,0.22)" }}>{t}</span>)}</div>
                         : <span style={{ color: themeG.textSub, fontSize: 12 }}>—</span>}
                     </td>
                   )}
@@ -338,13 +338,13 @@ export default function AllocationSystemAdmin({ embedded = false }) {
                   <td style={td}><Badge text={e.Status} /></td>
                   <td style={td}>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <button onClick={() => openAssign(e)} style={actionBtn("rgba(60,130,200,0.10)", "#1a5fa0", "rgba(60,130,200,0.26)")}>
+                      <button onClick={() => openAssign(e)} style={actionBtn("rgba(58,92,140,0.10)", "#3A5C8C", "rgba(58,92,140,0.26)")}>
                         {isAdminMode
                           ? (dists.length > 0 ? "Reassign District(s)" : "Assign District(s) & Approve")
                           : (dists.length > 0 || taluks.length > 0 ? "Reassign Area" : "Assign Area & Approve")}
                       </button>
                       {e.Status !== "inactive" && (
-                        <button disabled={actingId === e.Id} onClick={() => setStatus(e.Id, "inactive")} style={actionBtn("rgba(150,150,150,0.10)", "#5a5a5a", "rgba(150,150,150,0.26)")}>Deactivate</button>
+                        <button disabled={actingId === e.Id} onClick={() => setStatus(e.Id, "inactive")} style={actionBtn("rgba(150,150,150,0.10)", "#526073", "rgba(150,150,150,0.26)")}>Deactivate</button>
                       )}
                     </div>
                   </td>
@@ -429,7 +429,7 @@ export default function AllocationSystemAdmin({ embedded = false }) {
                 {editMode ? (isAdminMode ? "Edit Admin" : "Edit End User") : selected.Name}
               </h3>
               <button onClick={() => setEditMode(!editMode)}
-                style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${themeG.border}`, background: editMode ? "rgba(200,160,40,0.10)" : "rgba(124,179,66,0.10)", color: editMode ? "#8a6510" : themeG.accent, cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 600 }}>
+                style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${themeG.border}`, background: editMode ? "rgba(214,148,38,0.10)" : "rgba(91,155,217,0.10)", color: editMode ? "#8A5A0E" : themeG.accent, cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 600 }}>
                 {editMode ? "Cancel Edit" : "Edit"}
               </button>
             </div>
@@ -472,7 +472,7 @@ export default function AllocationSystemAdmin({ embedded = false }) {
                   ["Phone", selected.user?.phone ?? "—"],
                   ["Status", selected.Status],
                 ].map(([k, v]) => (
-                  <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(106,163,38,0.08)" }}>
+                  <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
                     <span style={{ fontSize: 13, color: themeG.textSub }}>{k}</span>
                     <span style={{ fontSize: 13, fontWeight: 600, color: themeG.textMain, textAlign: "right", maxWidth: "60%" }}>{v}</span>
                   </div>
@@ -494,12 +494,12 @@ export default function AllocationSystemAdmin({ embedded = false }) {
             <h3 style={{ fontFamily: "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize: 18, margin: "0 0 18px", color: themeG.textMain }}>
               {isAdminMode ? "Add New Admin" : "Add New End User"}
             </h3>
-            <p style={{ fontSize: 12, color: themeG.textSub, margin: "0 0 16px", background: "rgba(124,179,66,0.07)", borderRadius: 8, padding: "8px 12px", border: "1px solid rgba(124,179,66,0.18)" }}>
+            <p style={{ fontSize: 12, color: themeG.textSub, margin: "0 0 16px", background: "rgba(91,155,217,0.07)", borderRadius: 8, padding: "8px 12px", border: "1px solid rgba(91,155,217,0.18)" }}>
               Login: phone number + date of birth (ddmmyy). You can assign {isAdminMode ? "District(s)" : "District(s) and Taluk(s)"} now or during the approval step.
             </p>
 
             {addError && (
-              <div style={{ background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 8, padding: "9px 12px", marginBottom: 14, fontSize: 12, color: "#a23528" }}>
+              <div style={{ background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 8, padding: "9px 12px", marginBottom: 14, fontSize: 12, color: "#B23A3A" }}>
                 {addError}
               </div>
             )}
@@ -570,6 +570,6 @@ function PlusIcon() {
     </svg>
   );
 }
-const overlay = { position: "fixed", inset: 0, background: "rgba(20,30,15,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 };
+const overlay = { position: "fixed", inset: 0, background: "rgba(8,20,34,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 };
 const modal = { background: "#ffffff", borderRadius: 16, padding: 28, width: 400, boxShadow: "0 12px 40px rgba(0,0,0,0.18)", maxHeight: "90vh", overflowY: "auto" };
-const areaPill = { display: "inline-block", background: "rgba(106,163,38,0.12)", color: "#3d6b1f", border: "1px solid rgba(106,163,38,0.25)", borderRadius: 12, padding: "2px 10px", fontSize: 11.5, fontWeight: 600 };
+const areaPill = { display: "inline-block", background: "rgba(46,122,114,0.12)", color: "#101B28", border: "1px solid rgba(46,122,114,0.25)", borderRadius: 12, padding: "2px 10px", fontSize: 11.5, fontWeight: 600 };

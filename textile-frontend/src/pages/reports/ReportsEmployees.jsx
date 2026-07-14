@@ -14,7 +14,7 @@ function BarRow({ label, count, max, color, themeG }) {
         <span style={{ fontSize: 13, color: themeG.textMain, textTransform: "capitalize", fontWeight: 500, fontFamily: FONT }}>{label}</span>
         <span style={{ fontSize: 13, fontWeight: 700, color, fontFamily: FONT }}>{count}</span>
       </div>
-      <div style={{ height: 10, borderRadius: 6, background: "rgba(106,163,38,0.08)", overflow: "hidden" }}>
+      <div style={{ height: 10, borderRadius: 6, background: "rgba(46,122,114,0.08)", overflow: "hidden" }}>
         <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 6 }} />
       </div>
     </div>
@@ -29,9 +29,9 @@ export default function ReportsEmployees() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const card = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 22, boxShadow: "0 4px 16px rgba(106,163,38,0.05)" };
+  const card = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 22, boxShadow: "0 4px 16px rgba(46,122,114,0.05)" };
   const cardTitle = { fontFamily: FONT, fontSize: 15, fontWeight: 600, margin: "0 0 16px", color: themeG.textMain };
-  const statCard = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: "0 4px 16px rgba(106,163,38,0.05)" };
+  const statCard = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: "0 4px 16px rgba(46,122,114,0.05)" };
 
   useEffect(() => {
     (async () => {
@@ -67,20 +67,20 @@ export default function ReportsEmployees() {
     <Layout pageTitle="Employee Reports">
 
       {error && (
-        <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528", fontFamily: FONT }}>
+        <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A", fontFamily: FONT }}>
           {error}
         </div>
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
         {[
-          { label: "Total Employees",   value: employees.length,            accent: "#7cb342" },
+          { label: "Total Employees",   value: employees.length,            accent: "#2E7A72" },
           { label: "Approved",          value: statusCounts.approved || 0,  accent: themeG.accent },
-          { label: "Pending Approval",  value: statusCounts.pending  || 0,  accent: "#8a6510" },
+          { label: "Pending Approval",  value: statusCounts.pending  || 0,  accent: "#8A5A0E" },
         ].map((c) => (
           <div key={c.label} style={statCard}>
             <p style={{ fontSize: 12, color: themeG.textLabel, margin: "0 0 6px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: FONT }}>{c.label}</p>
-            <p style={{ fontSize: 24, fontWeight: 700, margin: 0, color: c.accent, fontFamily: FONT }}>{c.value}</p>
+            <p style={{ fontSize: 24, fontWeight: 700, margin: 0, color: c.accent, fontFamily: "'Space Grotesk', " + FONT }}>{c.value}</p>
           </div>
         ))}
       </div>
@@ -95,7 +95,7 @@ export default function ReportsEmployees() {
         <div style={card}>
           <h3 style={cardTitle}>By District</h3>
           {Object.entries(districtCounts).map(([d, count]) => (
-            <BarRow key={d} label={d} count={count} max={maxDistrict} color="#3a9bd5" themeG={themeG} />
+            <BarRow key={d} label={d} count={count} max={maxDistrict} color="#5B9BD9" themeG={themeG} />
           ))}
         </div>
       </div>
@@ -103,7 +103,7 @@ export default function ReportsEmployees() {
       <div style={card}>
         <h3 style={cardTitle}>By Designation</h3>
         {Object.entries(designationCounts).map(([d, count]) => (
-          <BarRow key={d} label={d} count={count} max={maxDesignation} color="#9ccc65" themeG={themeG} />
+          <BarRow key={d} label={d} count={count} max={maxDesignation} color="#5B9BD9" themeG={themeG} />
         ))}
       </div>
     </Layout>

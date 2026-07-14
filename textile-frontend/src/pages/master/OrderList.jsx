@@ -14,16 +14,16 @@ import API from "../../services/api";
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
 const categoryColors = {
-  yarn:  { bg: "rgba(252,231,153,0.22)", dot: "#d4a017", border: "rgba(220,180,40,0.22)" },
-  cloth: { bg: "rgba(186,225,255,0.22)", dot: "#3a9bd5", border: "rgba(80,160,230,0.20)" },
+  yarn:  { bg: "rgba(247,232,203,0.22)", dot: "#D69426", border: "rgba(214,148,38,0.22)" },
+  cloth: { bg: "rgba(216,230,243,0.22)", dot: "#5B9BD9", border: "rgba(91,155,217,0.20)" },
 };
 
 const paymentColor = (p) => {
   const map = {
-    paid:    { bg: "rgba(124,179,66,0.12)", color: "#3d6b1f", border: "rgba(124,179,66,0.30)" },
-    unpaid:  { bg: "rgba(200,60,50,0.10)",  color: "#a03025", border: "rgba(200,60,50,0.26)" },
-    partial: { bg: "rgba(200,160,40,0.12)", color: "#8a6510", border: "rgba(200,160,40,0.30)" },
-    refund:  { bg: "rgba(130,80,200,0.10)", color: "#6a30c0", border: "rgba(130,80,200,0.26)" },
+    paid:    { bg: "rgba(91,155,217,0.12)", color: "#101B28", border: "rgba(91,155,217,0.30)" },
+    unpaid:  { bg: "rgba(178,58,58,0.10)",  color: "#96302F", border: "rgba(178,58,58,0.26)" },
+    partial: { bg: "rgba(214,148,38,0.12)", color: "#8A5A0E", border: "rgba(214,148,38,0.30)" },
+    refund:  { bg: "rgba(74,46,122,0.10)", color: "#6a30c0", border: "rgba(74,46,122,0.26)" },
   };
   return map[p] || map.unpaid;
 };
@@ -131,13 +131,13 @@ function OrderListTab({ themeG, navigate }) {
   return (
     <>
       {error && (
-        <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528", fontFamily: FONT }}>
+        <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A", fontFamily: FONT }}>
           {error}
         </div>
       )}
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(106,163,38,0.06)" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(46,122,114,0.06)" }}>
           <span style={{ fontSize: 18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"} Orders</span>
         </div>
@@ -159,16 +159,16 @@ function OrderListTab({ themeG, navigate }) {
           {["All", "Approved", "Pending", "Processing", "Delivered", "Declined"].map((s) => (
             <button key={s} onClick={() => setFilterStatus(s)}
               style={{ padding: "6px 13px", borderRadius: 20, border: "1px solid", cursor: "pointer", fontFamily: FONT, fontSize: 12, fontWeight: 500, transition: "all 0.12s",
-                background: filterStatus === s ? "rgba(124,179,66,0.14)" : "transparent",
+                background: filterStatus === s ? "rgba(91,155,217,0.14)" : "transparent",
                 color: filterStatus === s ? themeG.accent : themeG.textSub,
-                borderColor: filterStatus === s ? "rgba(124,179,66,0.40)" : themeG.border }}>
+                borderColor: filterStatus === s ? "rgba(91,155,217,0.40)" : themeG.border }}>
               {s}
             </button>
           ))}
         </div>
 
         <button onClick={() => navigate("/master/orders/add")}
-          style={{ marginLeft: "auto", padding: "9px 20px", borderRadius: 9, background: themeG.accent, color: themeG.card, border: "none", fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 10px rgba(124,179,66,0.32)" }}>
+          style={{ marginLeft: "auto", padding: "9px 20px", borderRadius: 9, background: themeG.accent, color: themeG.card, border: "none", fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 10px rgba(91,155,217,0.32)" }}>
           + Add Order
         </button>
       </div>
@@ -177,22 +177,22 @@ function OrderListTab({ themeG, navigate }) {
         {[
           { label: "Total Orders", value: filtered.length, color: themeG.accent },
           { label: "Total Value", value: `₹${total.toLocaleString()}`, color: themeG.accent },
-          { label: "Pending", value: filtered.filter((o) => o.status === "pending").length, color: "#a3791f" },
-          { label: "Delivered", value: filtered.filter((o) => o.status === "delivered").length, color: "#2e9e50" },
+          { label: "Pending", value: filtered.filter((o) => o.status === "pending").length, color: "#D69426" },
+          { label: "Delivered", value: filtered.filter((o) => o.status === "delivered").length, color: "#1F5C99" },
         ].map((s) => (
-          <div key={s.label} style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 10, padding: "12px 20px", boxShadow: "0 2px 8px rgba(106,163,38,0.05)", flex: 1 }}>
+          <div key={s.label} style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 10, padding: "12px 20px", boxShadow: "0 2px 8px rgba(46,122,114,0.05)", flex: 1 }}>
             <p style={{ margin: "0 0 4px", fontSize: 11, color: themeG.textLabel, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: FONT }}>{s.label}</p>
-            <p style={{ margin: 0, fontSize: 22, fontWeight: 700, color: s.color, fontFamily: FONT }}>{s.value}</p>
+            <p style={{ margin: 0, fontSize: 22, fontWeight: 700, color: s.color, fontFamily: "'Space Grotesk', " + FONT }}>{s.value}</p>
           </div>
         ))}
       </div>
 
-      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(106,163,38,0.06)" }}>
+      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.06)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${themeG.border}` }}>
               {["Order ID", "Customer", "Product", "Sub-type", "Qty", "Amount (₹)", "Date", "Status", "Payment", "Due Date", "Actions"].map((h) => (
-                <th key={h} style={{ textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 13px", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(124,179,66,0.04)", fontFamily: FONT }}>
+                <th key={h} style={{ textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 13px", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.04)", fontFamily: FONT }}>
                   {h}
                 </th>
               ))}
@@ -206,7 +206,7 @@ function OrderListTab({ themeG, navigate }) {
               const daysLeft = o.dueDate ? Math.ceil((new Date(o.dueDate) - new Date()) / 86400000) : null;
               const overdue = daysLeft !== null && daysLeft < 0 && o.payment !== "paid";
               return (
-                <tr key={o.id} style={{ borderBottom: "1px solid rgba(106,163,38,0.06)", background: cc.bg }}>
+                <tr key={o.id} style={{ borderBottom: "1px solid rgba(46,122,114,0.06)", background: cc.bg }}>
                   <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.accent, fontWeight: 700, borderLeft: `3px solid ${cc.dot}`, fontFamily: FONT }}>{o.id}</td>
                   <td style={{ padding: "12px 13px", fontSize: 14, color: themeG.textMain, fontWeight: 500, fontFamily: FONT }}>{o.customer}</td>
                   <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textSub, fontFamily: FONT }}>{o.product}</td>
@@ -222,14 +222,14 @@ function OrderListTab({ themeG, navigate }) {
                   <td style={{ padding: "12px 13px" }}><Badge text={o.payment} colorFn={paymentColor} /></td>
                   <td style={{ padding: "12px 13px", fontSize: 12, fontFamily: FONT, whiteSpace: "nowrap" }}>
                     {o.dueDate ? (
-                      <span style={{ color: overdue ? "#a03025" : themeG.textSub, fontWeight: overdue ? 700 : 500 }}>
+                      <span style={{ color: overdue ? "#96302F" : themeG.textSub, fontWeight: overdue ? 700 : 500 }}>
                         {o.dueDate}{overdue ? " ⚠" : ""}
                       </span>
                     ) : "—"}
                   </td>
                   <td style={{ padding: "12px 13px", whiteSpace: "nowrap" }}>
                     <div style={{ display: "flex", gap: 7 }}>
-                      <button style={btnStyle("#3a9bd5")} onClick={() => navigate(`/master/orders/${o.dbId}`)}>View</button>
+                      <button style={btnStyle("#5B9BD9")} onClick={() => navigate(`/master/orders/${o.dbId}`)}>View</button>
                       <button style={btnStyle(themeG.accent)} onClick={() => navigate(`/master/orders/${o.dbId}?edit=1`)}>Edit</button>
                     </div>
                   </td>
@@ -278,7 +278,7 @@ function OrderStatusTab({ themeG, navigate }) {
 
   const orders = allOrders.filter((o) => o.Category === tab);
 
-  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(106,163,38,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(124,179,66,0.04)" };
+  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.04)" };
   const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain };
 
   const setStatus = async (id, status) => {
@@ -325,7 +325,7 @@ function OrderStatusTab({ themeG, navigate }) {
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(106,163,38,0.06)" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(46,122,114,0.06)" }}>
           <span style={{ fontSize: 18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"} Orders</span>
         </div>
@@ -345,12 +345,12 @@ function OrderStatusTab({ themeG, navigate }) {
       </div>
 
       {error && (
-        <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}
 
-      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(106,163,38,0.05)" }}>
+      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.05)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -365,7 +365,7 @@ function OrderStatusTab({ themeG, navigate }) {
             ) : orders.length === 0 ? (
               <tr><td colSpan={6} style={{ ...td, textAlign: "center", padding: 30, color: themeG.textSub }}>No orders in this filter.</td></tr>
             ) : orders.map((o) => (
-              <tr key={o.Id} style={{ borderBottom: "1px solid rgba(106,163,38,0.08)" }}>
+              <tr key={o.Id} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
                 <td style={{ ...td, fontWeight: 600, color: themeG.accent, cursor: "pointer" }} onClick={() => navigate(`/master/orders/${o.Id}`)}>{o.Code}</td>
                 <td style={td}>{o.customer?.Name ?? "—"}</td>
                 <td style={td}>{o.product?.Name ?? "—"}</td>
@@ -375,18 +375,18 @@ function OrderStatusTab({ themeG, navigate }) {
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {o.Status === "pending" && (
                       <>
-                        <button disabled={actingId === o.Id} onClick={() => setStatus(o.Id, "approved")} style={actionBtn("rgba(124,179,66,0.12)", themeG.accent, "rgba(124,179,66,0.30)")}>Approve</button>
-                        <button disabled={actingId === o.Id} onClick={() => setStatus(o.Id, "declined")} style={actionBtn("rgba(192,57,43,0.08)", "#a23528", "rgba(192,57,43,0.26)")}>Decline</button>
+                        <button disabled={actingId === o.Id} onClick={() => setStatus(o.Id, "approved")} style={actionBtn("rgba(91,155,217,0.12)", themeG.accent, "rgba(91,155,217,0.30)")}>Approve</button>
+                        <button disabled={actingId === o.Id} onClick={() => setStatus(o.Id, "declined")} style={actionBtn("rgba(178,58,58,0.08)", "#B23A3A", "rgba(178,58,58,0.26)")}>Decline</button>
                       </>
                     )}
                     {o.Status === "approved" && (
-                      <button disabled={actingId === o.Id} onClick={() => setStatus(o.Id, "processing")} style={actionBtn("rgba(60,130,200,0.10)", "#1a5fa0", "rgba(60,130,200,0.26)")}>Start Processing</button>
+                      <button disabled={actingId === o.Id} onClick={() => setStatus(o.Id, "processing")} style={actionBtn("rgba(58,92,140,0.10)", "#3A5C8C", "rgba(58,92,140,0.26)")}>Start Processing</button>
                     )}
                     {o.Status === "processing" && (
-                      <button disabled={actingId === o.Id} onClick={() => openDispatch(o)} style={actionBtn("rgba(124,90,200,0.10)", "#5a3d9e", "rgba(124,90,200,0.28)")}>Dispatch</button>
+                      <button disabled={actingId === o.Id} onClick={() => openDispatch(o)} style={actionBtn("rgba(74,46,122,0.10)", "#3A2560", "rgba(74,46,122,0.28)")}>Dispatch</button>
                     )}
                     {o.Status === "dispatched" && (
-                      <button disabled={actingId === o.Id} onClick={() => setStatus(o.Id, "delivered")} style={actionBtn("rgba(124,179,66,0.12)", themeG.accent, "rgba(124,179,66,0.30)")}>Mark Delivered</button>
+                      <button disabled={actingId === o.Id} onClick={() => setStatus(o.Id, "delivered")} style={actionBtn("rgba(91,155,217,0.12)", themeG.accent, "rgba(91,155,217,0.30)")}>Mark Delivered</button>
                     )}
                     {o.Status === "dispatched" && o.LRNumber && (
                       <span style={{ fontSize: 11.5, color: themeG.textSub }}>LR: {o.LRNumber} · {o.TransportName}</span>
@@ -409,7 +409,7 @@ function OrderStatusTab({ themeG, navigate }) {
       </p>
 
       {dispatchTarget && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(20,30,15,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
+        <div style={{ position: "fixed", inset: 0, background: "rgba(8,20,34,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
           onClick={() => setDispatchTarget(null)}>
           <div style={{ background: "#ffffff", borderRadius: 16, padding: 28, width: 400, boxShadow: "0 12px 40px rgba(0,0,0,0.18)" }}
             onClick={(e) => e.stopPropagation()}>
@@ -421,23 +421,23 @@ function OrderStatusTab({ themeG, navigate }) {
             </p>
 
             {error && (
-              <div style={{ background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 8, padding: "9px 12px", marginBottom: 14, fontSize: 12, color: "#a23528" }}>
+              <div style={{ background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 8, padding: "9px 12px", marginBottom: 14, fontSize: 12, color: "#B23A3A" }}>
                 {error}
               </div>
             )}
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#5c6b4d", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 }}>LR Number *</label>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#526073", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 }}>LR Number *</label>
               <input type="text" value={lrNumber} onChange={(e) => setLrNumber(e.target.value)}
                 placeholder="e.g. LR-48213"
-                style={{ width: "100%", boxSizing: "border-box", background: "#f6f9f0", border: "1px solid rgba(106,163,38,0.22)", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1a3d2b", fontFamily: "inherit", outline: "none" }} />
+                style={{ width: "100%", boxSizing: "border-box", background: "#F5F7FA", border: "1px solid rgba(46,122,114,0.22)", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#0F2138", fontFamily: "inherit", outline: "none" }} />
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#5c6b4d", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 }}>Transport Name *</label>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#526073", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 }}>Transport Name *</label>
               <input type="text" value={transportName} onChange={(e) => setTransportName(e.target.value)}
                 placeholder="e.g. VRL Logistics"
-                style={{ width: "100%", boxSizing: "border-box", background: "#f6f9f0", border: "1px solid rgba(106,163,38,0.22)", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1a3d2b", fontFamily: "inherit", outline: "none" }} />
+                style={{ width: "100%", boxSizing: "border-box", background: "#F5F7FA", border: "1px solid rgba(46,122,114,0.22)", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#0F2138", fontFamily: "inherit", outline: "none" }} />
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 6 }}>

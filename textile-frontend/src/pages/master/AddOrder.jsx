@@ -26,19 +26,19 @@ const PACKAGING_OPTIONS         = ["Individual","Bundle","Box"];
 // ─── Shared primitives ────────────────────────────────────────────────────────
 const Field = ({ label, required, children }) => (
   <div style={{ marginBottom: 18 }}>
-    <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#3d6b50", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
-      {label}{required && <span style={{ color:"#c0392b", marginLeft:3 }}>*</span>}
+    <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#101B28", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>
+      {label}{required && <span style={{ color:"#B23A3A", marginLeft:3 }}>*</span>}
     </label>
     {children}
   </div>
 );
 
 const Input = (props) => (
-  <input {...props} style={{ width:"100%", padding:"9px 13px", borderRadius:9, border:`1px solid ${"rgba(27,77,46,0.18)"}`, fontSize:14, fontFamily:"inherit", color:"#1a3d2b", background:"#fff", outline:"none", boxSizing:"border-box" }} />
+  <input {...props} style={{ width:"100%", padding:"9px 13px", borderRadius:9, border:`1px solid ${"rgba(15,33,56,0.18)"}`, fontSize:14, fontFamily:"inherit", color:"#0F2138", background:"#fff", outline:"none", boxSizing:"border-box" }} />
 );
 
 const Select = ({ children, ...props }) => (
-  <select {...props} style={{ width:"100%", padding:"9px 13px", borderRadius:9, border:`1px solid ${"rgba(27,77,46,0.18)"}`, fontSize:14, fontFamily:"inherit", color:"#1a3d2b", background:"#fff", outline:"none", boxSizing:"border-box" }}>
+  <select {...props} style={{ width:"100%", padding:"9px 13px", borderRadius:9, border:`1px solid ${"rgba(15,33,56,0.18)"}`, fontSize:14, fontFamily:"inherit", color:"#0F2138", background:"#fff", outline:"none", boxSizing:"border-box" }}>
     {children}
   </select>
 );
@@ -49,9 +49,9 @@ const RadioRow = ({ label, options, value, onChange, required }) => (
       {options.map((opt) => (
         <button key={opt} type="button" onClick={() => onChange(opt)}
           style={{ padding:"7px 18px", borderRadius:20, border:"1.5px solid", cursor:"pointer", fontFamily:"inherit", fontSize:13, fontWeight:600, transition:"all 0.12s",
-            background: value === opt ? "rgba(124,179,66,0.15)" : "#ffffff",
-            color:       value === opt ? "#3d6b1f" : "#4a7a5a",
-            borderColor: value === opt ? "#2d6a4f"  : "rgba(27,77,46,0.18)" }}>
+            background: value === opt ? "rgba(91,155,217,0.15)" : "#ffffff",
+            color:       value === opt ? "#101B28" : "#526073",
+            borderColor: value === opt ? "#1F5C99"  : "rgba(15,33,56,0.18)" }}>
           {opt}
         </button>
       ))}
@@ -145,7 +145,7 @@ function BlouseDetails({ d, set }) {
       <RadioRow label="8. Sample Required?" options={["Yes","No"]} value={d.sampleRequired} onChange={v => set("sampleRequired", v)} />
       <Field label="9. Special Notes">
         <textarea placeholder="Any additional requirements…" value={d.specialNotes} onChange={e => set("specialNotes", e.target.value)} rows={3}
-          style={{ width:"100%", padding:"9px 13px", borderRadius:9, border:`1px solid ${"rgba(27,77,46,0.18)"}`, fontSize:14, fontFamily:"inherit", color:"#1a3d2b", background:"#fff", outline:"none", resize:"vertical", boxSizing:"border-box" }} />
+          style={{ width:"100%", padding:"9px 13px", borderRadius:9, border:`1px solid ${"rgba(15,33,56,0.18)"}`, fontSize:14, fontFamily:"inherit", color:"#0F2138", background:"#fff", outline:"none", resize:"vertical", boxSizing:"border-box" }} />
       </Field>
     </>
   );
@@ -202,7 +202,7 @@ function OthersDetails({ d, set }) {
       </Field>
       <Field label="8. Additional Notes">
         <textarea placeholder="Any other specifications…" value={d.additionalNotes} onChange={e => set("additionalNotes", e.target.value)} rows={3}
-          style={{ width:"100%", padding:"9px 13px", borderRadius:9, border:`1px solid ${"rgba(27,77,46,0.18)"}`, fontSize:14, fontFamily:"inherit", color:"#1a3d2b", background:"#fff", outline:"none", resize:"vertical", boxSizing:"border-box" }} />
+          style={{ width:"100%", padding:"9px 13px", borderRadius:9, border:`1px solid ${"rgba(15,33,56,0.18)"}`, fontSize:14, fontFamily:"inherit", color:"#0F2138", background:"#fff", outline:"none", resize:"vertical", boxSizing:"border-box" }} />
       </Field>
     </>
   );
@@ -221,7 +221,7 @@ export default function AddOrder() {
   const { isDark } = useTheme();
   const themeG = getG(isDark);
 
-  const card      = { background:themeG.card, border:`1px solid ${themeG.border}`, borderRadius:14, padding:24, boxShadow:"0 4px 16px rgba(106,163,38,0.05)", minWidth:0, width:"100%", boxSizing:"border-box" };
+  const card      = { background:themeG.card, border:`1px solid ${themeG.border}`, borderRadius:14, padding:24, boxShadow:"0 4px 16px rgba(46,122,114,0.05)", minWidth:0, width:"100%", boxSizing:"border-box" };
   const cardTitle = { fontFamily:"'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize:16, fontWeight:600, margin:"0 0 20px", color:themeG.textMain };
 
   const navigate = useNavigate();
@@ -249,7 +249,9 @@ export default function AddOrder() {
         setCustomers(custRes.data);
         setProducts(prodRes.data);
 
-        
+        // Coming from an approved Order Enquiry — pre-fill customer,
+        // product, category/sub-type and starting price so staff only
+        // has to confirm/adjust before placing the formal order.
         if (fromEnquiry && prefillProductId) {
           const p = prodRes.data.find((pr) => String(pr.Id) === String(prefillProductId));
           if (p) {
@@ -356,7 +358,7 @@ export default function AddOrder() {
 
       {/* ── Category locked badge ── */}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12, flexWrap: "wrap" }}>
-        <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"8px 18px", borderRadius:10, background:themeG.card, border:`1px solid ${themeG.border}`, boxShadow:"0 2px 8px rgba(106,163,38,0.06)" }}>
+        <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"8px 18px", borderRadius:10, background:themeG.card, border:`1px solid ${themeG.border}`, boxShadow:"0 2px 8px rgba(46,122,114,0.06)" }}>
           <span style={{ fontSize:18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily:"inherit", fontSize:14, fontWeight:700, color:themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"}</span>
         </div>
@@ -367,7 +369,7 @@ export default function AddOrder() {
       </div>
 
       {fromEnquiry && (
-        <div style={{ marginBottom: 20, background: "rgba(90,61,158,0.08)", border: "1px solid rgba(90,61,158,0.25)", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: "#5a3d9e", fontWeight: 600 }}>
+        <div style={{ marginBottom: 20, background: "rgba(58,37,96,0.08)", border: "1px solid rgba(58,37,96,0.25)", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: "#3A2560", fontWeight: 600 }}>
           Converting approved enquiry #{fromEnquiry} — customer and product are pre-filled below. Confirm price, discount and delivery date, then Place Order.
         </div>
       )}
@@ -375,7 +377,7 @@ export default function AddOrder() {
       <div style={{ display:"grid", gridTemplateColumns: showDetailsCard ? "repeat(3, minmax(0, 1fr))" : "repeat(2, minmax(0, 1fr))", gap:24, alignItems:"start" }}>
 
         {error && (
-          <div style={{ gridColumn:"1 / -1", background:"rgba(192,57,43,0.08)", border:"1px solid rgba(192,57,43,0.25)", borderRadius:10, padding:"10px 14px", fontSize:13, color:"#a23528" }}>
+          <div style={{ gridColumn:"1 / -1", background:"rgba(178,58,58,0.08)", border:"1px solid rgba(178,58,58,0.25)", borderRadius:10, padding:"10px 14px", fontSize:13, color:"#B23A3A" }}>
             {error}
           </div>
         )}
@@ -395,7 +397,7 @@ export default function AddOrder() {
               {subtypes.map(t => (
                 <button key={t} onClick={() => handleSubTypeChange(t)}
                   style={{ padding:"7px 18px", borderRadius:20, border:"1.5px solid", cursor:"pointer", fontFamily:"inherit", fontSize:13, fontWeight:600, transition:"all 0.12s", textTransform:"capitalize",
-                    background: subType === t ? "rgba(124,179,66,0.15)" : themeG.card,
+                    background: subType === t ? "rgba(91,155,217,0.15)" : themeG.card,
                     color:       subType === t ? themeG.accent : themeG.textSub,
                     borderColor: subType === t ? themeG.accent  : themeG.border }}>
                   {t}
@@ -436,7 +438,7 @@ export default function AddOrder() {
               style={{ width:"100%", padding:"9px 13px", borderRadius:9, border:`1px solid ${themeG.border}`, fontSize:14, fontFamily:"inherit", color:themeG.textMain, background:themeG.card, outline:"none", resize:"vertical", boxSizing:"border-box" }} />
           </Field>
 
-          <div style={{ marginTop:12, padding:"16px 18px", borderRadius:12, border:"2px solid rgba(124,179,66,0.25)", background:"rgba(124,179,66,0.05)" }}>
+          <div style={{ marginTop:12, padding:"16px 18px", borderRadius:12, border:"2px solid rgba(91,155,217,0.25)", background:"rgba(91,155,217,0.05)" }}>
             <p style={{ margin:"0 0 10px", fontSize:12, fontWeight:700, color:themeG.textLabel, textTransform:"uppercase", letterSpacing:"0.07em" }}>Order Summary</p>
             {[
               ["Category",    tab === "yarn" ? `🧵 Yarn / ${subType}` : `👘 Cloth / ${subType}`],
@@ -475,7 +477,7 @@ export default function AddOrder() {
           Cancel
         </button>
         <button onClick={handleSubmit} disabled={saving}
-          style={{ padding:"10px 28px", borderRadius:9, border:"none", background:themeG.accent, color:themeG.card, cursor:saving ? "not-allowed" : "pointer", fontFamily:"inherit", fontSize:14, fontWeight:700, boxShadow:"0 2px 10px rgba(124,179,66,0.32)", opacity:saving ? 0.6 : 1 }}>
+          style={{ padding:"10px 28px", borderRadius:9, border:"none", background:themeG.accent, color:themeG.card, cursor:saving ? "not-allowed" : "pointer", fontFamily:"inherit", fontSize:14, fontWeight:700, boxShadow:"0 2px 10px rgba(91,155,217,0.32)", opacity:saving ? 0.6 : 1 }}>
           {saving ? "Placing…" : "Place Order"}
         </button>
       </div>

@@ -17,8 +17,8 @@ const getThemeColors = () => getG(localStorage.getItem("premier_theme") === "dar
 
 /* Row color by customer type */
 const typeColors = {
-  wholesale: { bg: "rgba(186,225,255,0.22)", dot: "#3a9bd5", border: "rgba(80,160,230,0.20)" },
-  retail:    { bg: "rgba(200,240,200,0.22)", dot: "#2e9e50", border: "rgba(60,180,90,0.18)" },
+  wholesale: { bg: "rgba(216,230,243,0.22)", dot: "#5B9BD9", border: "rgba(91,155,217,0.20)" },
+  retail:    { bg: "rgba(200,240,200,0.22)", dot: "#1F5C99", border: "rgba(46,122,114,0.18)" },
 };
 
 const Badge = ({ text }) => {
@@ -49,7 +49,7 @@ function FilterPills({ values, active, onSelect }) {
         <button
           key={v}
           onClick={() => onSelect(v)}
-          style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 500, transition: "all 0.12s", background: active === v ? "rgba(124,179,66,0.14)" : "transparent", color: active === v ? "#3d6b1f" : "#4a7a5a", borderColor: active === v ? "rgba(124,179,66,0.40)" : "rgba(27,77,46,0.18)" }}
+          style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 500, transition: "all 0.12s", background: active === v ? "rgba(91,155,217,0.14)" : "transparent", color: active === v ? "#101B28" : "#526073", borderColor: active === v ? "rgba(91,155,217,0.40)" : "rgba(15,33,56,0.18)" }}
         >
           {v}
         </button>
@@ -141,7 +141,7 @@ function CustomerListTab({ themeG, navigate }) {
   return (
     <>
       {error && (
-        <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}
@@ -157,18 +157,18 @@ function CustomerListTab({ themeG, navigate }) {
         <FilterPills label="Status" values={["All", "Approved", "Pending", "Declined"]} active={filterStatus} onSelect={setFilterStatus} />
         <button
           onClick={() => navigate("/master/customers/add")}
-          style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, padding: "9px 20px", borderRadius: 9, background: themeG.accent, color: themeG.card, border: "none", fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 10px rgba(124,179,66,0.32)" }}
+          style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, padding: "9px 20px", borderRadius: 9, background: themeG.accent, color: themeG.card, border: "none", fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 10px rgba(91,155,217,0.32)" }}
         >
           + Add Customer
         </button>
       </div>
 
-      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(106,163,38,0.06)" }}>
+      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.06)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${themeG.border}` }}>
               {["ID", "Customer Name", "Phone", "District", "Taluk", "Type", "Orders", "Balance (₹)", "Status", "Actions"].map((h) => (
-                <th key={h} style={{ textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 13px", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(124,179,66,0.04)" }}>
+                <th key={h} style={{ textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 13px", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.04)" }}>
                   {h}
                 </th>
               ))}
@@ -180,7 +180,7 @@ function CustomerListTab({ themeG, navigate }) {
             ) : filtered.map((c) => {
               const rc = typeColors[c.type] || typeColors.retail;
               return (
-                <tr key={c.id} style={{ borderBottom: "1px solid rgba(106,163,38,0.06)", background: rc.bg }}>
+                <tr key={c.id} style={{ borderBottom: "1px solid rgba(46,122,114,0.06)", background: rc.bg }}>
                   <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.accent, fontWeight: 600, borderLeft: `3px solid ${rc.dot}` }}>{c.id}</td>
                   <td style={{ padding: "12px 13px", fontSize: 14, color: themeG.textMain, fontWeight: 500 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -195,13 +195,13 @@ function CustomerListTab({ themeG, navigate }) {
                   <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textSub }}>{c.taluk}</td>
                   <td style={{ padding: "12px 13px" }}><TypeBadge type={c.type} /></td>
                   <td style={{ padding: "12px 13px", fontSize: 13, fontWeight: 600, color: themeG.textMain }}>{c.orders}</td>
-                  <td style={{ padding: "12px 13px", fontSize: 13, fontWeight: 700, color: c.balance > 0 ? "#c0392b" : themeG.textSub }}>
+                  <td style={{ padding: "12px 13px", fontSize: 13, fontWeight: 700, color: c.balance > 0 ? "#B23A3A" : themeG.textSub }}>
                     {c.balance > 0 ? `₹${c.balance.toLocaleString()}` : "—"}
                   </td>
                   <td style={{ padding: "12px 13px" }}><Badge text={c.status} /></td>
                   <td style={{ padding: "12px 13px" }}>
                     <div style={{ display: "flex", gap: 7 }}>
-                      <button style={btnStyle("#3a9bd5")} onClick={() => navigate(`/master/customers/${c.dbId}`)}>👁️</button>
+                      <button style={btnStyle("#5B9BD9")} onClick={() => navigate(`/master/customers/${c.dbId}`)}>👁️</button>
                       <button style={btnStyle(themeG.accent)} onClick={() => navigate(`/master/customers/${c.dbId}?edit=1`)}>✏️</button>
                     </div>
                   </td>
@@ -267,7 +267,7 @@ function CustomerOrdersTab({ themeG, navigate }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "270px 1fr", gap: 18, alignItems: "start" }}>
       {/* ── Customer picker ── */}
-      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(106,163,38,0.05)" }}>
+      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.05)" }}>
         <div style={{ padding: 12, borderBottom: `1px solid ${themeG.border}` }}>
           <input
             placeholder="Search customer…"
@@ -287,7 +287,7 @@ function CustomerOrdersTab({ themeG, navigate }) {
               onClick={() => setSelected(c)}
               style={{
                 padding: "11px 14px", cursor: "pointer", borderBottom: `1px solid ${themeG.border}`,
-                background: selected?.Id === c.Id ? "rgba(45,106,79,0.08)" : "transparent",
+                background: selected?.Id === c.Id ? "rgba(15,33,56,0.08)" : "transparent",
                 borderLeft: selected?.Id === c.Id ? `3px solid ${themeG.accent}` : "3px solid transparent",
               }}
             >
@@ -299,9 +299,9 @@ function CustomerOrdersTab({ themeG, navigate }) {
       </div>
 
       {/* ── Orders for selected customer ── */}
-      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 22, boxShadow: "0 4px 16px rgba(106,163,38,0.05)" }}>
+      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 22, boxShadow: "0 4px 16px rgba(46,122,114,0.05)" }}>
         {error && (
-          <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+          <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
             {error}
           </div>
         )}
@@ -372,7 +372,7 @@ function CustomerStatusTab({ themeG, navigate }) {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
 
-  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(106,163,38,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(124,179,66,0.04)" };
+  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.04)" };
   const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain };
 
   const actionBtn = (bg, color, border) => ({
@@ -406,12 +406,12 @@ function CustomerStatusTab({ themeG, navigate }) {
       </div>
 
       {error && (
-        <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}
 
-      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(106,163,38,0.05)" }}>
+      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.05)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -426,7 +426,7 @@ function CustomerStatusTab({ themeG, navigate }) {
             ) : customers.length === 0 ? (
               <tr><td colSpan={7} style={{ ...td, textAlign: "center", padding: 30, color: themeG.textSub }}>No customers in this filter.</td></tr>
             ) : customers.map((c) => (
-              <tr key={c.Id} style={{ borderBottom: "1px solid rgba(106,163,38,0.08)" }}>
+              <tr key={c.Id} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
                 <td style={{ ...td, fontWeight: 600, color: themeG.accent, cursor: "pointer" }} onClick={() => navigate(`/master/customers/${c.Id}`)}>{c.Code}</td>
                 <td style={td}>{c.Name}</td>
                 <td style={td}>{c.Phone}</td>
@@ -436,17 +436,17 @@ function CustomerStatusTab({ themeG, navigate }) {
                 <td style={td}>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {c.Status !== "approved" && (
-                      <button disabled={actingId === c.Id} onClick={() => setStatus(c.Id, "approved")} style={actionBtn("rgba(124,179,66,0.12)", themeG.accent, "rgba(124,179,66,0.30)")}>
+                      <button disabled={actingId === c.Id} onClick={() => setStatus(c.Id, "approved")} style={actionBtn("rgba(91,155,217,0.12)", themeG.accent, "rgba(91,155,217,0.30)")}>
                         Approve
                       </button>
                     )}
                     {c.Status !== "declined" && (
-                      <button disabled={actingId === c.Id} onClick={() => setStatus(c.Id, "declined")} style={actionBtn("rgba(192,57,43,0.08)", "#a23528", "rgba(192,57,43,0.26)")}>
+                      <button disabled={actingId === c.Id} onClick={() => setStatus(c.Id, "declined")} style={actionBtn("rgba(178,58,58,0.08)", "#B23A3A", "rgba(178,58,58,0.26)")}>
                         Decline
                       </button>
                     )}
                     {c.Status !== "pending" && (
-                      <button disabled={actingId === c.Id} onClick={() => setStatus(c.Id, "pending")} style={actionBtn("rgba(200,160,40,0.10)", "#8a6510", "rgba(200,160,40,0.28)")}>
+                      <button disabled={actingId === c.Id} onClick={() => setStatus(c.Id, "pending")} style={actionBtn("rgba(214,148,38,0.10)", "#8A5A0E", "rgba(214,148,38,0.28)")}>
                         Reset
                       </button>
                     )}

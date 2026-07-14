@@ -54,7 +54,7 @@ const Field = ({ label, children }) => {
 };
 
 const Input = (props) => (
-  <input {...props} style={{ width:"100%", padding:"9px 13px", borderRadius:9, border:"1px solid rgba(27,77,46,0.18)", fontSize:14, fontFamily:FONT, color:"#1a3d2b", background: props.disabled ? "#F1F5F9" : "#ffffff", outline:"none", boxSizing:"border-box", ...props.style }} />
+  <input {...props} style={{ width:"100%", padding:"9px 13px", borderRadius:9, border:"1px solid rgba(15,33,56,0.18)", fontSize:14, fontFamily:FONT, color:"#0F2138", background: props.disabled ? "#EAEFF5" : "#ffffff", outline:"none", boxSizing:"border-box", ...props.style }} />
 );
 
 const Select = ({ children, ...props }) => {
@@ -63,9 +63,9 @@ const Select = ({ children, ...props }) => {
 };
 
 const ReadRow = ({ label, value }) => (
-  <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0", borderBottom:"1px solid rgba(106,163,38,0.08)" }}>
-    <span style={{ fontSize:13, color:"#4a7a5a", fontFamily:FONT }}>{label}</span>
-    <span style={{ fontSize:13, fontWeight:600, color:"#1a3d2b", fontFamily:FONT }}>{value ?? "—"}</span>
+  <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0", borderBottom:"1px solid rgba(46,122,114,0.08)" }}>
+    <span style={{ fontSize:13, color:"#526073", fontFamily:FONT }}>{label}</span>
+    <span style={{ fontSize:13, fontWeight:600, color:"#0F2138", fontFamily:FONT }}>{value ?? "—"}</span>
   </div>
 );
 
@@ -95,9 +95,9 @@ function ChipField({ options, value, onChange }) {
           return (
             <button key={opt} type="button" onClick={() => pick(opt)}
               style={{ padding:"6px 16px", borderRadius:20, border:"1.5px solid", cursor:"pointer", fontFamily:FONT, fontSize:13, fontWeight:600, transition:"all 0.12s",
-                background:  active ? "rgba(45,106,79,0.12)" : "#ffffff",
-                color:       active ? "#2d6a4f" : "#4a7a5a",
-                borderColor: active ? "#2d6a4f" : "rgba(27,77,46,0.22)" }}>
+                background:  active ? "rgba(15,33,56,0.12)" : "#ffffff",
+                color:       active ? "#1F5C99" : "#526073",
+                borderColor: active ? "#1F5C99" : "rgba(15,33,56,0.22)" }}>
               {opt}
             </button>
           );
@@ -116,7 +116,7 @@ export default function ProductView() {
   const themeG = getG(isDark);
   const navigate = useNavigate();
 
-  const card      = { background:themeG.card, border:`1px solid ${themeG.border}`, borderRadius:14, padding:24, boxShadow:"0 4px 16px rgba(106,163,38,0.05)" };
+  const card      = { background:themeG.card, border:`1px solid ${themeG.border}`, borderRadius:14, padding:24, boxShadow:"0 4px 16px rgba(46,122,114,0.05)" };
   const cardTitle = { fontFamily:FONT, fontSize:16, fontWeight:600, margin:"0 0 20px", color:themeG.textMain };
 
   const { id } = useParams();
@@ -220,7 +220,7 @@ export default function ProductView() {
 
   if (!product) return (
     <Layout pageTitle="Product">
-      <p style={{ color:"#a23528", fontFamily:FONT }}>{error || "Product not found."}</p>
+      <p style={{ color:"#B23A3A", fontFamily:FONT }}>{error || "Product not found."}</p>
       <button onClick={() => navigate("/master/products")} style={{ marginTop:12, padding:"9px 20px", borderRadius:9, border:`1px solid ${themeG.border}`, background:themeG.card, cursor:"pointer", fontFamily:FONT }}>Back to Products</button>
     </Layout>
   );
@@ -237,7 +237,7 @@ export default function ProductView() {
     <Layout pageTitle={`${editMode ? "Edit Product" : "Product Details"} · ${product.Name}`}>
 
       {error && (
-        <div style={{ marginBottom:16, background:"rgba(192,57,43,0.08)", border:"1px solid rgba(192,57,43,0.25)", borderRadius:10, padding:"10px 14px", fontSize:13, color:"#a23528", fontFamily:FONT }}>
+        <div style={{ marginBottom:16, background:"rgba(178,58,58,0.08)", border:"1px solid rgba(178,58,58,0.25)", borderRadius:10, padding:"10px 14px", fontSize:13, color:"#B23A3A", fontFamily:FONT }}>
           {error}
         </div>
       )}
@@ -254,14 +254,14 @@ export default function ProductView() {
               <Field label="Category">
                 <div style={{
                   display:"flex", alignItems:"center", gap:8, padding:"9px 14px",
-                  borderRadius:9, border:"1.5px solid rgba(45,106,79,0.30)",
-                  background:"rgba(45,106,79,0.07)", width:"fit-content",
+                  borderRadius:9, border:"1.5px solid rgba(15,33,56,0.30)",
+                  background:"rgba(15,33,56,0.07)", width:"fit-content",
                 }}>
                   <span style={{ fontSize:16 }}>{form.tab === "cloth" ? "👘" : "🧵"}</span>
-                  <span style={{ fontFamily:FONT, fontSize:13.5, fontWeight:700, color:"#2d6a4f" }}>
+                  <span style={{ fontFamily:FONT, fontSize:13.5, fontWeight:700, color:"#1F5C99" }}>
                     {form.tab === "cloth" ? "Cloth" : "Yarn"}
                   </span>
-                  <span style={{ fontSize:11, color:"#6b8f71", marginLeft:4 }}>(locked)</span>
+                  <span style={{ fontSize:11, color:"#526073", marginLeft:4 }}>(locked)</span>
                 </div>
               </Field>
 
@@ -272,9 +272,9 @@ export default function ProductView() {
                     <button key={key} type="button"
                       onClick={() => handleSubTypeChange(key)}
                       style={{ padding:"6px 14px", borderRadius:20, border:"1.5px solid", cursor:"pointer", fontFamily:FONT, fontSize:13, fontWeight:600,
-                        background:  form.subType===key ? "rgba(45,106,79,0.12)" : "#ffffff",
-                        color:       form.subType===key ? "#2d6a4f" : "#4a7a5a",
-                        borderColor: form.subType===key ? "#2d6a4f" : "rgba(27,77,46,0.22)" }}>
+                        background:  form.subType===key ? "rgba(15,33,56,0.12)" : "#ffffff",
+                        color:       form.subType===key ? "#1F5C99" : "#526073",
+                        borderColor: form.subType===key ? "#1F5C99" : "rgba(15,33,56,0.22)" }}>
                       {cfg.icon} {cfg.label}
                     </button>
                   ))}
@@ -340,13 +340,13 @@ export default function ProductView() {
               <Field label="Color">
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                   <input type="color" value={form.color} onChange={e => set("color", e.target.value)}
-                    style={{ width:36, height:36, borderRadius:8, border:"1px solid rgba(27,77,46,0.18)", cursor:"pointer", padding:2 }} />
-                  <span style={{ fontSize:13, color:"#4a7a5a", fontFamily:FONT }}>{form.color}</span>
+                    style={{ width:36, height:36, borderRadius:8, border:"1px solid rgba(15,33,56,0.18)", cursor:"pointer", padding:2 }} />
+                  <span style={{ fontSize:13, color:"#526073", fontFamily:FONT }}>{form.color}</span>
                 </div>
               </Field>
               <Field label="Description">
                 <textarea value={form.description} onChange={e => set("description", e.target.value)} rows={4}
-                  style={{ width:"100%", padding:"9px 13px", borderRadius:9, border:"1px solid rgba(27,77,46,0.18)", fontSize:14, fontFamily:FONT, color:"#1a3d2b", background:"#ffffff", outline:"none", resize:"vertical", boxSizing:"border-box" }} />
+                  style={{ width:"100%", padding:"9px 13px", borderRadius:9, border:"1px solid rgba(15,33,56,0.18)", fontSize:14, fontFamily:FONT, color:"#0F2138", background:"#ffffff", outline:"none", resize:"vertical", boxSizing:"border-box" }} />
               </Field>
             </>
           ) : (
@@ -359,14 +359,14 @@ export default function ProductView() {
                 <ReadRow label={product.Category==="yarn" ? "Weight" : "Size"} value={rawSpec || "—"} />
               )}
               <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0" }}>
-                <span style={{ fontSize:13, color:"#4a7a5a", fontFamily:FONT }}>Color</span>
+                <span style={{ fontSize:13, color:"#526073", fontFamily:FONT }}>Color</span>
                 <div style={{ width:18, height:18, borderRadius:"50%", background:product.Color, border:"1.5px solid rgba(0,0,0,0.14)" }} />
-                <span style={{ fontSize:13, color:"#1a3d2b", fontFamily:FONT }}>{product.Color}</span>
+                <span style={{ fontSize:13, color:"#0F2138", fontFamily:FONT }}>{product.Color}</span>
               </div>
               <ReadRow label="Created" value={product.CreatedAt?.substring(0,10)} />
               <div style={{ marginTop:10 }}>
-                <p style={{ fontSize:12, color:"#3d6b50", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6, fontFamily:FONT }}>Description</p>
-                <p style={{ fontSize:13, color:"#1a3d2b", margin:0, fontFamily:FONT }}>{product.Description || "—"}</p>
+                <p style={{ fontSize:12, color:"#101B28", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6, fontFamily:FONT }}>Description</p>
+                <p style={{ fontSize:13, color:"#0F2138", margin:0, fontFamily:FONT }}>{product.Description || "—"}</p>
               </div>
             </>
           )}
@@ -374,25 +374,25 @@ export default function ProductView() {
       </div>
 
       <div style={{ display:"flex", gap:12, marginTop:28, justifyContent:"flex-end" }}>
-        <button onClick={() => navigate("/master/products")} style={{ padding:"10px 24px", borderRadius:9, border:"1px solid rgba(27,77,46,0.18)", background:"#ffffff", color:"#4a7a5a", cursor:"pointer", fontFamily:FONT, fontSize:14, fontWeight:500 }}>
+        <button onClick={() => navigate("/master/products")} style={{ padding:"10px 24px", borderRadius:9, border:"1px solid rgba(15,33,56,0.18)", background:"#ffffff", color:"#526073", cursor:"pointer", fontFamily:FONT, fontSize:14, fontWeight:500 }}>
           Back
         </button>
 
         {editMode ? (
           <>
-            <button onClick={cancelEdit} style={{ padding:"10px 24px", borderRadius:9, border:"1px solid rgba(27,77,46,0.18)", background:"#ffffff", color:"#4a7a5a", cursor:"pointer", fontFamily:FONT, fontSize:14, fontWeight:500 }}>
+            <button onClick={cancelEdit} style={{ padding:"10px 24px", borderRadius:9, border:"1px solid rgba(15,33,56,0.18)", background:"#ffffff", color:"#526073", cursor:"pointer", fontFamily:FONT, fontSize:14, fontWeight:500 }}>
               Cancel
             </button>
-            <button onClick={handleSave} disabled={saving} style={{ padding:"10px 28px", borderRadius:9, border:"none", background:"#2d6a4f", color:"#ffffff", cursor: saving ? "not-allowed" : "pointer", fontFamily:FONT, fontSize:14, fontWeight:700, boxShadow:"0 2px 10px rgba(124,179,66,0.32)", opacity: saving ? 0.6 : 1 }}>
+            <button onClick={handleSave} disabled={saving} style={{ padding:"10px 28px", borderRadius:9, border:"none", background:"#1F5C99", color:"#ffffff", cursor: saving ? "not-allowed" : "pointer", fontFamily:FONT, fontSize:14, fontWeight:700, boxShadow:"0 2px 10px rgba(91,155,217,0.32)", opacity: saving ? 0.6 : 1 }}>
               {saving ? "Saving…" : "Save Changes"}
             </button>
           </>
         ) : (
           <>
-            <button onClick={handleDelete} style={{ padding:"10px 24px", borderRadius:9, border:"1px solid rgba(192,57,43,0.30)", background:"rgba(192,57,43,0.06)", color:"#a23528", cursor:"pointer", fontFamily:FONT, fontSize:14, fontWeight:600 }}>
+            <button onClick={handleDelete} style={{ padding:"10px 24px", borderRadius:9, border:"1px solid rgba(178,58,58,0.30)", background:"rgba(178,58,58,0.06)", color:"#B23A3A", cursor:"pointer", fontFamily:FONT, fontSize:14, fontWeight:600 }}>
               Delete
             </button>
-            <button onClick={enterEdit} style={{ padding:"10px 28px", borderRadius:9, border:"none", background:"#2d6a4f", color:"#ffffff", cursor:"pointer", fontFamily:FONT, fontSize:14, fontWeight:700, boxShadow:"0 2px 10px rgba(124,179,66,0.32)" }}>
+            <button onClick={enterEdit} style={{ padding:"10px 28px", borderRadius:9, border:"none", background:"#1F5C99", color:"#ffffff", cursor:"pointer", fontFamily:FONT, fontSize:14, fontWeight:700, boxShadow:"0 2px 10px rgba(91,155,217,0.32)" }}>
               Edit Product
             </button>
           </>

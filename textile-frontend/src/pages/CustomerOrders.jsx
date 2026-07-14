@@ -49,11 +49,11 @@ export default function CustomerOrders() {
   }, []);
 
   const S = {
-    heading: { fontFamily: FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
+    heading: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
     headingSub: { fontSize: 13, color: themeG.textSub, margin: "0 0 24px" },
-    card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(45,106,79,0.06)" },
+    card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
     table: { width: "100%", borderCollapse: "collapse" },
-    th: { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(45,106,79,0.04)" },
+    th: { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(15,33,56,0.04)" },
     td: { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` },
     trackBtn: { background: "transparent", border: `1px solid ${themeG.accent}`, borderRadius: 6, padding: "4px 12px", fontSize: 11.5, color: themeG.accent, fontWeight: 600, cursor: "pointer", fontFamily: FONT },
     trackBtnDisabled: { background: "transparent", border: `1px solid ${themeG.border}`, borderRadius: 6, padding: "4px 12px", fontSize: 11.5, color: themeG.textSub, fontWeight: 600, cursor: "not-allowed", fontFamily: FONT },
@@ -67,7 +67,7 @@ export default function CustomerOrders() {
       <p style={S.headingSub}>All the enquiries you've placed. Tracking details are available once an order has shipped.</p>
 
       {error && (
-        <div style={{ marginBottom: 20, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 20, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}

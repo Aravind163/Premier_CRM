@@ -33,9 +33,9 @@ const SIZE_OPTIONS_BY_SUBTYPE = {
 const DEFAULT_SIZE_OPTIONS = ["S", "M", "L", "XL", "Other"];
 
 const COLOR_SWATCHES = [
-  "#FFFFFF", "#000000", "#F5F5F5", "#ECEFF1", "#FFF9C4", "#FFE0B2", "#F3E5F5",
-  "#E8F5E9", "#E3F2FD", "#FFCDD2", "#D7CCC8", "#1565C0", "#2E7D32", "#455A64",
-  "#37474F", "#BF360C", "#F57F17", "#4A148C", "#880E4F",
+  "#FFFFFF", "#000000", "#F5F7FA", "#ECEFF1", "#F7E8CB", "#F7E8CB", "#E7DCF2",
+  "#EAEFF5", "#D8E6F3", "#F7DCDC", "#D7CCC8", "#3A5C8C", "#2E7D32", "#455A64",
+  "#37474F", "#B23A3A", "#D69426", "#4A148C", "#4A2E7A",
 ];
 
 // Circular swatch picker + native color input for anything custom — same
@@ -52,7 +52,7 @@ function ColorSwatchPicker({ value, onChange, themeG }) {
             style={{
               width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer",
               border:    value === c ? `2.5px solid ${themeG.accent}` : "1.5px solid rgba(0,0,0,0.14)",
-              boxShadow: value === c ? "0 0 0 3px rgba(124,179,66,0.30)" : "none",
+              boxShadow: value === c ? "0 0 0 3px rgba(91,155,217,0.30)" : "none",
             }}
           />
         ))}
@@ -103,7 +103,7 @@ function ChipField({ options, value, onChange, themeG }) {
               style={{
                 padding: "6px 14px", borderRadius: 18, border: "1.5px solid", cursor: "pointer",
                 fontFamily: FONT, fontSize: 12.5, fontWeight: 600, transition: "all 0.12s",
-                background:  isActive ? "rgba(45,106,79,0.12)" : themeG.bg,
+                background:  isActive ? "rgba(15,33,56,0.12)" : themeG.bg,
                 color:       isActive ? themeG.accent : themeG.textSub,
                 borderColor: isActive ? themeG.accent : themeG.border,
               }}
@@ -134,7 +134,7 @@ function RequirementModal({ product, onClose, onConfirm, themeG }) {
   const sizeOptions = SIZE_OPTIONS_BY_SUBTYPE[(product.SubType || "").toLowerCase()] || DEFAULT_SIZE_OPTIONS;
 
   const M = {
-    overlay: { position: "fixed", inset: 0, background: "rgba(20,30,15,0.40)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 },
+    overlay: { position: "fixed", inset: 0, background: "rgba(8,20,34,0.40)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 },
     box: { background: themeG.card, borderRadius: 16, padding: 26, width: 380, maxWidth: "90vw", boxShadow: "0 12px 40px rgba(0,0,0,0.25)" },
     title: { fontSize: 17, fontWeight: 700, color: themeG.textMain, margin: "0 0 2px" },
     sub: { fontSize: 12.5, color: themeG.textSub, margin: "0 0 18px" },
@@ -235,7 +235,7 @@ export default function ProductCatalog() {
 
   const S = {
     topRow: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 },
-    heading: { fontFamily: FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
+    heading: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
     headingSub: { fontSize: 13, color: themeG.textSub, margin: 0 },
     cartBtn: { display: "flex", alignItems: "center", gap: 8, padding: "9px 18px", borderRadius: 20, border: `1.5px solid ${themeG.accent}`, background: "transparent", color: themeG.accent, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT },
     cartBadgeInline: { background: themeG.accent, color: "#fff", borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 },
@@ -244,15 +244,15 @@ export default function ProductCatalog() {
     filterLabel: { fontSize: 11, fontWeight: 700, color: themeG.textLabel, textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 8px" },
     filterRow: { display: "flex", gap: 8, flexWrap: "wrap" },
     filterBtn: (active) => ({ padding: "7px 16px", borderRadius: 20, border: "1.5px solid", cursor: "pointer", fontFamily: FONT, fontSize: 12.5, fontWeight: 600, textTransform: "capitalize", background: active ? themeG.accent : themeG.card, color: active ? "#fff" : themeG.textSub, borderColor: active ? themeG.accent : themeG.border, display: "flex", alignItems: "center", gap: 6 }),
-    subFilterBtn: (active) => ({ padding: "6px 14px", borderRadius: 16, border: "1.5px solid", cursor: "pointer", fontFamily: FONT, fontSize: 12, fontWeight: 600, textTransform: "capitalize", background: active ? "rgba(45,106,79,0.10)" : "transparent", color: active ? themeG.accent : themeG.textSub, borderColor: active ? themeG.accent : themeG.border }),
+    subFilterBtn: (active) => ({ padding: "6px 14px", borderRadius: 16, border: "1.5px solid", cursor: "pointer", fontFamily: FONT, fontSize: 12, fontWeight: 600, textTransform: "capitalize", background: active ? "rgba(15,33,56,0.10)" : "transparent", color: active ? themeG.accent : themeG.textSub, borderColor: active ? themeG.accent : themeG.border }),
 
-    card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(45,106,79,0.06)", marginTop: 18 },
+    card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)", marginTop: 18 },
     productGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14, padding: 20 },
     productCard: { border: `1px solid ${themeG.border}`, borderRadius: 12, padding: 16, background: themeG.bg },
     productName: { fontSize: 14.5, fontWeight: 700, color: themeG.textMain, margin: "0 0 4px" },
     productMeta: { fontSize: 12, color: themeG.textSub, margin: "0 0 10px" },
     stockRow: { display: "flex", alignItems: "center", justifyContent: "space-between" },
-    stockQty: (qty) => ({ fontSize: 13, fontWeight: 700, color: qty > 0 ? "#2d6a4f" : "#a03025" }),
+    stockQty: (qty) => ({ fontSize: 13, fontWeight: 700, color: qty > 0 ? "#1F5C99" : "#96302F" }),
     price: { fontSize: 13, fontWeight: 600, color: themeG.textMain },
     addBtn: { width: "100%", marginTop: 12, padding: "8px 0", borderRadius: 8, border: "none", background: themeG.accent, color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT },
     addBtnDisabled: { width: "100%", marginTop: 12, padding: "8px 0", borderRadius: 8, border: `1px solid ${themeG.border}`, background: "transparent", color: themeG.textSub, fontSize: 12.5, fontWeight: 600, cursor: "not-allowed", fontFamily: FONT },
@@ -273,7 +273,7 @@ export default function ProductCatalog() {
       </div>
 
       {error && (
-        <div style={{ marginBottom: 20, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 20, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}

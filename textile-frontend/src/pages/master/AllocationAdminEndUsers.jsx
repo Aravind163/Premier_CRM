@@ -28,14 +28,14 @@ const actionBtn = (bg, color, border) => ({
 });
 
 const inputStyle = {
-  width: "100%", boxSizing: "border-box", background: "#f6f9f0",
-  border: "1px solid rgba(106,163,38,0.22)", borderRadius: 8,
-  padding: "9px 12px", fontSize: 13, color: "#1a3d2b",
+  width: "100%", boxSizing: "border-box", background: "#F5F7FA",
+  border: "1px solid rgba(46,122,114,0.22)", borderRadius: 8,
+  padding: "9px 12px", fontSize: 13, color: "#0F2138",
   fontFamily: "inherit", outline: "none",
 };
 
 const fieldWrap = { marginBottom: 14 };
-const labelStyle = { display: "block", fontSize: 11, fontWeight: 600, color: "#5c6b4d", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 };
+const labelStyle = { display: "block", fontSize: 11, fontWeight: 600, color: "#526073", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 5 };
 
 export default function AllocationAdminEndUsers({ embedded = false }) {
   const Wrapper = embedded ? Fragment : Layout;
@@ -112,7 +112,7 @@ export default function AllocationAdminEndUsers({ embedded = false }) {
   useEffect(() => { load(); loadTaluks(); /* eslint-disable-next-line */ }, [filter]);
 
   const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain };
-  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(106,163,38,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(124,179,66,0.04)" };
+  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.04)" };
 
   const openAssign = (emp) => {
     setAssignTarget(emp);
@@ -196,7 +196,7 @@ export default function AllocationAdminEndUsers({ embedded = false }) {
     <Wrapper {...wrapperProps}>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap", alignItems: "center" }}>
-        {["pending", "approved", "inactive", "all"].map((f) => (
+        {["All","pending", "approved", "inactive"].map((f) => (
           <button key={f} onClick={() => setFilter(f)}
             style={{ padding: "8px 18px", borderRadius: 20, border: "1.5px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, textTransform: "capitalize", background: filter === f ? themeG.accent : themeG.card, color: filter === f ? themeG.card : themeG.textSub, borderColor: filter === f ? themeG.accent : themeG.border }}>
             {f}
@@ -210,12 +210,12 @@ export default function AllocationAdminEndUsers({ embedded = false }) {
       </div>
 
       {error && (
-        <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}
 
-      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(106,163,38,0.05)" }}>
+      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.05)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -232,23 +232,23 @@ export default function AllocationAdminEndUsers({ embedded = false }) {
             ) : endUsers.map((e) => {
               const taluks = toArr(e.Taluk);
               return (
-                <tr key={e.Id} style={{ borderBottom: "1px solid rgba(106,163,38,0.08)" }}>
+                <tr key={e.Id} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
                   <td style={{ ...td, fontWeight: 600, color: themeG.accent }}>{e.Name}</td>
                   <td style={td}>{e.user?.phone || "—"}</td>
                   <td style={td}>
                     {taluks.length > 0
                       ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{taluks.map(t => <span key={t} style={areaPill}>{t}</span>)}</div>
-                      : <span style={{ color: "#a23528" }}>Not assigned</span>}
+                      : <span style={{ color: "#B23A3A" }}>Not assigned</span>}
                   </td>
                   <td style={td}>{e.JoinedAt?.substring(0, 10)}</td>
                   <td style={td}><Badge text={e.Status} /></td>
                   <td style={td}>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <button onClick={() => openAssign(e)} style={actionBtn("rgba(60,130,200,0.10)", "#1a5fa0", "rgba(60,130,200,0.26)")}>
+                      <button onClick={() => openAssign(e)} style={actionBtn("rgba(58,92,140,0.10)", "#3A5C8C", "rgba(58,92,140,0.26)")}>
                         {taluks.length > 0 ? "Reassign Taluks" : "Assign Taluks & Approve"}
                       </button>
                       {e.Status !== "inactive" && (
-                        <button disabled={actingId === e.Id} onClick={() => setStatus(e.Id, "inactive")} style={actionBtn("rgba(150,150,150,0.10)", "#5a5a5a", "rgba(150,150,150,0.26)")}>Deactivate</button>
+                        <button disabled={actingId === e.Id} onClick={() => setStatus(e.Id, "inactive")} style={actionBtn("rgba(150,150,150,0.10)", "#526073", "rgba(150,150,150,0.26)")}>Deactivate</button>
                       )}
                     </div>
                   </td>
@@ -324,14 +324,14 @@ export default function AllocationAdminEndUsers({ embedded = false }) {
             <h3 style={{ fontFamily: "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize: 18, margin: "0 0 18px", color: themeG.textMain }}>
               Add New End User
             </h3>
-            <p style={{ fontSize: 12, color: themeG.textSub, margin: "0 0 16px", background: "rgba(124,179,66,0.07)", borderRadius: 8, padding: "8px 12px", border: "1px solid rgba(124,179,66,0.18)" }}>
+            <p style={{ fontSize: 12, color: themeG.textSub, margin: "0 0 16px", background: "rgba(91,155,217,0.07)", borderRadius: 8, padding: "8px 12px", border: "1px solid rgba(91,155,217,0.18)" }}>
               This end user will automatically belong to your district{myDistricts.length > 1 ? "s" : ""}
               (<strong>{myDistricts.join(", ") || "—"}</strong>). Assign their Taluk(s) after
               adding them, in the approval step. Login: phone + dob (ddmmyy).
             </p>
 
             {addError && (
-              <div style={{ background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 8, padding: "9px 12px", marginBottom: 14, fontSize: 12, color: "#a23528" }}>
+              <div style={{ background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 8, padding: "9px 12px", marginBottom: 14, fontSize: 12, color: "#B23A3A" }}>
                 {addError}
               </div>
             )}
@@ -378,6 +378,6 @@ function PlusIcon() {
     </svg>
   );
 }
-const overlay = { position: "fixed", inset: 0, background: "rgba(20,30,15,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 };
+const overlay = { position: "fixed", inset: 0, background: "rgba(8,20,34,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 };
 const modal = { background: "#ffffff", borderRadius: 16, padding: 28, width: 400, boxShadow: "0 12px 40px rgba(0,0,0,0.18)", maxHeight: "90vh", overflowY: "auto" };
-const areaPill = { display: "inline-block", background: "rgba(106,163,38,0.12)", color: "#3d6b1f", border: "1px solid rgba(106,163,38,0.25)", borderRadius: 12, padding: "2px 10px", fontSize: 11.5, fontWeight: 600 };
+const areaPill = { display: "inline-block", background: "rgba(46,122,114,0.12)", color: "#101B28", border: "1px solid rgba(46,122,114,0.25)", borderRadius: 12, padding: "2px 10px", fontSize: 11.5, fontWeight: 600 };

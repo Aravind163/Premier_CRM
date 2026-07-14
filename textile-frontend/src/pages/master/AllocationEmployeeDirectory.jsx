@@ -62,13 +62,13 @@ export default function AllocationEmployeeDirectory({ embedded = false }) {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
 
   const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain };
-  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(106,163,38,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(124,179,66,0.04)" };
+  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.04)" };
 
   return (
     <Wrapper {...wrapperProps}>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-        {["pending", "approved", "inactive", "all"].map((f) => (
+        {[ "All","pending", "approved", "inactive"].map((f) => (
           <button key={f} onClick={() => setFilter(f)}
             style={{ padding: "8px 18px", borderRadius: 20, border: "1.5px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, textTransform: "capitalize", background: filter === f ? themeG.accent : themeG.card, color: filter === f ? themeG.card : themeG.textSub, borderColor: filter === f ? themeG.accent : themeG.border }}>
             {f}
@@ -77,12 +77,12 @@ export default function AllocationEmployeeDirectory({ embedded = false }) {
       </div>
 
       {error && (
-        <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}
 
-      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(106,163,38,0.05)" }}>
+      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.05)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -97,7 +97,7 @@ export default function AllocationEmployeeDirectory({ embedded = false }) {
             ) : employees.length === 0 ? (
               <tr><td colSpan={6} style={{ ...td, textAlign: "center", padding: 30, color: themeG.textSub }}>No employees in this filter.</td></tr>
             ) : employees.map((e) => (
-              <tr key={e.Id} style={{ borderBottom: "1px solid rgba(106,163,38,0.08)" }}>
+              <tr key={e.Id} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
                 <td style={{ ...td, fontWeight: 600, color: themeG.accent, cursor: "pointer" }} onClick={() => setSelected(e)}>{e.Name}</td>
                 <td style={td}>{e.Designation}</td>
                 <td style={td}>
@@ -107,7 +107,7 @@ export default function AllocationEmployeeDirectory({ embedded = false }) {
                 </td>
                 <td style={td}>
                   {toArr(e.Taluk).length > 0
-                    ? <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>{toArr(e.Taluk).map(t => <span key={t} style={{ ...areaPill, background:"rgba(60,130,200,0.10)", color:"#1a5fa0", border:"1px solid rgba(60,130,200,0.22)" }}>{t}</span>)}</div>
+                    ? <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>{toArr(e.Taluk).map(t => <span key={t} style={{ ...areaPill, background:"rgba(58,92,140,0.10)", color:"#3A5C8C", border:"1px solid rgba(58,92,140,0.22)" }}>{t}</span>)}</div>
                     : (e.AssignedArea || e.user?.AssignedArea || "—")}
                 </td>
                 <td style={td}>{e.JoinedAt?.substring(0, 10)}</td>
@@ -138,7 +138,7 @@ export default function AllocationEmployeeDirectory({ embedded = false }) {
               ["Linked Login", selected.user?.email ?? "—"],
               ["Status", selected.Status],
             ].map(([k, v]) => (
-              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(106,163,38,0.08)" }}>
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
                 <span style={{ fontSize: 13, color: themeG.textSub }}>{k}</span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: themeG.textMain }}>{v}</span>
               </div>
@@ -152,6 +152,6 @@ export default function AllocationEmployeeDirectory({ embedded = false }) {
     </Wrapper>
   );
 }
-const overlay = { position: "fixed", inset: 0, background: "rgba(20,30,15,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 };
+const overlay = { position: "fixed", inset: 0, background: "rgba(8,20,34,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 };
 const modal = { background: "#ffffff", borderRadius: 16, padding: 28, width: 380, boxShadow: "0 12px 40px rgba(0,0,0,0.18)" };
-const areaPill = { display: "inline-block", background: "rgba(106,163,38,0.12)", color: "#3d6b1f", border: "1px solid rgba(106,163,38,0.25)", borderRadius: 12, padding: "2px 9px", fontSize: 11.5, fontWeight: 600 };
+const areaPill = { display: "inline-block", background: "rgba(46,122,114,0.12)", color: "#101B28", border: "1px solid rgba(46,122,114,0.25)", borderRadius: 12, padding: "2px 9px", fontSize: 11.5, fontWeight: 600 };

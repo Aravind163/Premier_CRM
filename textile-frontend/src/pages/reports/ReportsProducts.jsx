@@ -15,10 +15,10 @@ function BarRow({ label, count, max, color }) {
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-        <span style={{ fontSize: 13, color: "#1a3d2b", textTransform: "capitalize", fontWeight: 500 }}>{label}</span>
+        <span style={{ fontSize: 13, color: "#0F2138", textTransform: "capitalize", fontWeight: 500 }}>{label}</span>
         <span style={{ fontSize: 13, fontWeight: 700, color }}>{count}</span>
       </div>
-      <div style={{ height: 10, borderRadius: 6, background: "rgba(106,163,38,0.08)", overflow: "hidden" }}>
+      <div style={{ height: 10, borderRadius: 6, background: "rgba(46,122,114,0.08)", overflow: "hidden" }}>
         <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 6 }} />
       </div>
     </div>
@@ -38,10 +38,10 @@ export default function ReportsProducts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const card = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 22, boxShadow: "0 4px 16px rgba(106,163,38,0.05)" };
+  const card = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 22, boxShadow: "0 4px 16px rgba(46,122,114,0.05)" };
   const cardTitle = { fontFamily: "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize: 15, fontWeight: 600, margin: "0 0 16px", color: themeG.textMain };
-  const statCard = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: "0 4px 16px rgba(106,163,38,0.05)" };
-  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 12px", borderBottom: "1px solid rgba(106,163,38,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 };
+  const statCard = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: "0 4px 16px rgba(46,122,114,0.05)" };
+  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 12px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 };
   const td = { padding: "11px 12px", fontSize: 13.5, color: themeG.textMain };
 
   useEffect(() => {
@@ -82,14 +82,14 @@ export default function ReportsProducts() {
     return acc;
   }, {});
   const maxQuality = Math.max(...Object.values(qualityCounts), 1);
-  const qualityColor = { premium: "#7cb342", standard: "#3a9bd5", economy: "#d4a017" };
+  const qualityColor = { premium: "#2E7A72", standard: "#5B9BD9", economy: "#D69426" };
 
   return (
     <Layout pageTitle="Product Reports">
 
       {/* ── Category badge ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(106,163,38,0.06)" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(46,122,114,0.06)" }}>
           <span style={{ fontSize: 18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"} Reports</span>
         </div>
@@ -100,17 +100,17 @@ export default function ReportsProducts() {
       </div>
 
       {error && (
-        <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
         {[
-          { label: "Total Products", value: products.length, accent: "#7cb342" },
-          { label: "Units in Stock", value: totalQty.toLocaleString(), accent: "#558b2f" },
-          { label: "Inventory Value", value: `₹${totalValue.toLocaleString()}`, accent: "#9ccc65" },
-          { label: "Low Stock Items", value: lowStock.length, accent: lowStock.length > 0 ? "#a23528" : "#689f38" },
+          { label: "Total Products", value: products.length, accent: "#2E7A72" },
+          { label: "Units in Stock", value: totalQty.toLocaleString(), accent: "#1E4A45" },
+          { label: "Inventory Value", value: `₹${totalValue.toLocaleString()}`, accent: "#5B9BD9" },
+          { label: "Low Stock Items", value: lowStock.length, accent: lowStock.length > 0 ? "#B23A3A" : "#2E7A72" },
         ].map((c) => (
           <div key={c.label} style={statCard}>
             <p style={{ fontSize: 12, color: themeG.textLabel, margin: "0 0 6px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" }}>{c.label}</p>
@@ -123,14 +123,14 @@ export default function ReportsProducts() {
         <div style={card}>
           <h3 style={cardTitle}>Products by Sub-type</h3>
           {Object.entries(subTypeCounts).map(([t, count]) => (
-            <BarRow key={t} label={t} count={count} max={maxSubType} color="#7cb342" />
+            <BarRow key={t} label={t} count={count} max={maxSubType} color="#2E7A72" />
           ))}
         </div>
 
         <div style={card}>
           <h3 style={cardTitle}>Products by Quality Grade</h3>
           {Object.entries(qualityCounts).map(([q, count]) => (
-            <BarRow key={q} label={q} count={count} max={maxQuality} color={qualityColor[q] || "#7cb342"} />
+            <BarRow key={q} label={q} count={count} max={maxQuality} color={qualityColor[q] || "#2E7A72"} />
           ))}
         </div>
       </div>
@@ -150,10 +150,10 @@ export default function ReportsProducts() {
             </thead>
             <tbody>
               {lowStock.map((p) => (
-                <tr key={p.Id} style={{ borderBottom: "1px solid rgba(106,163,38,0.08)" }}>
+                <tr key={p.Id} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
                   <td style={td}>{p.Code}</td>
                   <td style={td}>{p.Name}</td>
-                  <td style={{ ...td, fontWeight: 700, color: "#a23528" }}>{p.Quantity}</td>
+                  <td style={{ ...td, fontWeight: 700, color: "#B23A3A" }}>{p.Quantity}</td>
                   <td style={td}>{p.Status}</td>
                 </tr>
               ))}

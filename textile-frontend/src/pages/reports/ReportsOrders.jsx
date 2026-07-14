@@ -23,7 +23,7 @@ function BarRow({ label, count, max, color, themeG }) {
         <span style={{ fontSize: 13, color: themeG.textMain, textTransform: "capitalize", fontWeight: 500, fontFamily: FONT }}>{label}</span>
         <span style={{ fontSize: 13, fontWeight: 700, color, fontFamily: FONT }}>{count}</span>
       </div>
-      <div style={{ height: 10, borderRadius: 6, background: "rgba(106,163,38,0.08)", overflow: "hidden" }}>
+      <div style={{ height: 10, borderRadius: 6, background: "rgba(46,122,114,0.08)", overflow: "hidden" }}>
         <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 6, transition: "width 0.3s" }} />
       </div>
     </div>
@@ -49,7 +49,7 @@ function LineChart({ points, color }) {
       {coords.map((c, i) => (
         <g key={i}>
           <circle cx={c.x} cy={c.y} r={3.5} fill={color} />
-          <text x={c.x} y={h - 4} textAnchor="middle" fontSize={10} fill="#4a7a5a" fontFamily={FONT}>{c.label}</text>
+          <text x={c.x} y={h - 4} textAnchor="middle" fontSize={10} fill="#526073" fontFamily={FONT}>{c.label}</text>
         </g>
       ))}
     </svg>
@@ -67,9 +67,9 @@ export default function ReportsOrders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const card = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 22, boxShadow: "0 4px 16px rgba(106,163,38,0.05)" };
+  const card = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 22, boxShadow: "0 4px 16px rgba(46,122,114,0.05)" };
   const cardTitle = { fontFamily: FONT, fontSize: 15, fontWeight: 600, margin: "0 0 16px", color: themeG.textMain };
-  const statCard = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: "0 4px 16px rgba(106,163,38,0.05)" };
+  const statCard = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: "0 4px 16px rgba(46,122,114,0.05)" };
 
   useEffect(() => {
     (async () => {
@@ -119,7 +119,7 @@ export default function ReportsOrders() {
 
       {/* ── Category badge ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(106,163,38,0.06)" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(46,122,114,0.06)" }}>
           <span style={{ fontSize: 18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"} Reports</span>
         </div>
@@ -130,21 +130,21 @@ export default function ReportsOrders() {
       </div>
 
       {error && (
-        <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528", fontFamily: FONT }}>
+        <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A", fontFamily: FONT }}>
           {error}
         </div>
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
         {[
-          { label: "Total Orders",    value: orders.length,                              accent: "#7cb342" },
-          { label: "Total Revenue",   value: `₹${totalRevenue.toLocaleString()}`,        accent: "#558b2f" },
-          { label: "Avg Order Value", value: `₹${avgOrderValue.toFixed(0)}`,             accent: "#9ccc65" },
-          { label: "Pending Orders",  value: statusCounts.pending || 0,                  accent: "#8a6510" },
+          { label: "Total Orders",    value: orders.length,                              accent: "#2E7A72" },
+          { label: "Total Revenue",   value: `₹${totalRevenue.toLocaleString()}`,        accent: "#1E4A45" },
+          { label: "Avg Order Value", value: `₹${avgOrderValue.toFixed(0)}`,             accent: "#5B9BD9" },
+          { label: "Pending Orders",  value: statusCounts.pending || 0,                  accent: "#8A5A0E" },
         ].map((c) => (
           <div key={c.label} style={statCard}>
             <p style={{ fontSize: 12, color: themeG.textLabel, margin: "0 0 6px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: FONT }}>{c.label}</p>
-            <p style={{ fontSize: 24, fontWeight: 700, margin: 0, color: c.accent, fontFamily: FONT }}>{c.value}</p>
+            <p style={{ fontSize: 24, fontWeight: 700, margin: 0, color: c.accent, fontFamily: "'Space Grotesk', " + FONT }}>{c.value}</p>
           </div>
         ))}
       </div>
@@ -166,7 +166,7 @@ export default function ReportsOrders() {
             Object.entries(subTypeCounts).map(([st, count]) => (
               <BarRow key={st} label={st} count={count}
                 max={maxSubType}
-                color={tab === "yarn" ? "#d4a017" : "#3a9bd5"} themeG={themeG} />
+                color={tab === "yarn" ? "#D69426" : "#5B9BD9"} themeG={themeG} />
             ))
           )}
         </div>

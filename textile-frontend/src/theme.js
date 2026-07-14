@@ -3,16 +3,16 @@ export const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
 // Light mode G tokens
 export const G = {
-  bg:          "#f0f5f1",
-  sidebar:     "#1a3d2b",
+  bg:          "#F5F7FA",
+  sidebar:     "#0F2138",
   card:        "#ffffff",
-  surface:     "#F1F5F9",
-  border:      "rgba(27,77,46,0.18)",
-  accent:      "#2d6a4f",
-  accentLight: "#52b788",
-  textMain:    "#1a3d2b",
-  textSub:     "#4a7a5a",
-  textLabel:   "#3d6b50",
+  surface:     "#EAEFF5",
+  border:      "rgba(15, 33, 56, 0.18)",
+  accent:      "#1F5C99",
+  accentLight: "#5B9BD9",
+  textMain:    "#0F2138",
+  textSub:     "#526073",
+  textLabel:   "#101B28",
   font:        "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
 };
 
@@ -20,42 +20,42 @@ export const G = {
 export function getG(isDark) {
   if (!isDark) return G;
   return {
-    bg:          "#090D16",
-    sidebar:     "#0d1f17",
-    card:        "#111827",
-    border:      "#22314D",
-    accent:      "#17a370",
-    accentLight: "#34D399",
-    textMain:    "#F8FAFC",
-    textSub:     "#94A3B8",
-    textLabel:   "#34D399",
+    bg:          "#081422",
+    sidebar:     "#081422",
+    card:        "#0F2138",
+    border:      "#1F3A5C",
+    accent:      "#1F5C99",
+    accentLight: "#5B9BD9",
+    textMain:    "#F5F7FA",
+    textSub:     "#8C96A3",
+    textLabel:   "#5B9BD9",
     font:        "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
   };
 }
 
 // Row color palette – one per product category/type
 export const ROW_COLORS = {
-  yarn:    { bg: "rgba(252,231,153,0.22)", border: "rgba(220,180,40,0.22)",  dot: "#d4a017" },
-  cloth:   { bg: "rgba(186,225,255,0.22)", border: "rgba(80,160,230,0.22)",  dot: "#3a9bd5" },
-  dhoti:   { bg: "rgba(200,245,200,0.22)", border: "rgba(60,180,90,0.18)",   dot: "#2e9e50" },
-  blouse:  { bg: "rgba(255,210,220,0.22)", border: "rgba(220,80,110,0.20)",  dot: "#d0455e" },
-  uniform: { bg: "rgba(220,200,255,0.22)", border: "rgba(140,90,230,0.20)",  dot: "#7b4cc7" },
-  Others:  { bg: "rgba(255,230,200,0.22)", border: "rgba(230,150,60,0.20)",  dot: "#d07a2a" },
-  bundle:  { bg: "rgba(200,240,240,0.22)", border: "rgba(50,180,180,0.20)",  dot: "#2aadad" },
-  hank:    { bg: "rgba(240,225,200,0.22)", border: "rgba(190,140,80,0.20)",  dot: "#b07030" },
-  cone:    { bg: "rgba(210,230,210,0.22)", border: "rgba(90,150,90,0.20)",   dot: "#4a904a" },
+  yarn:    { bg: "rgba(247,232,203,0.22)", border: "rgba(214,148,38,0.22)",  dot: "#D69426" },
+  cloth:   { bg: "rgba(216,230,243,0.22)", border: "rgba(91,155,217,0.22)",  dot: "#5B9BD9" },
+  dhoti:   { bg: "rgba(234,239,245,0.22)", border: "rgba(46,122,114,0.18)",   dot: "#1F5C99" },
+  blouse:  { bg: "rgba(255,210,220,0.22)", border: "rgba(178,58,58,0.20)",  dot: "#B23A3A" },
+  uniform: { bg: "rgba(231,220,242,0.22)", border: "rgba(140,90,230,0.20)",  dot: "#4A2E7A" },
+  Others:  { bg: "rgba(247,232,203,0.22)", border: "rgba(214,148,38,0.20)",  dot: "#D69426" },
+  bundle:  { bg: "rgba(219,236,233,0.22)", border: "rgba(46,122,114,0.20)",  dot: "#2aadad" },
+  hank:    { bg: "rgba(247,232,203,0.22)", border: "rgba(168,112,31,0.20)",  dot: "#A8701F" },
+  cone:    { bg: "rgba(234,239,245,0.22)", border: "rgba(46,122,114,0.20)",   dot: "#2E7A72" },
 };
 
 export const ROW_COLORS_DARK = {
-  yarn:    { bg: "rgba(252,231,153,0.08)", border: "rgba(220,180,40,0.15)",  dot: "#d4a017" },
-  cloth:   { bg: "rgba(186,225,255,0.08)", border: "rgba(80,160,230,0.15)",  dot: "#3a9bd5" },
-  dhoti:   { bg: "rgba(200,245,200,0.08)", border: "rgba(60,180,90,0.12)",   dot: "#2e9e50" },
-  blouse:  { bg: "rgba(255,210,220,0.08)", border: "rgba(220,80,110,0.12)",  dot: "#d0455e" },
-  uniform: { bg: "rgba(220,200,255,0.08)", border: "rgba(140,90,230,0.12)",  dot: "#7b4cc7" },
-  Others:  { bg: "rgba(255,230,200,0.08)", border: "rgba(230,150,60,0.12)",  dot: "#d07a2a" },
-  bundle:  { bg: "rgba(200,240,240,0.08)", border: "rgba(50,180,180,0.12)",  dot: "#2aadad" },
-  hank:    { bg: "rgba(240,225,200,0.08)", border: "rgba(190,140,80,0.12)",  dot: "#b07030" },
-  cone:    { bg: "rgba(210,230,210,0.08)", border: "rgba(90,150,90,0.12)",   dot: "#4a904a" },
+  yarn:    { bg: "rgba(247,232,203,0.08)", border: "rgba(214,148,38,0.15)",  dot: "#D69426" },
+  cloth:   { bg: "rgba(216,230,243,0.08)", border: "rgba(91,155,217,0.15)",  dot: "#5B9BD9" },
+  dhoti:   { bg: "rgba(234,239,245,0.08)", border: "rgba(46,122,114,0.12)",   dot: "#1F5C99" },
+  blouse:  { bg: "rgba(255,210,220,0.08)", border: "rgba(178,58,58,0.12)",  dot: "#B23A3A" },
+  uniform: { bg: "rgba(231,220,242,0.08)", border: "rgba(140,90,230,0.12)",  dot: "#4A2E7A" },
+  Others:  { bg: "rgba(247,232,203,0.08)", border: "rgba(214,148,38,0.12)",  dot: "#D69426" },
+  bundle:  { bg: "rgba(219,236,233,0.08)", border: "rgba(46,122,114,0.12)",  dot: "#2aadad" },
+  hank:    { bg: "rgba(247,232,203,0.08)", border: "rgba(168,112,31,0.12)",  dot: "#A8701F" },
+  cone:    { bg: "rgba(234,239,245,0.08)", border: "rgba(46,122,114,0.12)",   dot: "#2E7A72" },
 };
 
 export function getRowColors(isDark) {
@@ -64,15 +64,15 @@ export function getRowColors(isDark) {
 
 export const statusColor = (s) => {
   const map = {
-    pending:    { bg: "rgba(200,160,40,0.12)",  color: "#8a6510", border: "rgba(200,160,40,0.30)" },
-    assigned:   { bg: "rgba(123,76,199,0.12)",  color: "#5a3d9e", border: "rgba(123,76,199,0.30)" },
-    approved:   { bg: "rgba(45,106,79,0.12)",  color: "#1a5fa0", border: "rgba(45,106,79,0.30)" },
-    declined:   { bg: "rgba(200,60,50,0.10)",   color: "#a03025", border: "rgba(200,60,50,0.26)" },
-    active:     { bg: "rgba(45,106,79,0.12)",   color: "#1a5fa0", border: "rgba(45,106,79,0.30)" },
-    inactive:   { bg: "rgba(150,150,150,0.12)", color: "#5a5a5a", border: "rgba(150,150,150,0.28)" },
-    delivered:  { bg: "rgba(45,106,79,0.12)",   color: "#8a6510", border: "rgba(45,106,79,0.30)" },
-    processing: { bg: "rgba(60,130,200,0.10)",  color: "#1a5fa0", border: "rgba(60,130,200,0.26)" },
-    dispatched: { bg: "rgba(124,90,200,0.12)",  color: "#5a3d9e", border: "rgba(124,90,200,0.28)" },
+    pending:    { bg: "rgba(214,148,38,0.12)",  color: "#8A5A0E", border: "rgba(214,148,38,0.30)" },
+    assigned:   { bg: "rgba(123,76,199,0.12)",  color: "#3A2560", border: "rgba(123,76,199,0.30)" },
+    approved:   { bg: "rgba(15,33,56,0.12)",  color: "#3A5C8C", border: "rgba(15,33,56,0.30)" },
+    declined:   { bg: "rgba(178,58,58,0.10)",   color: "#96302F", border: "rgba(178,58,58,0.26)" },
+    active:     { bg: "rgba(15,33,56,0.12)",   color: "#3A5C8C", border: "rgba(15,33,56,0.30)" },
+    inactive:   { bg: "rgba(150,150,150,0.12)", color: "#526073", border: "rgba(150,150,150,0.28)" },
+    delivered:  { bg: "rgba(15,33,56,0.12)",   color: "#8A5A0E", border: "rgba(15,33,56,0.30)" },
+    processing: { bg: "rgba(58,92,140,0.10)",  color: "#3A5C8C", border: "rgba(58,92,140,0.26)" },
+    dispatched: { bg: "rgba(74,46,122,0.12)",  color: "#3A2560", border: "rgba(74,46,122,0.28)" },
   };
   return map[(s || "").toLowerCase()] || map.pending;
 };

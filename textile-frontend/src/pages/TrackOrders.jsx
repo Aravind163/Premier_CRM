@@ -20,7 +20,6 @@ function stepIndex(status) {
   const i = TRACK_STEPS.findIndex((s) => s.key === (status || "").toLowerCase());
   return i === -1 ? 0 : i;
 }
-
 function Tracker({ order, themeG }) {
   const current = stepIndex(order.Status);
   return (
@@ -78,16 +77,14 @@ export default function TrackOrders() {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line
   }, []);
 
   const norm = (s) => (s || "").toLowerCase();
   const shipped = orders.filter(o => ["dispatched", "delivered"].includes(norm(o.Status)));
   const notYetShipped = orders.filter(o => ["pending", "approved", "processing"].includes(norm(o.Status)));
   const declined = orders.filter(o => ["declined", "rejected"].includes(norm(o.Status)));
-
   const S = {
-    heading: { fontFamily: FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
+    heading: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
     headingSub: { fontSize: 13, color: themeG.textSub, margin: "0 0 24px" },
     sectionTitle: { fontSize: 16.5, fontWeight: 700, color: themeG.textMain, margin: "28px 0 4px" },
     sectionSub: { fontSize: 12.5, color: themeG.textSub, margin: "0 0 14px" },
@@ -98,7 +95,7 @@ export default function TrackOrders() {
       borderRadius: 14,
       padding: "18px 22px",
       marginBottom: 14,
-      boxShadow: highlighted ? `0 0 0 3px ${themeG.accent}22` : "0 3px 12px rgba(45,106,79,0.05)",
+      boxShadow: highlighted ? `0 0 0 3px ${themeG.accent}22` : "0 3px 12px rgba(15,33,56,0.05)",
     }),
     orderTop: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 },
     orderCode: { fontSize: 15, fontWeight: 700, color: themeG.accent, margin: 0 },
@@ -113,9 +110,9 @@ export default function TrackOrders() {
     plainNote: { fontSize: 12, color: themeG.textSub },
     statusTag: { fontSize: 11.5, fontWeight: 600, color: themeG.textSub, background: themeG.bg, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "3px 10px", textTransform: "capitalize" },
 
-    declinedCard: { background: "rgba(192,57,43,0.06)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 12, padding: "14px 18px", marginBottom: 10 },
-    declinedCode: { fontSize: 13.5, fontWeight: 700, color: "#a23528", margin: "0 0 3px" },
-    declinedNote: { fontSize: 12, color: "#a23528", margin: 0 },
+    declinedCard: { background: "rgba(178,58,58,0.06)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 12, padding: "14px 18px", marginBottom: 10 },
+    declinedCode: { fontSize: 13.5, fontWeight: 700, color: "#B23A3A", margin: "0 0 3px" },
+    declinedNote: { fontSize: 12, color: "#B23A3A", margin: 0 },
 
     emptyNote: { fontSize: 12.5, color: themeG.textSub, padding: "10px 0" },
   };
@@ -128,7 +125,7 @@ export default function TrackOrders() {
       <p style={S.headingSub}>Dispatch and delivery tracking for every order that has shipped.</p>
 
       {error && (
-        <div style={{ marginBottom: 20, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 20, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}

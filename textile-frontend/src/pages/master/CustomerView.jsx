@@ -31,17 +31,17 @@ const Field = ({ label, children }) => (
 );
 
 const Input = (props) => (
-  <input {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(27,77,46,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: tG.textMain, background: tG.card, outline: "none", boxSizing: "border-box" }} />
+  <input {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(15,33,56,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: tG.textMain, background: tG.card, outline: "none", boxSizing: "border-box" }} />
 );
 
 const Select = ({ children, ...props }) => (
-  <select {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(27,77,46,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: tG.textMain, background: tG.card, outline: "none", boxSizing: "border-box" }}>
+  <select {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(15,33,56,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: tG.textMain, background: tG.card, outline: "none", boxSizing: "border-box" }}>
     {children}
   </select>
 );
 
 const ReadRow = ({ label, value }) => (
-  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid rgba(106,163,38,0.08)" }}>
+  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
     <span style={{ fontSize: 13, color: tG.textSub }}>{label}</span>
     <span style={{ fontSize: 13, fontWeight: 600, color: tG.textMain }}>{value ?? "—"}</span>
   </div>
@@ -62,7 +62,7 @@ export default function CustomerView() {
   const themeG = getG(isDark);
   const navigate = useNavigate();
 
-  const card = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 24, boxShadow: "0 4px 16px rgba(106,163,38,0.05)" };
+  const card = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 24, boxShadow: "0 4px 16px rgba(46,122,114,0.05)" };
   const cardTitle = { fontFamily: "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize: 16, fontWeight: 600, margin: "0 0 20px", color: themeG.textMain };
 
   const { id } = useParams();
@@ -142,7 +142,7 @@ export default function CustomerView() {
   if (!customer) {
     return (
       <Layout pageTitle="Customer">
-        <p style={{ color: "#a23528" }}>{error || "Customer not found."}</p>
+        <p style={{ color: "#B23A3A" }}>{error || "Customer not found."}</p>
         <button onClick={() => navigate("/master/customers")} style={{ marginTop: 12, padding: "9px 20px", borderRadius: 9, border: `1px solid ${themeG.border}`, background: themeG.card, cursor: "pointer", fontFamily: "inherit" }}>
           Back to Customers
         </button>
@@ -154,7 +154,7 @@ export default function CustomerView() {
     <Layout pageTitle={`${editMode ? "Edit Customer" : "Customer Details"} · ${customer.Name}`}>
 
       {error && (
-        <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}
@@ -179,7 +179,7 @@ export default function CustomerView() {
                 <div style={{ display: "flex", gap: 8 }}>
                   {["retail","wholesale"].map((t) => (
                     <button key={t} onClick={() => set("type", t)}
-                      style={{ flex: 1, padding: "9px", borderRadius: 9, border: "1.5px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, background: form.type === t ? "rgba(124,179,66,0.15)" : "#ffffff", color: form.type === t ? "#2d6a4f" : "#4a7a5a", borderColor: form.type === t ? "#2d6a4f" : "rgba(27,77,46,0.18)" }}>
+                      style={{ flex: 1, padding: "9px", borderRadius: 9, border: "1.5px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, background: form.type === t ? "rgba(91,155,217,0.15)" : "#ffffff", color: form.type === t ? "#1F5C99" : "#526073", borderColor: form.type === t ? "#1F5C99" : "rgba(15,33,56,0.18)" }}>
                       {t === "retail" ? "🏪 Retail" : "🏭 Wholesale"}
                     </button>
                   ))}
@@ -211,7 +211,7 @@ export default function CustomerView() {
               <ReadRow label="Credit Limit" value={customer.CreditLimit ? `₹${parseFloat(customer.CreditLimit).toLocaleString()}` : "—"} />
               <ReadRow label="Outstanding" value={`₹${parseFloat(customer.Outstanding || 0).toLocaleString()}`} />
               <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0" }}>
-                <span style={{ fontSize: 13, color: "#4a7a5a" }}>Status</span>
+                <span style={{ fontSize: 13, color: "#526073" }}>Status</span>
                 <Badge text={customer.Status} />
               </div>
             </>
@@ -237,11 +237,11 @@ export default function CustomerView() {
               </Field>
               <Field label="Address">
                 <textarea value={form.address} onChange={(e) => set("address", e.target.value)} rows={3}
-                  style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(27,77,46,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: "#1a3d2b", background: "#ffffff", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+                  style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(15,33,56,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: "#0F2138", background: "#ffffff", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
               </Field>
               <Field label="Notes">
                 <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={3}
-                  style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(27,77,46,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: "#1a3d2b", background: "#ffffff", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+                  style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(15,33,56,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: "#0F2138", background: "#ffffff", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
               </Field>
             </>
           ) : (
@@ -249,10 +249,10 @@ export default function CustomerView() {
               <ReadRow label="District" value={customer.District} />
               <ReadRow label="Taluk" value={customer.Taluk} />
               <div style={{ marginTop: 10 }}>
-                <p style={{ fontSize: 12, color: "#3d6b50", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Address</p>
-                <p style={{ fontSize: 13, color: "#1a3d2b", margin: "0 0 16px" }}>{customer.Address || "—"}</p>
-                <p style={{ fontSize: 12, color: "#3d6b50", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Notes</p>
-                <p style={{ fontSize: 13, color: "#1a3d2b", margin: 0 }}>{customer.Notes || "—"}</p>
+                <p style={{ fontSize: 12, color: "#101B28", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Address</p>
+                <p style={{ fontSize: 13, color: "#0F2138", margin: "0 0 16px" }}>{customer.Address || "—"}</p>
+                <p style={{ fontSize: 12, color: "#101B28", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Notes</p>
+                <p style={{ fontSize: 13, color: "#0F2138", margin: 0 }}>{customer.Notes || "—"}</p>
               </div>
             </>
           )}
@@ -260,25 +260,25 @@ export default function CustomerView() {
       </div>
 
       <div style={{ display: "flex", gap: 12, marginTop: 28, justifyContent: "flex-end" }}>
-        <button onClick={() => navigate("/master/customers")} style={{ padding: "10px 24px", borderRadius: 9, border: `1px solid ${"rgba(27,77,46,0.18)"}`, background: "#ffffff", color: "#4a7a5a", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 500 }}>
+        <button onClick={() => navigate("/master/customers")} style={{ padding: "10px 24px", borderRadius: 9, border: `1px solid ${"rgba(15,33,56,0.18)"}`, background: "#ffffff", color: "#526073", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 500 }}>
           Back
         </button>
 
         {editMode ? (
           <>
-            <button onClick={cancelEdit} style={{ padding: "10px 24px", borderRadius: 9, border: `1px solid ${"rgba(27,77,46,0.18)"}`, background: "#ffffff", color: "#4a7a5a", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 500 }}>
+            <button onClick={cancelEdit} style={{ padding: "10px 24px", borderRadius: 9, border: `1px solid ${"rgba(15,33,56,0.18)"}`, background: "#ffffff", color: "#526073", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 500 }}>
               Cancel
             </button>
-            <button onClick={handleSave} disabled={saving} style={{ padding: "10px 28px", borderRadius: 9, border: "none", background: "#2d6a4f", color: "#ffffff", cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, boxShadow: "0 2px 10px rgba(124,179,66,0.32)", opacity: saving ? 0.6 : 1 }}>
+            <button onClick={handleSave} disabled={saving} style={{ padding: "10px 28px", borderRadius: 9, border: "none", background: "#1F5C99", color: "#ffffff", cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, boxShadow: "0 2px 10px rgba(91,155,217,0.32)", opacity: saving ? 0.6 : 1 }}>
               {saving ? "Saving…" : "Save Changes"}
             </button>
           </>
         ) : (
           <>
-            <button onClick={handleDelete} style={{ padding: "10px 24px", borderRadius: 9, border: "1px solid rgba(192,57,43,0.30)", background: "rgba(192,57,43,0.06)", color: "#a23528", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 600 }}>
+            <button onClick={handleDelete} style={{ padding: "10px 24px", borderRadius: 9, border: "1px solid rgba(178,58,58,0.30)", background: "rgba(178,58,58,0.06)", color: "#B23A3A", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 600 }}>
               Delete
             </button>
-            <button onClick={enterEdit} style={{ padding: "10px 28px", borderRadius: 9, border: "none", background: "#2d6a4f", color: "#ffffff", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, boxShadow: "0 2px 10px rgba(124,179,66,0.32)" }}>
+            <button onClick={enterEdit} style={{ padding: "10px 28px", borderRadius: 9, border: "none", background: "#1F5C99", color: "#ffffff", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, boxShadow: "0 2px 10px rgba(91,155,217,0.32)" }}>
               Edit Customer
             </button>
           </>

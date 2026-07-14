@@ -67,21 +67,21 @@ export default function EndUserDashboard() {
 
   const S = {
     topBar: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 26 },
-    heading: { fontFamily: FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
+    heading: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
     headingSub: { fontSize: 13, color: themeG.textSub, margin: 0 },
     grid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 },
-    statCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "20px 20px 18px", position: "relative", overflow: "hidden", boxShadow: "0 4px 16px rgba(45,106,79,0.06)" },
+    statCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "20px 20px 18px", position: "relative", overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
     cardStripe: { position: "absolute", top: 0, left: 0, right: 0, height: 3, borderRadius: "14px 14px 0 0" },
     cardIcon: { fontSize: 20, marginBottom: 10, display: "block" },
     cardLabel: { fontSize: 12, color: themeG.textLabel, margin: "0 0 6px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" },
     cardValue: { fontSize: 26, fontWeight: 700, margin: 0, color: themeG.textMain, letterSpacing: "-0.5px" },
 
     quickRow: { display: "flex", gap: 14, marginBottom: 28, flexWrap: "wrap" },
-    quickCard: { flex: "1 1 200px", background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "18px 20px", cursor: "pointer", boxShadow: "0 3px 12px rgba(45,106,79,0.05)" },
+    quickCard: { flex: "1 1 200px", background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "18px 20px", cursor: "pointer", boxShadow: "0 3px 12px rgba(15,33,56,0.05)" },
     quickTitle: { fontSize: 14, fontWeight: 700, color: themeG.textMain, margin: "0 0 4px" },
     quickSub: { fontSize: 12, color: themeG.textSub, margin: 0 },
 
-    tableBox: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "22px 24px", boxShadow: "0 4px 16px rgba(45,106,79,0.06)" },
+    tableBox: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "22px 24px", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
     tableTitle: { fontFamily: FONT, fontSize: 16, fontWeight: 600, margin: "0 0 14px", color: themeG.textMain },
     table: { width: "100%", borderCollapse: "collapse" },
     th: { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "8px 12px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 },
@@ -101,32 +101,32 @@ export default function EndUserDashboard() {
       </div>
 
       {error && (
-        <div style={{ marginBottom: 20, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 20, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}
 
       <div style={S.grid}>
         <div style={S.statCard}>
-          <div style={{ ...S.cardStripe, background: "#2d6a4f" }} />
+          <div style={{ ...S.cardStripe, background: "#1F5C99" }} />
           <span style={S.cardIcon}>👥</span>
           <p style={S.cardLabel}>Customers (Area)</p>
           <p style={S.cardValue}>{loading ? "…" : stats.total_customers ?? 0}</p>
         </div>
         <div style={S.statCard}>
-          <div style={{ ...S.cardStripe, background: "#d4a017" }} />
+          <div style={{ ...S.cardStripe, background: "#D69426" }} />
           <span style={S.cardIcon}>📦</span>
           <p style={S.cardLabel}>Active Orders</p>
           <p style={S.cardValue}>{loading ? "…" : stats.active_orders ?? 0}</p>
         </div>
         <div style={S.statCard}>
-          <div style={{ ...S.cardStripe, background: "#3a9bd5" }} />
+          <div style={{ ...S.cardStripe, background: "#5B9BD9" }} />
           <span style={S.cardIcon}>🧵</span>
           <p style={S.cardLabel}>Products Available</p>
           <p style={S.cardValue}>{loading ? "…" : stats.total_products ?? 0}</p>
         </div>
         <div style={S.statCard}>
-          <div style={{ ...S.cardStripe, background: "#a03025" }} />
+          <div style={{ ...S.cardStripe, background: "#96302F" }} />
           <span style={S.cardIcon}>🛠️</span>
           <p style={S.cardLabel}>Open Complaints</p>
           <p style={S.cardValue}>{loading ? "…" : openComplaints ?? 0}</p>

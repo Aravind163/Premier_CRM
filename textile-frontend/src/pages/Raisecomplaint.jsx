@@ -79,21 +79,21 @@ export default function RaiseComplaint() {
   };
 
   const S = {
-    heading: { fontFamily: FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
+    heading: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
     headingSub: { fontSize: 13, color: themeG.textSub, margin: "0 0 24px" },
 
-    card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "24px 26px", boxShadow: "0 4px 16px rgba(45,106,79,0.06)", marginBottom: 28 },
+    card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "24px 26px", boxShadow: "0 4px 16px rgba(15,33,56,0.06)", marginBottom: 28 },
     cardTitle: { fontSize: 16.5, fontWeight: 700, color: themeG.textMain, margin: "0 0 18px" },
     label: { fontSize: 11.5, fontWeight: 700, color: themeG.textLabel, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 6px", display: "block" },
     select: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 8, border: `1px solid ${themeG.border}`, fontSize: 13.5, fontFamily: FONT, color: themeG.textMain, background: themeG.bg, marginBottom: 16, outline: "none" },
     textarea: { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 8, border: `1px solid ${themeG.border}`, fontSize: 13.5, fontFamily: FONT, color: themeG.textMain, background: themeG.bg, marginBottom: 16, outline: "none", minHeight: 100, resize: "vertical" },
     submitBtn: { padding: "11px 26px", borderRadius: 9, border: "none", background: themeG.accent, color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT },
 
-    historyCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(45,106,79,0.06)" },
+    historyCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
     table: { width: "100%", borderCollapse: "collapse" },
-    th: { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(45,106,79,0.04)" },
+    th: { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(15,33,56,0.04)" },
     td: { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` },
-    statusTag: (open) => ({ fontSize: 11.5, fontWeight: 600, padding: "3px 11px", borderRadius: 20, background: open ? "rgba(163,121,31,0.12)" : "rgba(85,139,47,0.12)", color: open ? "#a3791f" : "#558b2f", border: `1px solid ${open ? "rgba(163,121,31,0.3)" : "rgba(85,139,47,0.3)"}` }),
+    statusTag: (open) => ({ fontSize: 11.5, fontWeight: 600, padding: "3px 11px", borderRadius: 20, background: open ? "rgba(168,112,31,0.12)" : "rgba(46,122,114,0.12)", color: open ? "#D69426" : "#1E4A45", border: `1px solid ${open ? "rgba(168,112,31,0.3)" : "rgba(46,122,114,0.3)"}` }),
   };
 
   return (
@@ -104,13 +104,13 @@ export default function RaiseComplaint() {
       <p style={S.headingSub}>Let us know about any issue with a product or order — we'll follow up directly.</p>
 
       {error && (
-        <div style={{ marginBottom: 20, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 20, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}
 
       {notice && (
-        <div style={{ marginBottom: 20, background: "rgba(45,106,79,0.08)", border: "1px solid rgba(45,106,79,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: themeG.accent }}>
+        <div style={{ marginBottom: 20, background: "rgba(15,33,56,0.08)", border: "1px solid rgba(15,33,56,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: themeG.accent }}>
           {notice}
         </div>
       )}

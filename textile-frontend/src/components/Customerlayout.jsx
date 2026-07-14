@@ -128,7 +128,10 @@ function buildStyles(colors, isDark) {
     },
     main: {
       padding: "24px 20px",
-      background: colors.background,
+      background: isDark ? colors.background : "#F5F7FA",
+      backgroundImage: isDark ? "none" : "radial-gradient(circle at 1px 1px, rgba(15,33,56,0.05) 1px, transparent 0), radial-gradient(1200px 500px at 100% -10%, rgba(31,92,153,0.07), transparent 60%)",
+      backgroundSize: "22px 22px, 100% 100%",
+      backgroundAttachment: "fixed, fixed",
       minHeight: "calc(100vh - 62px - 46px)",
     },
     sidebar: {
@@ -145,7 +148,7 @@ function buildStyles(colors, isDark) {
       paddingLeft: 6, marginBottom: 14,
     },
     logoText: {
-      fontFamily: FONT,
+      fontFamily: "\'Space Grotesk\', " + FONT,
       fontSize: 16, fontWeight: 700, color: "#ffffff", letterSpacing: "-0.3px",
     },
     welcomeBadge: {
@@ -164,7 +167,7 @@ function buildStyles(colors, isDark) {
     navItemActive: {
       background: colors.sidebarActive,
       color: "#ffffff", fontWeight: 600,
-      borderLeft: `3px solid ${colors.accentLight}`,
+      borderLeft: "3px solid #D69426",
     },
     navIcon: { display: "flex", alignItems: "center", color: "inherit" },
     sidebarFooterNote: {

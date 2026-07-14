@@ -94,14 +94,14 @@ export default function ProductList() {
     <Layout pageTitle="Products">
 
       {error && (
-        <div style={{ marginBottom:16, background:"rgba(192,57,43,0.08)", border:"1px solid rgba(192,57,43,0.25)", borderRadius:10, padding:"10px 14px", fontSize:13, color:"#a23528", fontFamily:FONT }}>
+        <div style={{ marginBottom:16, background:"rgba(178,58,58,0.08)", border:"1px solid rgba(178,58,58,0.25)", borderRadius:10, padding:"10px 14px", fontSize:13, color:"#B23A3A", fontFamily:FONT }}>
           {error}
         </div>
       )}
 
       {/* ── Category badge (locked, no toggle) ── */}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
-        <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"8px 18px", borderRadius:10, background:themeG.card, border:`1px solid ${themeG.border}`, boxShadow:"0 2px 8px rgba(106,163,38,0.06)" }}>
+        <div style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"8px 18px", borderRadius:10, background:themeG.card, border:`1px solid ${themeG.border}`, boxShadow:"0 2px 8px rgba(46,122,114,0.06)" }}>
           <span style={{ fontSize:18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"} Products</span>
         </div>
@@ -116,9 +116,9 @@ export default function ProductList() {
         {typeList.map((t) => (
           <button key={t} onClick={() => setSubType(t)}
             style={{ padding:"5px 16px", borderRadius:20, border:"1px solid", cursor:"pointer", fontFamily:FONT, fontSize:13, fontWeight:500, transition:"all 0.12s",
-              background:  subType === t ? "rgba(124,179,66,0.14)" : "transparent",
+              background:  subType === t ? "rgba(91,155,217,0.14)" : "transparent",
               color:       subType === t ? themeG.accent : themeG.textSub,
-              borderColor: subType === t ? "rgba(124,179,66,0.40)" : themeG.border }}>
+              borderColor: subType === t ? "rgba(91,155,217,0.40)" : themeG.border }}>
             {t.replace(/_/g, " ")}
           </button>
         ))}
@@ -129,18 +129,18 @@ export default function ProductList() {
         <input placeholder="Search by name or ID…" value={search} onChange={(e) => setSearch(e.target.value)}
           style={{ padding:"9px 14px", borderRadius:9, border:`1px solid ${themeG.border}`, fontSize:13, width:260, fontFamily:FONT, background:themeG.card, outline:"none", color:themeG.textMain }} />
         <button onClick={() => navigate("/master/products/add")}
-          style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 20px", borderRadius:9, background:themeG.accent, color:themeG.card, border:"none", fontFamily:FONT, fontSize:13, fontWeight:600, cursor:"pointer", boxShadow:"0 2px 10px rgba(124,179,66,0.32)" }}>
+          style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 20px", borderRadius:9, background:themeG.accent, color:themeG.card, border:"none", fontFamily:FONT, fontSize:13, fontWeight:600, cursor:"pointer", boxShadow:"0 2px 10px rgba(91,155,217,0.32)" }}>
           + Add Product
         </button>
       </div>
 
       {/* ── Table ── */}
-      <div style={{ background:themeG.card, border:`1px solid ${themeG.border}`, borderRadius:14, overflow:"hidden", boxShadow:"0 4px 16px rgba(106,163,38,0.06)" }}>
+      <div style={{ background:themeG.card, border:`1px solid ${themeG.border}`, borderRadius:14, overflow:"hidden", boxShadow:"0 4px 16px rgba(46,122,114,0.06)" }}>
         <table style={{ width:"100%", borderCollapse:"collapse" }}>
           <thead>
             <tr style={{ borderBottom:`1px solid ${themeG.border}` }}>
               {["ID", "Product Name", "Type", "Color", tab === "yarn" ? "Specs" : "Specs", "Qty", "Price (₹)", "Status", "Actions"].map((h) => (
-                <th key={h} style={{ textAlign:"left", fontSize:11, color:themeG.textLabel, padding:"10px 14px", textTransform:"uppercase", letterSpacing:"0.07em", fontWeight:600, background:"rgba(124,179,66,0.04)", fontFamily:FONT }}>
+                <th key={h} style={{ textAlign:"left", fontSize:11, color:themeG.textLabel, padding:"10px 14px", textTransform:"uppercase", letterSpacing:"0.07em", fontWeight:600, background:"rgba(91,155,217,0.04)", fontFamily:FONT }}>
                   {h}
                 </th>
               ))}
@@ -152,7 +152,7 @@ export default function ProductList() {
             ) : filtered.map((p) => {
               const rc = ROW_COLORS[p.type?.toLowerCase()] || ROW_COLORS.yarn;
               return (
-                <tr key={p.id} style={{ borderBottom:`1px solid rgba(106,163,38,0.07)`, background:rc.bg }}>
+                <tr key={p.id} style={{ borderBottom:`1px solid rgba(46,122,114,0.07)`, background:rc.bg }}>
                   <td style={{ padding:"12px 14px", fontSize:13, color:themeG.accent, fontWeight:600, borderLeft:`3px solid ${rc.dot}`, fontFamily:FONT }}>{p.id}</td>
                   <td style={{ padding:"12px 14px", fontSize:14, color:themeG.textMain, fontWeight:500, fontFamily:FONT }}>
                     <ColorDot hex={p.color} />{p.name}
@@ -171,12 +171,12 @@ export default function ProductList() {
                   <td style={{ padding:"12px 14px", fontSize:13, color:themeG.textMain, fontFamily:FONT, maxWidth:180 }}>
                     {parseSpecSummary(p.spec)}
                   </td>
-                  <td style={{ padding:"12px 14px", fontSize:13, fontWeight:600, color:p.qty < 50 ? "#c0392b" : themeG.textMain, fontFamily:FONT }}>{p.qty}</td>
+                  <td style={{ padding:"12px 14px", fontSize:13, fontWeight:600, color:p.qty < 50 ? "#B23A3A" : themeG.textMain, fontFamily:FONT }}>{p.qty}</td>
                   <td style={{ padding:"12px 14px", fontSize:13, fontWeight:700, color:themeG.textMain, fontFamily:FONT }}>₹{p.price.toLocaleString()}</td>
                   <td style={{ padding:"12px 14px" }}><Badge text={p.status} /></td>
                   <td style={{ padding:"12px 14px", whiteSpace:"nowrap" }}>
                     <div style={{ display:"flex", gap:8 }}>
-                      <button style={btnStyle("#3a9bd5")} onClick={() => navigate(`/master/products/${p.dbId}`)}>View</button>
+                      <button style={btnStyle("#5B9BD9")} onClick={() => navigate(`/master/products/${p.dbId}`)}>View</button>
                       <button style={btnStyle(themeG.accent)} onClick={() => navigate(`/master/products/${p.dbId}?edit=1`)}>Edit</button>
                     </div>
                   </td>

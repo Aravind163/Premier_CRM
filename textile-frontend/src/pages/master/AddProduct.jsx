@@ -8,9 +8,9 @@ import API from "../../services/api";
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
 const COLORS = [
-  "#FFFFFF","#000000","#F5F5F5","#ECEFF1","#FFF9C4","#FFE0B2","#F3E5F5",
-  "#E8F5E9","#E3F2FD","#FFCDD2","#D7CCC8","#1565C0","#2E7D32","#455A64",
-  "#37474F","#BF360C","#F57F17","#4A148C","#880E4F",
+  "#FFFFFF","#000000","#F5F7FA","#ECEFF1","#F7E8CB","#F7E8CB","#E7DCF2",
+  "#EAEFF5","#D8E6F3","#F7DCDC","#D7CCC8","#3A5C8C","#2E7D32","#455A64",
+  "#37474F","#B23A3A","#D69426","#4A148C","#4A2E7A",
 ];
 
 // ─── Subtype configs ────────────────────────────────────────────────
@@ -262,7 +262,7 @@ function saveCustomSubtype(category, key, config) {
 // ─── Small components ───────────────────────────────────────────────
 const Field = ({ label, children }) => (
   <div style={{ marginBottom: 18 }}>
-    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#3d6b50", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, fontFamily: FONT }}>
+    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#101B28", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, fontFamily: FONT }}>
       {label}
     </label>
     {children}
@@ -270,11 +270,11 @@ const Field = ({ label, children }) => (
 );
 
 const Input = (props) => (
-  <input {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: "1px solid rgba(27,77,46,0.18)", fontSize: 14, fontFamily: FONT, color: "#1a3d2b", background: "#ffffff", outline: "none", boxSizing: "border-box", ...props.style }} />
+  <input {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: "1px solid rgba(15,33,56,0.18)", fontSize: 14, fontFamily: FONT, color: "#0F2138", background: "#ffffff", outline: "none", boxSizing: "border-box", ...props.style }} />
 );
 
 const Select = ({ children, ...props }) => (
-  <select {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: "1px solid rgba(27,77,46,0.18)", fontSize: 14, fontFamily: FONT, color: "#1a3d2b", background: "#ffffff", outline: "none", boxSizing: "border-box" }}>
+  <select {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: "1px solid rgba(15,33,56,0.18)", fontSize: 14, fontFamily: FONT, color: "#0F2138", background: "#ffffff", outline: "none", boxSizing: "border-box" }}>
     {children}
   </select>
 );
@@ -309,9 +309,9 @@ function ChipField({ options, value, onChange, themeG }) {
               style={{
                 padding: "6px 16px", borderRadius: 20, border: "1.5px solid", cursor: "pointer",
                 fontFamily: FONT, fontSize: 13, fontWeight: 600, transition: "all 0.12s",
-                background:  isActive ? "rgba(45,106,79,0.12)" : "#ffffff",
-                color:       isActive ? "#2d6a4f" : "#4a7a5a",
-                borderColor: isActive ? "#2d6a4f" : "rgba(27,77,46,0.22)",
+                background:  isActive ? "rgba(15,33,56,0.12)" : "#ffffff",
+                color:       isActive ? "#1F5C99" : "#526073",
+                borderColor: isActive ? "#1F5C99" : "rgba(15,33,56,0.22)",
               }}
             >
               {opt}
@@ -339,7 +339,7 @@ export default function AddProduct() {
   // Read category from localStorage (set by SelectCategory page)
   const savedCat = localStorage.getItem("premier_category") || "cloth";
 
-  const card      = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 24, boxShadow: "0 4px 16px rgba(106,163,38,0.05)" };
+  const card      = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 24, boxShadow: "0 4px 16px rgba(46,122,114,0.05)" };
   const cardTitle = { fontFamily: FONT, fontSize: 16, fontWeight: 600, margin: "0 0 20px", color: themeG.textMain };
 
   const [tab, setTab]         = useState(savedCat);
@@ -430,7 +430,7 @@ export default function AddProduct() {
 
       {/* ── Category locked badge ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(106,163,38,0.06)" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(46,122,114,0.06)" }}>
           <span style={{ fontSize: 18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"}</span>
         </div>
@@ -441,7 +441,7 @@ export default function AddProduct() {
       </div>
 
       {error && (
-        <div style={{ marginBottom: 16, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528", fontFamily: FONT }}>
+        <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A", fontFamily: FONT }}>
           {error}
         </div>
       )}
@@ -458,9 +458,9 @@ export default function AddProduct() {
               {Object.entries(subtypeMap).map(([key, cfg]) => (
                 <button key={key} onClick={() => handleSubTypeChange(key)}
                   style={{ padding: "7px 16px", borderRadius: 20, border: "1.5px solid", cursor: "pointer", fontFamily: FONT, fontSize: 13, fontWeight: 600, transition: "all 0.12s",
-                    background:  subType === key ? "rgba(45,106,79,0.13)" : themeG.card,
-                    color:       subType === key ? "#2d6a4f"              : themeG.textSub,
-                    borderColor: subType === key ? "#2d6a4f"              : themeG.border }}>
+                    background:  subType === key ? "rgba(15,33,56,0.13)" : themeG.card,
+                    color:       subType === key ? "#1F5C99"              : themeG.textSub,
+                    borderColor: subType === key ? "#1F5C99"              : themeG.border }}>
                   {cfg.icon} {cfg.label}
                 </button>
               ))}
@@ -473,7 +473,7 @@ export default function AddProduct() {
           </Field>
 
           {/* Subtype description badge */}
-          <div style={{ marginBottom: 18, padding: "8px 14px", borderRadius: 8, background: "rgba(45,106,79,0.07)", border: "1px solid rgba(45,106,79,0.15)", fontSize: 12, color: "#2d6a4f", fontFamily: FONT }}>
+          <div style={{ marginBottom: 18, padding: "8px 14px", borderRadius: 8, background: "rgba(15,33,56,0.07)", border: "1px solid rgba(15,33,56,0.15)", fontSize: 12, color: "#1F5C99", fontFamily: FONT }}>
             {currentSubConfig.icon}  <strong>{currentSubConfig.label}</strong> — {currentSubConfig.description}
           </div>
 
@@ -536,9 +536,9 @@ export default function AddProduct() {
               {COLORS.map((c) => (
                 <div key={c} onClick={() => set("color", c)}
                   style={{ width: 28, height: 28, borderRadius: "50%", background: c,
-                    border:    form.color === c ? "2.5px solid #3d6b1f" : "1.5px solid rgba(0,0,0,0.14)",
+                    border:    form.color === c ? "2.5px solid #101B28" : "1.5px solid rgba(0,0,0,0.14)",
                     cursor:    "pointer",
-                    boxShadow: form.color === c ? "0 0 0 3px rgba(124,179,66,0.30)" : "none" }} />
+                    boxShadow: form.color === c ? "0 0 0 3px rgba(91,155,217,0.30)" : "none" }} />
               ))}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -574,7 +574,7 @@ export default function AddProduct() {
           Cancel
         </button>
         <button onClick={handleSubmit} disabled={saving}
-          style={{ padding: "10px 28px", borderRadius: 9, border: "none", background: themeG.accent, color: themeG.card, cursor: saving ? "not-allowed" : "pointer", fontFamily: FONT, fontSize: 14, fontWeight: 700, boxShadow: "0 2px 10px rgba(124,179,66,0.32)", opacity: saving ? 0.6 : 1 }}>
+          style={{ padding: "10px 28px", borderRadius: 9, border: "none", background: themeG.accent, color: themeG.card, cursor: saving ? "not-allowed" : "pointer", fontFamily: FONT, fontSize: 14, fontWeight: 700, boxShadow: "0 2px 10px rgba(91,155,217,0.32)", opacity: saving ? 0.6 : 1 }}>
           {saving ? "Saving…" : "Save Product"}
         </button>
       </div>
@@ -644,7 +644,7 @@ function NewSubtypeModal({ existingKeys, themeG, onClose, onCreate }) {
         </p>
 
         {error && (
-          <div style={{ marginBottom: 14, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 12.5, color: "#a23528", fontFamily: FONT }}>
+          <div style={{ marginBottom: 14, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 12.5, color: "#B23A3A", fontFamily: FONT }}>
             {error}
           </div>
         )}
@@ -658,8 +658,8 @@ function NewSubtypeModal({ existingKeys, themeG, onClose, onCreate }) {
             {ICONS.map((em) => (
               <button key={em} type="button" onClick={() => setIcon(em)}
                 style={{ width: 36, height: 36, borderRadius: 9, border: "1.5px solid", cursor: "pointer", fontSize: 16,
-                  background: icon === em ? "rgba(45,106,79,0.13)" : themeG.card,
-                  borderColor: icon === em ? "#2d6a4f" : themeG.border }}>
+                  background: icon === em ? "rgba(15,33,56,0.13)" : themeG.card,
+                  borderColor: icon === em ? "#1F5C99" : themeG.border }}>
                 {em}
               </button>
             ))}
@@ -686,7 +686,7 @@ function NewSubtypeModal({ existingKeys, themeG, onClose, onCreate }) {
             Cancel
           </button>
           <button onClick={handleCreate}
-            style={{ padding: "9px 22px", borderRadius: 9, border: "none", background: themeG.accent, color: themeG.card, cursor: "pointer", fontFamily: FONT, fontSize: 13.5, fontWeight: 700, boxShadow: "0 2px 10px rgba(124,179,66,0.32)" }}>
+            style={{ padding: "9px 22px", borderRadius: 9, border: "none", background: themeG.accent, color: themeG.card, cursor: "pointer", fontFamily: FONT, fontSize: 13.5, fontWeight: 700, boxShadow: "0 2px 10px rgba(91,155,217,0.32)" }}>
             Create Sub-type
           </button>
         </div>

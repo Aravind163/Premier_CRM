@@ -2,35 +2,56 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
+import ErrorBoundary from "../components/ErrorBoundary";
 import { useTheme } from "../ThemeContext";
 import API from "../services/api";
-import { DonutChart, BarChart, GroupedBarChart } from "../components/charts/MiniCharts";
+import { DonutChart, BarChart, GroupedBarChart, AreaChart } from "../components/charts/MiniCharts";
 
-const PENDING_STATUSES   = ["pending"];
-const APPROVED_STATUSES  = ["approved", "processing", "dispatched", "delivered"];
-const ACTIVE_STATUSES    = ["pending", "approved", "processing"];
+import logo from '/premier-icon.png'
+
+const ACTIVE_STATUSES = ["pending", "approved", "processing"];
 
 /* ────────────────────────────────────────────────────────────────────────
-   DESIGN TOKENS — same forest/ochre/indigo "operations ledger" system
-   used elsewhere on this dashboard, so the page matches the rest of the app.
+   DESIGN TOKENS
+   "Sapphire & Saffron" operations-ledger palette — deep navy surfaces,
+   sapphire/turmeric accents, monospace for figures so numbers read like
+   a ledger, not a marketing stat.
    ──────────────────────────────────────────────────────────────────────── */
 function getTokens(isDark) {
   return isDark
     ? {
-        bg: "#10160f", card: "#171f16", cardAlt: "#1c251a",
-        border: "rgba(233,238,224,0.10)", borderStrong: "rgba(233,238,224,0.18)",
-        ink: "#eef0e8", inkSub: "#9fae9a", inkFaint: "#6d7d6a",
-        forest: "#7bb27a", ochre: "#d3ab5c", indigo: "#9098d1", danger: "#dd8478", sage: "#5f8a63",
+        bg: "#081422",
+        card: "#0F2138",
+        cardAlt: "#16324F",
+        border: "rgba(234,239,245,0.10)",
+        borderStrong: "rgba(234,239,245,0.18)",
+        ink: "#F5F7FA",
+        inkSub: "#9FB5CC",
+        inkFaint: "#6B7F99",
+        forest: "#5B9BD9",
+        ochre: "#EEC15E",
+        indigo: "#8C7BC7",
+        danger: "#D97C7C",
+        sage: "#5FA89C",
       }
     : {
-        bg: "#f6f6f1", card: "#fdfdfa", cardAlt: "#f1f2ec",
-        border: "rgba(24,32,20,0.10)", borderStrong: "rgba(24,32,20,0.16)",
-        ink: "#1a2419", inkSub: "#5b6b58", inkFaint: "#8a9686",
-        forest: "#2f5d3a", ochre: "#8f6a26", indigo: "#454d80", danger: "#963831", sage: "#3f6b45",
+        bg: "#F5F7FA",
+        card: "#FFFFFF",
+        cardAlt: "#EAEFF5",
+        border: "rgba(15,33,56,0.10)",
+        borderStrong: "rgba(15,33,56,0.16)",
+        ink: "#0F2138",
+        inkSub: "#526073",
+        inkFaint: "#8C96A3",
+        forest: "#1F5C99",
+        ochre: "#D69426",
+        indigo: "#4A2E7A",
+        danger: "#B23A3A",
+        sage: "#2E7A72",
       };
 }
 
-const FONT_HEAD = "'Fraunces', 'Georgia', serif";
+const FONT_HEAD = "'Space Grotesk', 'Inter', sans-serif";
 const FONT_UI = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 const FONT_MONO = "'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace";
 
@@ -42,35 +63,18 @@ function formatRevenue(total) {
 }
 
 function statusTone(s, t) {
-  const v = (s || "").toLowerCase();
-  if (v === "delivered" || v === "approved") return t.forest;
-  if (v === "dispatched")  return t.indigo;
-  if (v === "processing")  return t.indigo;
-  if (v === "pending")     return t.ochre;
-  if (v === "declined")    return t.danger;
+  if (s === "delivered")  return t.forest;
+  if (s === "dispatched") return t.indigo;
+  if (s === "pending")    return t.ochre;
+  if (s === "declined" || s === "rejected") return t.danger;
   return t.inkSub;
 }
 
-const daysSince = (dateStr) => {
-  if (!dateStr) return 0;
-  return Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000));
-};
-
-/* Minimal line icons — no emoji, stroke-based, single color via currentColor. */
-const IconClipboard = (p) => (
+/* Minimal line icons — no emoji. Stroke-based, single color via currentColor. */
+const IconUsers = (p) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" {...p}>
-    <rect x="6" y="4.5" width="12" height="17" rx="1.6" /><path d="M9 4.5V3.3a1.3 1.3 0 0 1 1.3-1.3h3.4A1.3 1.3 0 0 1 15 3.3v1.2" />
-    <path d="M9 11h6M9 14.3h6M9 17.6h4" opacity="0.6" />
-  </svg>
-);
-const IconCheck = (p) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" {...p}>
-    <circle cx="12" cy="12" r="9" /><path d="M8 12.3l2.6 2.6L16.2 9" />
-  </svg>
-);
-const IconX = (p) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" {...p}>
-    <circle cx="12" cy="12" r="9" /><path d="M9 9l6 6M15 9l-6 6" />
+    <circle cx="9" cy="8" r="3.2" /><path d="M3.5 19c0-3.3 2.5-5.3 5.5-5.3s5.5 2 5.5 5.3" />
+    <circle cx="17" cy="8.5" r="2.4" opacity="0.55" /><path d="M15.5 13.3c2.4.2 4 2 4 5" opacity="0.55" />
   </svg>
 );
 const IconCrate = (p) => (
@@ -78,15 +82,10 @@ const IconCrate = (p) => (
     <path d="M3 8.2 12 4l9 4.2v9.6L12 22l-9-4.2z" /><path d="M3 8.2 12 12l9-4" /><path d="M12 12v10" opacity="0.55" />
   </svg>
 );
-const IconTruck = (p) => (
+const IconSpool = (p) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" {...p}>
-    <rect x="2.5" y="7" width="11" height="9" rx="1" /><path d="M13.5 10h4l3 3v3h-7z" />
-    <circle cx="6.5" cy="18" r="1.7" /><circle cx="16.5" cy="18" r="1.7" />
-  </svg>
-);
-const IconClock = (p) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" {...p}>
-    <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" />
+    <ellipse cx="12" cy="6" rx="7" ry="2.6" /><ellipse cx="12" cy="18" rx="7" ry="2.6" />
+    <path d="M5 6v12M19 6v12" /><path d="M6.5 8c3 2 8 2 11 0M6.5 16c3-2 8-2 11 0" opacity="0.6" />
   </svg>
 );
 const IconTrend = (p) => (
@@ -94,14 +93,57 @@ const IconTrend = (p) => (
     <path d="M3.5 17 9 10.5l4 3.5L20.5 6" /><path d="M14.5 6H20.5V12" opacity="0.7" />
   </svg>
 );
-const IconTimer = (p) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" {...p}>
-    <path d="M10 2h4M12 2v3" /><circle cx="12" cy="13" r="8" /><path d="M12 9v4l3 2" />
-  </svg>
-);
 const IconRefresh = (p) => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" {...p}>
     <path d="M20 11A8 8 0 1 0 18.5 16" /><path d="M20 5v6h-6" />
+  </svg>
+);
+
+/* Icons for the CottonMass-style O2C stat cards */
+const IconClipboard = (p) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+    <rect x="6" y="4" width="12" height="17" rx="2" /><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1" />
+    <path d="M9 11h6M9 15h6" />
+  </svg>
+);
+const IconCheckCircle = (p) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+    <circle cx="12" cy="12" r="9" /><path d="M8.5 12.3l2.4 2.4 4.8-5.2" />
+  </svg>
+);
+const IconFileWarning = (p) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+    <path d="M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+    <path d="M14 3v4h4" /><path d="M12 11v4" /><circle cx="12" cy="17.6" r="0.6" fill="currentColor" stroke="none" />
+  </svg>
+);
+const IconCart = (p) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+    <circle cx="9" cy="20" r="1.3" /><circle cx="17" cy="20" r="1.3" />
+    <path d="M2.5 3h2l2.4 12.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L20 7H6" />
+  </svg>
+);
+const IconAtom = (p) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+    <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    <ellipse cx="12" cy="12" rx="9" ry="3.6" />
+    <ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(60 12 12)" />
+    <ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(120 12 12)" />
+  </svg>
+);
+const IconClock = (p) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+    <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.3 2" />
+  </svg>
+);
+const IconTrendDown = (p) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+    <path d="M3.5 7 9 13.5l4-3.5 6.5 8" /><path d="M19.5 12v6.5H13" />
+  </svg>
+);
+const IconTimer = (p) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+    <path d="M10 2h4" /><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 1.5" /><path d="M19 6.5l1.2 1.2" />
   </svg>
 );
 
@@ -117,7 +159,9 @@ const MOTION_CSS = `
 .pd-spin { animation: pdSpin 0.7s linear infinite; }
 .pd-row:hover { background: var(--pd-cardalt); }
 .pd-stat:hover { border-color: var(--pd-strong); }
-@media (prefers-reduced-motion: reduce) { .pd-fade-up, .pd-skel, .pd-spin { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .pd-fade-up, .pd-skel, .pd-spin { animation: none; }
+}
 `;
 
 export default function Dashboard() {
@@ -126,17 +170,21 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-  const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const [stats, setStats] = useState({ customers: null, activeOrders: null, products: null, revenue: null });
+  const [recentOrders, setRecentOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [o2c, setO2c] = useState(null);
+  const [o2cLoading, setO2cLoading] = useState(true);
+  const [weeklyTrend, setWeeklyTrend] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
   const styles = {
     page: { "--pd-strong": t.borderStrong, "--pd-cardalt": t.cardAlt, "--pd-forest": t.forest },
+
     topBar: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 34, gap: 16, flexWrap: "wrap", borderBottom: `1px solid ${t.border}`, paddingBottom: 20 },
+    kicker: { fontFamily: FONT_MONO, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: t.inkFaint, margin: "0 0 6px" },
     heading: { fontFamily: FONT_HEAD, fontSize: 32, fontWeight: 600, margin: 0, color: t.ink, letterSpacing: "-0.01em" },
     headingSub: { fontFamily: FONT_UI, fontSize: 13, color: t.inkSub, margin: "6px 0 0" },
     topBarRight: { display: "flex", alignItems: "center", gap: 14 },
@@ -145,35 +193,53 @@ export default function Dashboard() {
     lastUpdated: { fontFamily: FONT_MONO, fontSize: 11, color: t.inkFaint },
     refreshBtn: { display: "flex", alignItems: "center", gap: 7, fontFamily: FONT_UI, fontSize: 12.5, fontWeight: 600, color: t.ink, background: "transparent", border: `1px solid ${t.border}`, padding: "7px 14px", borderRadius: 8, cursor: "pointer" },
 
-    statStrip: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", border: `1px solid ${t.border}`, borderRadius: 10, marginBottom: 18, overflow: "hidden" },
-    statCell: { padding: "20px 22px", borderRight: `1px solid ${t.border}`, borderBottom: `1px solid ${t.border}`, background: t.card },
+    // Ledger-style stat strip: one bordered row, hairline dividers, no shadow.
+    statStrip: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", border: `1px solid ${t.border}`, borderRadius: 10, marginBottom: 34, overflow: "hidden" },
+    statCell: { padding: "20px 22px", borderRight: `1px solid ${t.border}`, background: t.card },
     statTop: { display: "flex", alignItems: "center", gap: 8, color: t.inkFaint, marginBottom: 14 },
     statLabel: { fontFamily: FONT_UI, fontSize: 11.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: t.inkFaint },
-    statValue: { fontFamily: FONT_MONO, fontSize: 24, fontWeight: 600, color: t.ink, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" },
-    statSub: { fontFamily: FONT_UI, fontSize: 11, color: t.inkFaint, margin: "6px 0 0" },
+    statValue: { fontFamily: FONT_MONO, fontSize: 26, fontWeight: 600, color: t.ink, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" },
 
-    sectionHead: { display: "flex", alignItems: "baseline", gap: 12, margin: "40px 0 4px" },
+    tableBox: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 10, padding: "26px 28px", marginBottom: 8 },
+    tableHeader: { display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 },
+    tableTitle: { fontFamily: FONT_HEAD, fontSize: 19, fontWeight: 600, margin: 0, color: t.ink },
+    tableCount: { fontFamily: FONT_MONO, fontSize: 11.5, color: t.inkFaint },
+    rowChip: { fontFamily: FONT_UI, fontSize: 11, fontWeight: 600, textTransform: "capitalize", color: (s) => statusTone(s, t) },
+    emptyState: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, padding: "40px 20px", textAlign: "center" },
+    emptyText: { fontFamily: FONT_UI, fontSize: 13.5, color: t.inkSub, margin: 0, maxWidth: 320 },
+
+    sectionHead: { display: "flex", alignItems: "baseline", gap: 12, margin: "44px 0 4px" },
     stageNum: { fontFamily: FONT_MONO, fontSize: 12, color: t.inkFaint, letterSpacing: "0.04em" },
     sectionTitle: { fontFamily: FONT_HEAD, fontSize: 21, fontWeight: 600, margin: 0, color: t.ink },
     sectionSub: { fontFamily: FONT_UI, fontSize: 12.5, color: t.inkSub, margin: "6px 0 16px" },
 
-    chartRow: { display: "grid", gridTemplateColumns: "1fr auto", gap: 14, alignItems: "stretch", marginBottom: 22 },
-    chartCard: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 8, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "center" },
-    twoCol: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 },
-    widgetBox: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 10, padding: "19px 21px", marginBottom: 22 },
-    widgetTitle: { fontFamily: FONT_UI, fontSize: 13.5, fontWeight: 700, color: t.ink, margin: "0 0 12px" },
-    emptyNote: { fontFamily: FONT_UI, fontSize: 12.5, color: t.inkSub, padding: "6px 0" },
-    approxNote: { fontFamily: FONT_UI, fontSize: 11.5, color: t.inkFaint, fontStyle: "italic", marginTop: 12 },
     miniGrid: (cols) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 12, marginBottom: 22 }),
     miniCard: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 8, padding: "15px 17px" },
     miniLabel: { fontFamily: FONT_UI, fontSize: 10.5, color: t.inkFaint, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, margin: "0 0 8px" },
     miniValue: { fontFamily: FONT_MONO, fontSize: 21, fontWeight: 600, margin: 0, fontVariantNumeric: "tabular-nums" },
 
-    tableBox: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 10, padding: "22px 24px", marginBottom: 8, overflowX: "auto" },
-    table: { width: "100%", borderCollapse: "collapse", fontFamily: FONT_UI, fontSize: 12.5 },
-    th: { textAlign: "left", padding: "8px 10px", color: t.inkFaint, fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: `1px solid ${t.border}` },
-    td: { padding: "9px 10px", borderTop: `1px solid ${t.border}`, color: t.ink },
-    mono: { fontFamily: FONT_MONO },
+    twoCol: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 },
+    widgetBox: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 10, padding: "19px 21px", marginBottom: 22 },
+    widgetTitle: { fontFamily: FONT_UI, fontSize: 13.5, fontWeight: 700, color: t.ink, margin: "0 0 12px" },
+    emptyNote: { fontFamily: FONT_UI, fontSize: 12.5, color: t.inkSub, padding: "6px 0" },
+    approxNote: { fontFamily: FONT_UI, fontSize: 11.5, color: t.inkFaint, fontStyle: "italic", marginTop: 12 },
+
+    chartRow: { display: "grid", gridTemplateColumns: "1fr auto", gap: 14, alignItems: "stretch", marginBottom: 22 },
+    chartCard: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 8, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "center" },
+
+    // ── CottonMass-style O2C snapshot: 8-card grid + 3-chart row ──
+    o2cHead: { fontFamily: FONT_HEAD, fontSize: 21, fontWeight: 600, margin: "0 0 16px", color: t.ink },
+    o2cGrid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 },
+    o2cCard: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 16, padding: "18px 20px", boxShadow: isDark ? "none" : "0 1px 2px rgba(15,33,56,0.05), 0 8px 20px -16px rgba(15,33,56,0.18)" },
+    o2cCardTop: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 },
+    o2cLabel: { fontFamily: FONT_UI, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.inkFaint, maxWidth: 130 },
+    o2cIconChip: (color) => ({ width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: `${color}1A`, color }),
+    o2cValue: { fontFamily: FONT_HEAD, fontSize: 30, fontWeight: 700, margin: "0 0 6px", color: t.ink, letterSpacing: "-0.01em" },
+    o2cSub: { fontFamily: FONT_UI, fontSize: 12, color: t.inkSub, margin: 0 },
+
+    o2cChartsRow: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 8 },
+    o2cChartCard: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 16, padding: "18px 20px", boxShadow: isDark ? "none" : "0 1px 2px rgba(15,33,56,0.05), 0 8px 20px -16px rgba(15,33,56,0.18)" },
+    o2cChartTitle: { fontFamily: FONT_HEAD, fontSize: 14, fontWeight: 600, margin: "0 0 14px", color: t.ink, display: "flex", alignItems: "center", gap: 8 },
   };
 
   useEffect(() => {
@@ -191,9 +257,44 @@ export default function Dashboard() {
         const [custRes, prodRes, orderRes] = await Promise.all([
           API.get("/customers"), API.get("/products"), API.get("/orders"),
         ]);
-        setCustomers(custRes.data || []);
-        setProducts(prodRes.data || []);
-        setOrders(orderRes.data || []);
+        const customers = custRes.data, products = prodRes.data, orders = orderRes.data;
+        const activeOrders = orders.filter((o) => ACTIVE_STATUSES.includes(o.Status));
+        const totalRevenue = orders.reduce((sum, o) => sum + (parseFloat(o.TotalAmount) || 0), 0);
+
+        setStats({
+          customers: customers.length,
+          activeOrders: activeOrders.length,
+          products: products.length,
+          revenue: formatRevenue(totalRevenue),
+        });
+        setRecentOrders(
+          orders.slice(0, 4).map((o) => ({
+            id: o.Code,
+            customer: o.customer?.Name ?? "—",
+            product: o.product?.Name ?? "—",
+            amount: `₹${(parseFloat(o.TotalAmount) || 0).toLocaleString()}`,
+            status: o.Status,
+          }))
+        );
+
+        // Weekly dispatch trend — derived from real order timestamps, Mon..Sun.
+        // Tries the common date field names a Laravel order record might use;
+        // if none are present, dayCounts stays null and the chart shows an
+        // honest "no date data" note instead of a fabricated line.
+        const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+        let sawDate = false;
+        const dayCounts = [0, 0, 0, 0, 0, 0, 0];
+        orders.forEach((o) => {
+          const raw = o.CreatedAt || o.created_at || o.OrderDate || o.order_date || o.DispatchDate || o.dispatch_date;
+          if (!raw) return;
+          const d = new Date(raw);
+          if (isNaN(d.getTime())) return;
+          sawDate = true;
+          const idx = (d.getDay() + 6) % 7; // Mon=0 .. Sun=6
+          dayCounts[idx] += 1;
+        });
+        setWeeklyTrend(sawDate ? DAY_LABELS.map((label, i) => ({ label, value: dayCounts[i] })) : []);
+
         setLastUpdated(new Date());
       } catch {
         setError("Couldn't load dashboard data. Check your connection and try refreshing.");
@@ -203,116 +304,36 @@ export default function Dashboard() {
     })();
   }, [refreshTick]);
 
-  /* ── Normalize orders once ─────────────────────────────────────────── */
-  const rows = useMemo(() => orders.map((o) => ({
-    id: o.Code, dbId: o.Id,
-    customer: o.customer?.Name ?? "—",
-    customerId: o.customer?.Id ?? o.CustomerId,
-    product: o.product?.Name ?? "—",
-    productCode: o.product?.Code ?? o.ProductCode,
-    qty: o.Quantity || 0,
-    amount: parseFloat(o.TotalAmount) || 0,
-    status: (o.Status || "").toLowerCase(),
-    date: o.CreatedAt,
-  })), [orders]);
+  useEffect(() => {
+    (async () => {
+      setO2cLoading(true);
+      try {
+        const res = await API.get("/dashboard/o2c");
+        setO2c(res.data);
+      } catch {
+        // supplementary section — a failure here shouldn't block the rest of the page
+      } finally {
+        setO2cLoading(false);
+      }
+    })();
+  }, [refreshTick]);
 
-  /* ── Stat strip ───────────────────────────────────────────────────── */
-  const pendingCount  = rows.filter((r) => PENDING_STATUSES.includes(r.status)).length;
-  const approvedCount = rows.filter((r) => APPROVED_STATUSES.includes(r.status)).length;
-  const declinedCount = rows.filter((r) => r.status === "declined").length;
-  const dispatchedOnlyCount = rows.filter((r) => r.status === "dispatched").length;
-  const deliveredCount = rows.filter((r) => r.status === "delivered").length;
-  const dispatchedCount = dispatchedOnlyCount + deliveredCount;
-  const processingCount = rows.filter((r) => r.status === "processing").length;
-  const pendingDispatchCount = rows.filter((r) => r.status === "approved" || r.status === "processing").length;
-  const totalRevenue = rows.reduce((s, r) => s + r.amount, 0);
-
-  const agingBuckets = useMemo(() => {
-    const active = rows.filter((r) => ACTIVE_STATUSES.includes(r.status));
-    return {
-      "0-1": active.filter((r) => daysSince(r.date) <= 1).length,
-      "2-3": active.filter((r) => daysSince(r.date) >= 2 && daysSince(r.date) <= 3).length,
-      "4+": active.filter((r) => daysSince(r.date) >= 4).length,
-    };
-  }, [rows]);
-  const agingPending = agingBuckets["0-1"] > 0 || true ? rows.filter((r) => ACTIVE_STATUSES.includes(r.status) && daysSince(r.date) >= 1 && daysSince(r.date) <= 2).length : 0;
-  const longPendingAll = rows.filter((r) => ACTIVE_STATUSES.includes(r.status) && daysSince(r.date) >= 3)
-    .map((r) => ({ ...r, days: daysSince(r.date) }))
-    .sort((a, b) => b.days - a.days);
-
-  /* ── Product-wise order demand (qty) ─────────────────────────────── */
-  const productSummary = useMemo(() => {
-    const map = {};
-    rows.forEach((r) => {
-      if (!map[r.product]) map[r.product] = { product: r.product, qty: 0 };
-      map[r.product].qty += r.qty;
-    });
-    return Object.values(map).sort((a, b) => b.qty - a.qty);
-  }, [rows]);
-
-  /* ── Stock shortage (active demand vs. product stock) ───────────────── */
-  const stockShortage = useMemo(() => {
-    const demand = {};
-    rows.filter((r) => ACTIVE_STATUSES.includes(r.status)).forEach((r) => {
-      demand[r.productCode] = (demand[r.productCode] || 0) + r.qty;
-    });
-    return Object.entries(demand)
-      .map(([code, requested]) => {
-        const p = products.find((p) => p.Code === code);
-        const available = parseFloat(p?.Quantity) || 0;
-        return { code, product: p?.Name || code, requested, available };
-      })
-      .filter((r) => r.requested > r.available)
-      .sort((a, b) => (b.requested - b.available) - (a.requested - a.available));
-  }, [rows, products]);
-
-  const declinedOrders = rows.filter((r) => r.status === "declined");
-  const salesLossCount = declinedCount + stockShortage.length;
-  const salesLossValue =
-    declinedOrders.reduce((s, r) => s + r.amount, 0) +
-    stockShortage.reduce((s, r) => {
-      const p = products.find((p) => p.Code === r.code);
-      return s + (parseFloat(p?.Price) || 0) * (r.requested - r.available);
-    }, 0);
-  const salesLossByCustomer = useMemo(() => {
-    const map = {};
-    declinedOrders.forEach((r) => {
-      if (!map[r.customer]) map[r.customer] = { customer: r.customer, value: 0 };
-      map[r.customer].value += r.amount;
-    });
-    return Object.values(map).sort((a, b) => b.value - a.value);
-  }, [declinedOrders]);
-
-  /* ── Customer-wise order summary ─────────────────────────────────── */
-  const customerSummary = useMemo(() => {
-    const map = {};
-    rows.forEach((r) => {
-      if (!map[r.customer]) map[r.customer] = { customer: r.customer, orders: 0, value: 0 };
-      map[r.customer].orders += 1;
-      map[r.customer].value += r.amount;
-    });
-    return Object.values(map).sort((a, b) => b.value - a.value);
-  }, [rows]);
+  const statCards = useMemo(() => ([
+    { label: "Total Customers", value: loading ? null : (stats.customers ?? 0).toLocaleString(), Icon: IconUsers },
+    { label: "Active Orders",   value: loading ? null : (stats.activeOrders ?? 0).toLocaleString(), Icon: IconCrate },
+    { label: "Products",        value: loading ? null : (stats.products ?? 0).toLocaleString(), Icon: IconSpool },
+    { label: "Revenue",         value: loading ? null : stats.revenue, Icon: IconTrend },
+  ]), [loading, stats]);
 
   const formattedLastUpdated = lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
-
-  const statCards = [
-    { label: "Total Orders", value: rows.length, sub: `${dispatchedCount} dispatched`, Icon: IconClipboard, accent: t.ink },
-    { label: "Approved Orders", value: approvedCount, sub: "Past pending review", Icon: IconCheck, accent: t.forest },
-    { label: "Declined Orders", value: declinedCount, sub: "Rejected at review", Icon: IconX, accent: t.danger },
-    { label: "Processing", value: processingCount, sub: "In fulfilment, not dispatched", Icon: IconCrate, accent: t.indigo },
-    { label: "Dispatched", value: dispatchedCount, sub: "Shipped or delivered", Icon: IconTruck, accent: t.indigo },
-    { label: "Aging Pending Dispatch", value: agingPending, sub: "1–2 days since placed", Icon: IconClock, accent: t.ochre },
-    { label: "Sales Loss Indicators", value: salesLossCount, sub: formatRevenue(salesLossValue) + " estimated", Icon: IconTrend, accent: t.danger },
-    { label: "Long Pending Orders", value: longPendingAll.length, sub: "3+ days, not dispatched", Icon: IconTimer, accent: t.inkSub },
-  ];
 
   return (
     <Layout>
       <style>{MOTION_CSS}</style>
-      <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
 
       <div style={styles.page}>
+       
         <div style={styles.topBar}>
           <div>
             <h1 style={styles.heading}>Dashboard</h1>
@@ -321,7 +342,14 @@ export default function Dashboard() {
           <div style={styles.topBarRight}>
             {formattedLastUpdated && !loading && <span style={styles.lastUpdated}>upd. {formattedLastUpdated}</span>}
             <span style={styles.liveWrap}><span style={styles.liveDot} />{loading ? "syncing" : "live"}</span>
-            <button type="button" className="pd-refresh" style={styles.refreshBtn} onClick={() => setRefreshTick((n) => n + 1)} disabled={loading} aria-label="Refresh dashboard data">
+            <button
+              type="button"
+              className="pd-refresh"
+              style={styles.refreshBtn}
+              onClick={() => setRefreshTick((n) => n + 1)}
+              disabled={loading}
+              aria-label="Refresh dashboard data"
+            >
               <IconRefresh className={loading ? "pd-spin" : ""} /> Refresh
             </button>
           </div>
@@ -336,22 +364,152 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* ══════════════ O2C snapshot — same 8-card + 3-chart layout as the ══════════════
+            reference Premier Mills O2C portal, wired to real /dashboard/o2c data.
+            Wrapped in its own ErrorBoundary — if this section ever hits a
+            rendering bug, the rest of the dashboard stays usable. */}
+        <ErrorBoundary>
+        {!o2cLoading && o2c && (() => {
+          const totalOrders = (o2c.dispatchStatus?.dispatched || 0) + (o2c.dispatchStatus?.pendingDispatch || 0) + (o2c.dispatchStatus?.delivered || 0);
+          const cards = [
+            { label: "Total Enquiries", value: o2c.enquiryStatus?.total ?? 0, sub: `${o2c.enquiryStatus?.pending ?? 0} pending review`, Icon: IconClipboard, color: t.forest },
+            { label: "Approved Enquiries", value: o2c.enquiryStatus?.approved ?? 0, sub: "Moved past marketing review", Icon: IconCheckCircle, color: t.sage },
+            { label: "Invalid Indents", value: o2c.enquiryStatus?.rejected ?? 0, sub: "Incomplete / duplicate / bad qty", Icon: IconFileWarning, color: t.danger },
+            { label: "Total Orders (SO)", value: totalOrders, sub: `${o2c.dispatchStatus?.dispatched ?? 0} dispatched`, Icon: IconCart, color: t.forest },
+            { label: "Partial / In-Process", value: o2c.dispatchStatus?.pendingDispatch ?? 0, sub: "Allocated or cleared, not dispatched", Icon: IconAtom, color: t.ochre },
+            { label: "Prev. Day Pending Dispatch", value: o2c.pendingDispatchAging?.buckets?.["0-1"] ?? 0, sub: "Aging 1–2 days", Icon: IconClock, color: t.ochre },
+            { label: "Sales Loss Indicators", value: o2c.salesLoss?.count ?? 0, sub: "Stock shortage + invalid + delay", Icon: IconTrendDown, color: t.danger },
+            { label: "Long Pending Orders", value: o2c.longPendingOrders?.length ?? 0, sub: "Approved, not yet dispatched", Icon: IconTimer, color: t.inkSub },
+          ];
+
+          const enquiryBars = [
+            { label: "Pending", value: o2c.enquiryStatus?.pending ?? 0, color: t.ochre },
+            { label: "Approved", value: o2c.enquiryStatus?.approved ?? 0, color: t.sage },
+            { label: "Invalid", value: o2c.enquiryStatus?.rejected ?? 0, color: t.danger },
+          ];
+
+          const customerDonut = (o2c.ordersPlaced?.customerWise || []).slice(0, 5).map((c, i) => ({
+            label: c.customer, value: c.value,
+            color: [t.forest, t.ochre, t.danger, t.sage, t.indigo][i % 5],
+          }));
+
+          return (
+            <div style={{ marginBottom: 34 }}>
+              <h2 style={styles.o2cHead}>O2C Snapshot</h2>
+
+              <div style={styles.o2cGrid}>
+                {cards.map((c) => (
+                  <div key={c.label} className="pd-fade-up" style={styles.o2cCard}>
+                    <div style={styles.o2cCardTop}>
+                      <span style={styles.o2cLabel}>{c.label}</span>
+                      <span style={styles.o2cIconChip(c.color)}><c.Icon /></span>
+                    </div>
+                    <p style={{ ...styles.o2cValue, color: c.color }}>{c.value}</p>
+                    <p style={styles.o2cSub}>{c.sub}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div style={styles.o2cChartsRow}>
+                <div style={styles.o2cChartCard}>
+                  <p style={styles.o2cChartTitle}>Enquiry Status Breakdown</p>
+                  <BarChart data={enquiryBars} height={190} barWidth={44} gap={26} showAxis textColor={t.ink} subColor={t.inkSub} gridColor={t.border} />
+                </div>
+
+                <div style={styles.o2cChartCard}>
+                  <p style={styles.o2cChartTitle}>Order Value by Customer</p>
+                  {customerDonut.length === 0 ? (
+                    <p style={styles.emptyNote}>No order value data yet.</p>
+                  ) : (
+                    <div style={{ display: "flex", justifyContent: "center" }}>
+                      <DonutChart
+                        data={customerDonut}
+                        size={150} thickness={24}
+                        textColor={t.ink} subColor={t.inkSub}
+                        valueFormatter={(v) => `₹${v.toLocaleString()}`}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div style={styles.o2cChartCard}>
+                  <p style={styles.o2cChartTitle}>Weekly Dispatch Trend</p>
+                  {weeklyTrend === null ? (
+                    <p style={styles.emptyNote}>Loading…</p>
+                  ) : weeklyTrend.length === 0 ? (
+                    <p style={styles.emptyNote}>No dated order records yet to chart a weekly trend.</p>
+                  ) : (
+                    <AreaChart data={weeklyTrend} height={190} color={t.sage} textColor={t.ink} subColor={t.inkSub} gridColor={t.border} />
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+        </ErrorBoundary>
+
         {/* Stat strip */}
         <div style={styles.statStrip}>
           {statCards.map((card, i) => (
-            <div key={card.label} className="pd-fade-up pd-stat" style={{ ...styles.statCell, borderRight: (i % 4 === 3) ? "none" : styles.statCell.borderRight, borderBottom: i >= 4 ? "none" : styles.statCell.borderBottom, animationDelay: `${i * 45}ms` }}>
-              <div style={styles.statTop}><card.Icon style={{ color: card.accent }} /><span style={styles.statLabel}>{card.label}</span></div>
-              {loading ? (
-                <div className="pd-skel" style={{ height: 24, width: "55%", background: `linear-gradient(90deg, ${t.border} 25%, ${t.borderStrong} 37%, ${t.border} 63%)` }} aria-hidden="true" />
+            <div key={card.label} className="pd-fade-up pd-stat" style={{ ...styles.statCell, borderRight: i === statCards.length - 1 ? "none" : styles.statCell.borderRight, animationDelay: `${i * 55}ms` }}>
+              <div style={styles.statTop}>
+                <card.Icon />
+                <span style={styles.statLabel}>{card.label}</span>
+              </div>
+              {card.value === null ? (
+                <div className="pd-skel" style={{ height: 26, width: "55%", background: `linear-gradient(90deg, ${t.border} 25%, ${t.borderStrong} 37%, ${t.border} 63%)` }} aria-hidden="true" />
               ) : (
                 <p style={styles.statValue}>{card.value}</p>
               )}
-              {!loading && <p style={styles.statSub}>{card.sub}</p>}
             </div>
           ))}
         </div>
 
-        {loading ? (
+        {/* Recent orders */}
+        <div style={styles.tableBox}>
+          <div style={styles.tableHeader}>
+            <h2 style={styles.tableTitle}>Recent orders</h2>
+            <span style={styles.tableCount}>{String(recentOrders.length).padStart(2, "0")} records</span>
+          </div>
+          {loading ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="pd-skel" style={{ height: 16, width: `${82 - i * 8}%`, background: `linear-gradient(90deg, ${t.border} 25%, ${t.borderStrong} 37%, ${t.border} 63%)` }} aria-hidden="true" />
+              ))}
+            </div>
+          ) : recentOrders.length === 0 ? (
+            <div style={styles.emptyState}>
+              <p style={styles.emptyText}>No orders yet. New orders will appear here as soon as they come in.</p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 26, flexWrap: "wrap" }}>
+              <BarChart
+                height={150}
+                barWidth={70}
+                textColor={t.ink}
+                subColor={t.inkSub}
+                data={recentOrders.map((o) => ({ label: o.id, value: parseInt(o.amount.replace(/[^\d]/g, ""), 10) || 0, color: statusTone(o.status, t) }))}
+              />
+              <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 240 }}>
+                {recentOrders.map((o, i) => (
+                  <div key={o.id} className="pd-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 10px", borderTop: i === 0 ? "none" : `1px solid ${t.border}`, borderRadius: 6 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 10, fontFamily: FONT_UI, fontSize: 12.5, minWidth: 0 }}>
+                      <span style={{ fontFamily: FONT_MONO, fontWeight: 600, color: t.ink }}>{o.id}</span>
+                      <span style={{ color: t.inkSub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.customer}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <span style={{ fontFamily: FONT_MONO, fontSize: 12.5, color: t.ink, fontVariantNumeric: "tabular-nums" }}>{o.amount}</span>
+                      <span style={{ fontFamily: FONT_UI, fontSize: 11, fontWeight: 600, textTransform: "capitalize", color: statusTone(o.status, t) }}>{o.status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ══════════════ O2C pipeline — numbered by actual process order ══════════════ */}
+        {o2cLoading ? (
           <div style={{ marginTop: 40, display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="pd-skel" style={{ height: 20, width: 180, background: `linear-gradient(90deg, ${t.border} 25%, ${t.borderStrong} 37%, ${t.border} 63%)` }} aria-hidden="true" />
             <div style={styles.miniGrid(4)}>
@@ -360,195 +518,107 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-        ) : (
+        ) : o2c && (
           <>
-            {/* 01 · Order status breakdown */}
-            <div style={styles.sectionHead}><span style={styles.stageNum}>01</span><h2 style={styles.sectionTitle}>Order Status Breakdown</h2></div>
-            <p style={styles.sectionSub}>Pending review, approved onward, and declined — across all orders.</p>
+            {/* 01 */}
+            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Enquiry status</h2></div>
             <div style={styles.chartRow}>
               <div style={styles.miniGrid(4)}>
-                {[["Total", rows.length, t.ink], ["Pending", pendingCount, t.ochre], ["Approved+", approvedCount, t.forest], ["Declined", declinedCount, t.danger]].map(([label, val, color]) => (
-                  <div key={label} style={styles.miniCard}><p style={styles.miniLabel}>{label}</p><p style={{ ...styles.miniValue, color }}>{val}</p></div>
-                ))}
-              </div>
-              <div style={styles.chartCard}>
-                <DonutChart size={140} thickness={17} textColor={t.ink} subColor={t.inkSub}
-                  data={[
-                    { label: "Pending", value: pendingCount, color: t.ochre },
-                    { label: "Approved+", value: approvedCount, color: t.forest },
-                    { label: "Declined", value: declinedCount, color: t.danger },
-                  ]} />
-              </div>
-            </div>
-
-            {/* 02 · Orders placed */}
-            <div style={styles.sectionHead}><span style={styles.stageNum}>02</span><h2 style={styles.sectionTitle}>Orders Placed</h2></div>
-            <p style={styles.sectionSub}>{formatRevenue(totalRevenue)} in total order value across {rows.length} order(s).</p>
-            <div style={styles.twoCol}>
-              <div style={styles.widgetBox}>
-                <p style={styles.widgetTitle}>Customer-wise (top 6)</p>
-                {customerSummary.length === 0 ? <p style={styles.emptyNote}>No data yet.</p> : (
-                  <BarChart height={160} barWidth={54} textColor={t.ink} subColor={t.inkSub}
-                    data={customerSummary.slice(0, 6).map((c, i) => ({ label: c.customer, value: Math.round(c.value), color: [t.forest, t.sage, t.ochre, t.indigo, t.danger, t.inkSub][i % 6] }))} />
-                )}
-              </div>
-              <div style={styles.widgetBox}>
-                <p style={styles.widgetTitle}>Product-wise (top 6, by quantity)</p>
-                {productSummary.length === 0 ? <p style={styles.emptyNote}>No data yet.</p> : (
-                  <BarChart height={160} barWidth={54} textColor={t.ink} subColor={t.inkSub}
-                    data={productSummary.slice(0, 6).map((p, i) => ({ label: p.product, value: p.qty, color: [t.sage, t.ochre, t.indigo, t.forest, t.danger, t.inkSub][i % 6] }))} />
-                )}
-              </div>
-            </div>
-
-            {/* 03 · Dispatch status */}
-            <div style={styles.sectionHead}><span style={styles.stageNum}>03</span><h2 style={styles.sectionTitle}>Dispatch Status</h2></div>
-            <p style={styles.sectionSub}>Where approved orders currently sit in fulfilment.</p>
-            <div style={styles.chartRow}>
-              <div style={styles.miniGrid(3)}>
-                {[["Dispatched", dispatchedOnlyCount, t.indigo], ["Pending dispatch", pendingDispatchCount, t.ochre], ["Delivered", deliveredCount, t.forest]].map(([label, val, color]) => (
+                {[["Total", o2c.enquiryStatus.total, t.ink], ["Pending", o2c.enquiryStatus.pending, t.ochre], ["Approved+", o2c.enquiryStatus.approved, t.forest], ["Rejected", o2c.enquiryStatus.rejected, t.danger]].map(([label, val, color]) => (
                   <div key={label} style={styles.miniCard}><p style={styles.miniLabel}>{label}</p><p style={{ ...styles.miniValue, color }}>{val}</p></div>
                 ))}
               </div>
               <div style={styles.chartCard}>
                 <DonutChart size={120} thickness={15} textColor={t.ink} subColor={t.inkSub}
-                  data={[
-                    { label: "Dispatched", value: dispatchedOnlyCount, color: t.indigo },
-                    { label: "Pending", value: pendingDispatchCount, color: t.ochre },
-                    { label: "Delivered", value: deliveredCount, color: t.forest },
-                  ]} />
+                  data={[{ label: "Pending", value: o2c.enquiryStatus.pending, color: t.ochre }, { label: "Approved+", value: o2c.enquiryStatus.approved, color: t.forest }, { label: "Rejected", value: o2c.enquiryStatus.rejected, color: t.danger }]} />
               </div>
             </div>
 
-            {/* 04 · Pending dispatch aging */}
-            <div style={styles.sectionHead}><span style={styles.stageNum}>04</span><h2 style={styles.sectionTitle}>Pending Dispatch — Aging</h2></div>
-            <p style={styles.sectionSub}>Active orders (pending, approved, processing) grouped by days since placed.</p>
+            {/* 02 */}
+            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Orders placed</h2></div>
+            <p style={styles.sectionSub}>Today: <strong style={{ color: t.ink, fontFamily: FONT_MONO }}>{o2c.ordersPlaced.today}</strong> order(s) placed.</p>
+            <div style={styles.twoCol}>
+              <div style={styles.widgetBox}>
+                <p style={styles.widgetTitle}>Customer-wise (top 6)</p>
+                {o2c.ordersPlaced.customerWise.length === 0 ? <p style={styles.emptyNote}>No data yet.</p> : (
+                  <BarChart height={160}barWidth={70}textColor={t.ink} subColor={t.inkSub} data={o2c.ordersPlaced.customerWise.slice(0, 6).map((c, i) => ({ label: c.customer, value: c.value, color: [t.forest, t.sage, t.ochre, t.indigo, t.danger, t.inkSub][i % 6] }))} />
+                )}
+              </div>
+              <div style={styles.widgetBox}>
+                <p style={styles.widgetTitle}>Product-wise (top 6)</p>
+                {o2c.ordersPlaced.productWise.length === 0 ? <p style={styles.emptyNote}>No data yet.</p> : (
+                  <BarChart height={160} barWidth={70} textColor={t.ink} subColor={t.inkSub} data={o2c.ordersPlaced.productWise.slice(0, 6).map((p, i) => ({ label: p.product, value: p.qty, color: [t.sage, t.ochre, t.indigo, t.forest, t.danger, t.inkSub][i % 6] }))} />
+                )}
+              </div>
+            </div>
+
+            {/* 03 */}
+            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Dispatch status</h2></div>
             <div style={styles.chartRow}>
               <div style={styles.miniGrid(3)}>
-                {[["0–1 days", agingBuckets["0-1"], t.forest], ["2–3 days", agingBuckets["2-3"], t.ochre], ["4+ days (priority)", agingBuckets["4+"], t.danger]].map(([label, val, color]) => (
+                {[["Dispatched", o2c.dispatchStatus.dispatched, t.indigo], ["Pending dispatch", o2c.dispatchStatus.pendingDispatch, t.ochre], ["Delivered", o2c.dispatchStatus.delivered, t.forest]].map(([label, val, color]) => (
                   <div key={label} style={styles.miniCard}><p style={styles.miniLabel}>{label}</p><p style={{ ...styles.miniValue, color }}>{val}</p></div>
                 ))}
               </div>
               <div style={styles.chartCard}>
-                <BarChart height={130} barWidth={40} textColor={t.ink} subColor={t.inkSub}
-                  data={[
-                    { label: "0–1d", value: agingBuckets["0-1"], color: t.forest },
-                    { label: "2–3d", value: agingBuckets["2-3"], color: t.ochre },
-                    { label: "4+d", value: agingBuckets["4+"], color: t.danger },
-                  ]} />
+                <DonutChart size={120} thickness={15} textColor={t.ink} subColor={t.inkSub}
+                  data={[{ label: "Dispatched", value: o2c.dispatchStatus.dispatched, color: t.indigo }, { label: "Pending", value: o2c.dispatchStatus.pendingDispatch, color: t.ochre }, { label: "Delivered", value: o2c.dispatchStatus.delivered, color: t.forest }]} />
               </div>
             </div>
 
-            {/* 05 · Stock shortage */}
-            <div style={styles.sectionHead}><span style={styles.stageNum}>05</span><h2 style={styles.sectionTitle}>Stock Shortage</h2></div>
-            <p style={styles.sectionSub}>Active-order demand (pending, approved, processing) vs. current product stock.</p>
+            {/* 04 */}
+            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Pending dispatch — aging</h2></div>
+            <div style={styles.chartRow}>
+              <div style={styles.miniGrid(3)}>
+                {[["0–1 days", o2c.pendingDispatchAging.buckets["0-1"], t.forest], ["2–3 days", o2c.pendingDispatchAging.buckets["2-3"], t.ochre], ["4+ days (priority)", o2c.pendingDispatchAging.buckets["4+"], t.danger]].map(([label, val, color]) => (
+                  <div key={label} style={styles.miniCard}><p style={styles.miniLabel}>{label}</p><p style={{ ...styles.miniValue, color }}>{val}</p></div>
+                ))}
+              </div>
+              <div style={styles.chartCard}>
+                <BarChart height={130} barWidth={34} textColor={t.ink} subColor={t.inkSub}
+                  data={[{ label: "0–1d", value: o2c.pendingDispatchAging.buckets["0-1"], color: t.forest }, { label: "2–3d", value: o2c.pendingDispatchAging.buckets["2-3"], color: t.ochre }, { label: "4+d", value: o2c.pendingDispatchAging.buckets["4+"], color: t.danger }]} />
+              </div>
+            </div>
+            
+
+            {/* 05 */}
+            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Stock shortage</h2></div>
+            <p style={styles.sectionSub}>Requested vs. available, top items.</p>
             <div style={styles.widgetBox}>
-              {stockShortage.length === 0 ? <p style={styles.emptyNote}>No shortages currently.</p> : (
-                <GroupedBarChart height={180} textColor={t.ink} subColor={t.inkSub}
+              {o2c.stockShortage.length === 0 ? <p style={styles.emptyNote}>No shortage right now.</p> : (
+                <GroupedBarChart height={170} textColor={t.ink} subColor={t.inkSub}
                   series={[{ label: "Requested", color: t.ochre }, { label: "Available", color: t.danger }]}
-                  data={stockShortage.slice(0, 6).map((r) => ({ label: r.product, values: [r.requested, r.available] }))} />
+                  data={o2c.stockShortage.slice(0, 6).map((r) => ({ label: r.product, values: [r.requested, r.available] }))} />
               )}
             </div>
-            <div style={styles.tableBox}>
-              <table style={styles.table}>
-                <thead><tr><th style={styles.th}>Product</th><th style={styles.th}>Requested</th><th style={styles.th}>Available</th><th style={styles.th}>Shortfall</th></tr></thead>
-                <tbody>
-                  {stockShortage.map((r) => (
-                    <tr key={r.code} className="pd-row">
-                      <td style={styles.td}>{r.product}</td>
-                      <td style={{ ...styles.td, ...styles.mono }}>{r.requested}</td>
-                      <td style={{ ...styles.td, ...styles.mono }}>{r.available}</td>
-                      <td style={{ ...styles.td, ...styles.mono, color: t.danger, fontWeight: 600 }}>{r.requested - r.available}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {stockShortage.length === 0 && <p style={styles.emptyNote}>Nothing short right now.</p>}
-            </div>
 
-            {/* 06 · Sales loss */}
-            <div style={styles.sectionHead}><span style={styles.stageNum}>06</span><h2 style={styles.sectionTitle}>Sales Loss</h2></div>
-            <p style={styles.sectionSub}>Declined orders plus demand that current stock can't cover.</p>
+            {/* 06 */}
+            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Sales loss</h2></div>
             <div style={styles.chartRow}>
               <div style={styles.miniGrid(2)}>
-                <div style={styles.miniCard}><p style={styles.miniLabel}>Declined orders</p><p style={{ ...styles.miniValue, color: t.danger }}>{declinedCount}</p></div>
-                <div style={styles.miniCard}><p style={styles.miniLabel}>Value lost (est.)</p><p style={{ ...styles.miniValue, color: t.danger }}>{formatRevenue(salesLossValue)}</p></div>
+                <div style={styles.miniCard}><p style={styles.miniLabel}>Declined enquiries</p><p style={{ ...styles.miniValue, color: t.danger }}>{o2c.salesLoss.count}</p></div>
+                <div style={styles.miniCard}><p style={styles.miniLabel}>Value lost</p><p style={{ ...styles.miniValue, color: t.danger }}>₹{o2c.salesLoss.value.toLocaleString()}</p></div>
               </div>
-              {salesLossByCustomer.length > 0 && (
+              {o2c.salesLoss.list.length > 0 && (
                 <div style={styles.chartCard}>
-                  <BarChart height={130} barWidth={30} textColor={t.ink} subColor={t.inkSub}
-                    data={salesLossByCustomer.slice(0, 6).map((r) => ({ label: r.customer, value: Math.round(r.value), color: t.danger }))} />
+                  <BarChart height={130} barWidth={30} textColor={t.ink} subColor={t.inkSub} data={o2c.salesLoss.list.slice(0, 6).map((r) => ({ label: r.customer, value: r.value, color: t.danger }))} />
                 </div>
               )}
             </div>
 
-            {/* 07 · Declined orders detail */}
-            <div style={styles.sectionHead}><span style={styles.stageNum}>07</span><h2 style={styles.sectionTitle}>Declined Orders</h2></div>
-            <p style={styles.sectionSub}>Orders rejected at review — {formatRevenue(declinedOrders.reduce((s, r) => s + r.amount, 0))} in lost value.</p>
-            <div style={{ ...styles.tableBox, marginBottom: 30 }}>
-              <table style={styles.table}>
-                <thead><tr><th style={styles.th}>Order</th><th style={styles.th}>Customer</th><th style={styles.th}>Product</th><th style={styles.th}>Amount</th></tr></thead>
-                <tbody>
-                  {declinedOrders.map((r) => (
-                    <tr key={r.id} className="pd-row">
-                      <td style={{ ...styles.td, ...styles.mono, fontSize: 11.5 }}>{r.id}</td>
-                      <td style={styles.td}>{r.customer}</td><td style={styles.td}>{r.product}</td>
-                      <td style={{ ...styles.td, ...styles.mono }}>₹{r.amount.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {declinedCount === 0 && <p style={styles.emptyNote}>No declined orders.</p>}
-            </div>
+            {/* 07 */}
+            
 
-            {/* 08 · Long pending orders */}
-            <div style={styles.sectionHead}><span style={styles.stageNum}>08</span><h2 style={styles.sectionTitle}>Long Pending Orders</h2></div>
-            <p style={styles.sectionSub}>Pending, approved, or processing — 3+ days since placed, not yet dispatched.</p>
+            {/* 08 */}
+            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Long pending orders</h2></div>
+            <p style={styles.sectionSub}>Approved/processing 3+ days, no dispatch.</p>
             <div style={styles.widgetBox}>
-              {longPendingAll.length === 0 ? <p style={styles.emptyNote}>Nothing long-pending — all clear.</p> : (
-                <BarChart height={140} barWidth={30} textColor={t.ink} subColor={t.inkSub}
-                  data={longPendingAll.slice(0, 6).map((r) => ({ label: r.customer, value: r.days, color: t.danger }))} />
+              {o2c.longPendingOrders.length === 0 ? <p style={styles.emptyNote}>Nothing long-pending.</p> : (
+                <BarChart height={140} barWidth={30} textColor={t.ink} subColor={t.inkSub} data={o2c.longPendingOrders.slice(0, 6).map((r) => ({ label: r.customer, value: r.days, color: t.danger }))} />
               )}
             </div>
-            <div style={styles.tableBox}>
-              <table style={styles.table}>
-                <thead><tr><th style={styles.th}>Order</th><th style={styles.th}>Customer</th><th style={styles.th}>Status</th><th style={styles.th}>Days pending</th></tr></thead>
-                <tbody>
-                  {longPendingAll.map((r) => (
-                    <tr key={r.id} className="pd-row">
-                      <td style={{ ...styles.td, ...styles.mono, fontSize: 11.5 }}>{r.id}</td>
-                      <td style={styles.td}>{r.customer}</td>
-                      <td style={styles.td}><span style={{ fontFamily: FONT_UI, fontSize: 11, fontWeight: 600, textTransform: "capitalize", color: statusTone(r.status, t) }}>{r.status}</span></td>
-                      <td style={{ ...styles.td, ...styles.mono }}>{r.days}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {longPendingAll.length === 0 && <p style={styles.emptyNote}>Nothing long-pending — all clear.</p>}
-            </div>
 
-            {/* 09 · Customer-wise order summary */}
-            <div style={styles.sectionHead}><span style={styles.stageNum}>09</span><h2 style={styles.sectionTitle}>Customer-wise Order Summary</h2></div>
-            <div style={{ ...styles.tableBox, marginBottom: 30 }}>
-              <table style={styles.table}>
-                <thead><tr><th style={styles.th}>Customer</th><th style={styles.th}>Orders</th><th style={styles.th}>Value</th></tr></thead>
-                <tbody>
-                  {customerSummary.map((c) => (
-                    <tr key={c.customer} className="pd-row">
-                      <td style={styles.td}>{c.customer}</td>
-                      <td style={{ ...styles.td, ...styles.mono }}>{c.orders}</td>
-                      <td style={{ ...styles.td, ...styles.mono }}>₹{Math.round(c.value).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {customerSummary.length === 0 && <p style={styles.emptyNote}>No sales orders yet.</p>}
-            </div>
-
-            <p style={styles.approxNote}>
-              All figures computed live from /customers, /products and /orders — status thresholds:
-              pending/approved/processing = active, dispatched/delivered = closed.
-            </p>
+            <p style={styles.approxNote}>{o2c.note}</p>
           </>
         )}
       </div>

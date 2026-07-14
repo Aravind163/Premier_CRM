@@ -126,7 +126,7 @@ export default function CustomerShop() {
 
   const S = {
     topRow: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 },
-    heading: { fontFamily: FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
+    heading: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
     headingSub: { fontSize: 13, color: themeG.textSub, margin: 0 },
     cartBtn: { display: "flex", alignItems: "center", gap: 8, padding: "9px 18px", borderRadius: 20, border: `1.5px solid ${themeG.accent}`, background: "transparent", color: themeG.accent, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT },
     cartBadgeInline: { background: themeG.accent, color: "#fff", borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 },
@@ -135,22 +135,22 @@ export default function CustomerShop() {
     filterLabel: { fontSize: 11, fontWeight: 700, color: themeG.textLabel, textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 8px" },
     filterRow: { display: "flex", gap: 8, flexWrap: "wrap" },
     filterBtn: (active) => ({ padding: "7px 16px", borderRadius: 20, border: "1.5px solid", cursor: "pointer", fontFamily: FONT, fontSize: 12.5, fontWeight: 600, textTransform: "capitalize", background: active ? themeG.accent : themeG.card, color: active ? "#fff" : themeG.textSub, borderColor: active ? themeG.accent : themeG.border, display: "flex", alignItems: "center", gap: 6 }),
-    subFilterBtn: (active) => ({ padding: "6px 14px", borderRadius: 16, border: "1.5px solid", cursor: "pointer", fontFamily: FONT, fontSize: 12, fontWeight: 600, textTransform: "capitalize", background: active ? "rgba(45,106,79,0.10)" : "transparent", color: active ? themeG.accent : themeG.textSub, borderColor: active ? themeG.accent : themeG.border }),
+    subFilterBtn: (active) => ({ padding: "6px 14px", borderRadius: 16, border: "1.5px solid", cursor: "pointer", fontFamily: FONT, fontSize: 12, fontWeight: 600, textTransform: "capitalize", background: active ? "rgba(15,33,56,0.10)" : "transparent", color: active ? themeG.accent : themeG.textSub, borderColor: active ? themeG.accent : themeG.border }),
 
-    card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(45,106,79,0.06)", marginTop: 18 },
+    card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)", marginTop: 18 },
     productGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14, padding: 20 },
     productCard: { border: `1px solid ${themeG.border}`, borderRadius: 12, padding: 16, background: themeG.bg },
     productName: { fontSize: 14.5, fontWeight: 700, color: themeG.textMain, margin: "0 0 4px" },
     productMeta: { fontSize: 12, color: themeG.textSub, margin: "0 0 10px" },
     stockRow: { display: "flex", alignItems: "center", justifyContent: "space-between" },
-    stockQty: (qty) => ({ fontSize: 13, fontWeight: 700, color: qty > 0 ? "#2d6a4f" : "#a03025" }),
+    stockQty: (qty) => ({ fontSize: 13, fontWeight: 700, color: qty > 0 ? "#1F5C99" : "#96302F" }),
     price: { fontSize: 13, fontWeight: 600, color: themeG.textMain },
     addBtn: { width: "100%", marginTop: 12, padding: "8px 0", borderRadius: 8, border: "none", background: themeG.accent, color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT },
     addBtnDisabled: { width: "100%", marginTop: 12, padding: "8px 0", borderRadius: 8, border: `1px solid ${themeG.border}`, background: "transparent", color: themeG.textSub, fontSize: 12.5, fontWeight: 600, cursor: "not-allowed", fontFamily: FONT },
 
-    cartFab: { position: "fixed", bottom: 26, right: 26, background: themeG.accent, color: "#fff", border: "none", borderRadius: 30, padding: "13px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 6px 20px rgba(45,106,79,0.35)", display: "flex", alignItems: "center", gap: 8, fontFamily: FONT, zIndex: 50 },
+    cartFab: { position: "fixed", bottom: 26, right: 26, background: themeG.accent, color: "#fff", border: "none", borderRadius: 30, padding: "13px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 6px 20px rgba(15,33,56,0.35)", display: "flex", alignItems: "center", gap: 8, fontFamily: FONT, zIndex: 50 },
     cartBadge: { background: "#fff", color: themeG.accent, borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 },
-    overlay: { position: "fixed", inset: 0, background: "rgba(20,30,15,0.35)", display: "flex", alignItems: "center", justifyContent: "flex-end", zIndex: 100 },
+    overlay: { position: "fixed", inset: 0, background: "rgba(8,20,34,0.35)", display: "flex", alignItems: "center", justifyContent: "flex-end", zIndex: 100 },
     drawer: { background: themeG.card, width: 380, maxWidth: "92vw", height: "100%", padding: 24, overflowY: "auto", boxShadow: "-8px 0 30px rgba(0,0,0,0.15)" },
     drawerHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
     drawerTitle: { fontSize: 17, fontWeight: 700, color: themeG.textMain, margin: 0 },
@@ -161,7 +161,7 @@ export default function CustomerShop() {
     qtyBox: { display: "flex", alignItems: "center", gap: 6 },
     qtyBtn: { width: 24, height: 24, borderRadius: 6, border: `1px solid ${themeG.border}`, background: themeG.bg, color: themeG.textMain, fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
     qtyVal: { fontSize: 13, fontWeight: 600, color: themeG.textMain, minWidth: 20, textAlign: "center" },
-    removeBtn: { background: "transparent", border: "none", color: "#a03025", fontSize: 12, cursor: "pointer", fontFamily: FONT },
+    removeBtn: { background: "transparent", border: "none", color: "#96302F", fontSize: 12, cursor: "pointer", fontFamily: FONT },
     cartTotal: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 0", fontSize: 14.5, fontWeight: 700, color: themeG.textMain },
     submitBtn: { width: "100%", padding: "12px 0", borderRadius: 9, border: "none", background: themeG.accent, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FONT },
   };
@@ -181,13 +181,13 @@ export default function CustomerShop() {
       </div>
 
       {error && (
-        <div style={{ marginBottom: 20, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+        <div style={{ marginBottom: 20, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
           {error}
         </div>
       )}
 
       {notice && (
-        <div style={{ marginBottom: 20, background: "rgba(45,106,79,0.08)", border: "1px solid rgba(45,106,79,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: themeG.accent }}>
+        <div style={{ marginBottom: 20, background: "rgba(15,33,56,0.08)", border: "1px solid rgba(15,33,56,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: themeG.accent }}>
           {notice}
         </div>
       )}

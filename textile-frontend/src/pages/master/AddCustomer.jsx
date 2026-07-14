@@ -97,19 +97,19 @@ const TALUKS = {
 
 const Field = ({ label, required, children }) => (
   <div style={{ marginBottom: 18 }}>
-    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#3d6b50", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
-      {label}{required && <span style={{ color: "#c0392b", marginLeft: 3 }}>*</span>}
+    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#101B28", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+      {label}{required && <span style={{ color: "#B23A3A", marginLeft: 3 }}>*</span>}
     </label>
     {children}
   </div>
 );
 
 const Input = (props) => (
-  <input {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(27,77,46,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: "#1a3d2b", background: "#ffffff", outline: "none", boxSizing: "border-box" }} />
+  <input {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(15,33,56,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: "#0F2138", background: "#ffffff", outline: "none", boxSizing: "border-box" }} />
 );
 
 const Select = ({ children, ...props }) => (
-  <select {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(27,77,46,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: "#1a3d2b", background: "#ffffff", outline: "none", boxSizing: "border-box" }}>
+  <select {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: `1px solid ${"rgba(15,33,56,0.18)"}`, fontSize: 14, fontFamily: "inherit", color: "#0F2138", background: "#ffffff", outline: "none", boxSizing: "border-box" }}>
     {children}
   </select>
 );
@@ -119,7 +119,7 @@ export default function AddCustomer() {
   const themeG = getG(isDark);
   const navigate = useNavigate();
 
-  const card      = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 24, boxShadow: "0 4px 16px rgba(106,163,38,0.05)" };
+  const card      = { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 24, boxShadow: "0 4px 16px rgba(46,122,114,0.05)" };
   const cardTitle = { fontFamily: "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", fontSize: 16, fontWeight: 600, margin: "0 0 20px", color: themeG.textMain };
 
   const [form, setForm] = useState({
@@ -166,7 +166,7 @@ export default function AddCustomer() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
 
         {error && (
-          <div style={{ gridColumn: "1 / -1", background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#a23528" }}>
+          <div style={{ gridColumn: "1 / -1", background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>
             {error}
           </div>
         )}
@@ -191,7 +191,7 @@ export default function AddCustomer() {
               {["retail","wholesale"].map((t) => (
                 <button key={t} onClick={() => set("type", t)}
                   style={{ flex: 1, padding: "9px", borderRadius: 9, border: "1.5px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, transition: "all 0.12s",
-                    background:  form.type === t ? "rgba(124,179,66,0.15)" : themeG.card,
+                    background:  form.type === t ? "rgba(91,155,217,0.15)" : themeG.card,
                     color:       form.type === t ? themeG.accent : themeG.textSub,
                     borderColor: form.type === t ? themeG.accent : themeG.border }}>
                   {t === "retail" ? "🏪 Retail" : "🏭 Wholesale"}
@@ -242,7 +242,7 @@ export default function AddCustomer() {
           Cancel
         </button>
         <button onClick={handleSubmit} disabled={saving}
-          style={{ padding: "10px 28px", borderRadius: 9, border: "none", background: themeG.accent, color: themeG.card, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, boxShadow: "0 2px 10px rgba(124,179,66,0.32)", opacity: saving ? 0.6 : 1 }}>
+          style={{ padding: "10px 28px", borderRadius: 9, border: "none", background: themeG.accent, color: themeG.card, cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, boxShadow: "0 2px 10px rgba(91,155,217,0.32)", opacity: saving ? 0.6 : 1 }}>
           {saving ? "Saving…" : "Save Customer"}
         </button>
       </div>
