@@ -24,7 +24,6 @@ import AllocationSystemAdmin from "./AllocationSystemAdmin";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-
 export default function Allocation() {
   const { isDark } = useTheme();
   const themeG = getG(isDark);
