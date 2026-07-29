@@ -11,13 +11,6 @@ use Illuminate\Support\Facades\Schema;
  * due date is DispatchedAt + PaymentTermDays. Admin / End User can
  * manually reassign the due date later (e.g. a customer asks for more
  * time), which is recorded via PaymentDueDateSetBy / PaymentDueDateNote.
- *
- * PaymentDueDateSetBy is intentionally a plain nullable column with NO
- * database-level foreign key. SQL Server rejects a second cascading path
- * from Orders to users (it already has one via CreatedBy/AssignedTo), and
- * fighting that with NO ACTION / index tweaks isn't worth it for what is
- * just an audit/display field — the app never relies on the DB to enforce
- * or cascade this relationship.
  */
 return new class extends Migration
 {
@@ -32,6 +25,7 @@ return new class extends Migration
             }
             if (!Schema::hasColumn('Orders', 'PaymentDueDateSetBy')) {
                 $table->unsignedBigInteger('PaymentDueDateSetBy')->nullable()->after('PaymentDueDate');
+                $table->foreign('PaymentDueDateSetBy')->references('id')->on('users')->onDelete('set null');
             }
             if (!Schema::hasColumn('Orders', 'PaymentDueDateNote')) {
                 $table->string('PaymentDueDateNote', 255)->nullable()->after('PaymentDueDateSetBy');
@@ -42,6 +36,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('Orders', function (Blueprint $table) {
+            $table->dropForeign(['PaymentDueDateSetBy']);
             $table->dropColumn(['PaymentTermDays', 'PaymentDueDate', 'PaymentDueDateSetBy', 'PaymentDueDateNote']);
         });
     }

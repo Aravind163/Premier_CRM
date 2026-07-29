@@ -9,16 +9,60 @@ const getThemeColors = () => getG(localStorage.getItem("premier_theme") === "dar
 
 let tG = getThemeColors();
 
-const DISTRICTS = ["Coimbatore","Tiruppur","Erode","Salem","Namakkal","Karur","Dharmapuri","Krishnagiri"];
+const DISTRICTS = [
+  "Ariyalur","Chengalpattu","Chennai","Coimbatore","Cuddalore","Dharmapuri",
+  "Dindigul","Erode","Kallakurichi","Kancheepuram","Karur","Krishnagiri",
+  "Madurai","Mayiladuthurai","Nagapattinam","Namakkal","Nilgiris",
+  "Perambalur","Pudukkottai","Ramanathapuram","Ranipet","Salem",
+  "Sivagangai","Tenkasi","Thanjavur","Theni","Thoothukudi","Tiruchirappalli",
+  "Tirunelveli","Tirupathur","Tiruppur","Tiruvallur","Tiruvannamalai",
+  "Tiruvarur","Vellore","Viluppuram","Virudhunagar"
+];
+
 const TALUKS = {
+  Ariyalur: ["Ariyalur","Udayarpalayam","Sendurai"],
+  Chengalpattu: ["Chengalpattu","Tambaram","Tirukalukundram","Madurantakam","Cheyyur"],
+  Chennai: ["Tondiarpet","Perambur","Ayanavaram","Ambattur","Madhavaram","Guindy","Mylapore","Velachery","Sholinganallur","Egmore"],
   Coimbatore: ["Coimbatore North","Coimbatore South","Sulur","Mettupalayam","Pollachi","Valparai"],
-  Tiruppur:   ["Tiruppur","Palladam","Kangeyam","Dharapuram","Udumalaipettai"],
-  Erode:      ["Erode","Bhavani","Gobichettipalayam","Perundurai","Sathyamangalam"],
-  Salem:      ["Salem","Attur","Omalur","Mettur","Yercaud"],
-  Namakkal:   ["Namakkal","Rasipuram","Tiruchengode","Paramathi-Velur"],
-  Karur:      ["Karur","Krishnarayapuram","Kulithalai","Manmangalam"],
-  Dharmapuri: ["Dharmapuri","Harur","Palacode","Pappireddipatti"],
-  Krishnagiri:["Krishnagiri","Hosur","Denkanikottai","Pochampalli"],
+  Cuddalore: ["Cuddalore","Panruti","Chidambaram","Vriddachalam","Kattumannarkoil","Kurinjipadi"],
+  Dharmapuri: ["Dharmapuri","Harur","Palacode","Pappireddipatti","Karimangalam","Nallampalli"],
+
+  Dindigul: ["Dindigul","Palani","Oddanchatram","Nilakottai","Vedasandur","Kodaikanal","Natham","Athoor"],
+  Erode: ["Erode","Bhavani","Gobichettipalayam","Perundurai","Sathyamangalam","Kodumudi","Modakurichi"],
+  Kallakurichi: ["Kallakurichi","Sankarapuram","Chinnasalem","Ulundurpet","Tirukoilur"],
+  Kancheepuram: ["Kancheepuram","Uthiramerur","Sriperumbudur","Walajabad"],
+  Karur: ["Karur","Krishnarayapuram","Kulithalai","Manmangalam","Aravakurichi"],
+  Krishnagiri: ["Krishnagiri","Hosur","Denkanikottai","Pochampalli","Uthangarai","Bargur"],
+
+  Madurai: ["Madurai North","Madurai South","Melur","Peraiyur","Tirumangalam","Usilampatti","Vadipatti"],
+  Mayiladuthurai: ["Mayiladuthurai","Sirkazhi","Kuthalam","Tharangambadi"],
+  Nagapattinam: ["Nagapattinam","Kilvelur","Vedaranyam","Thirukkuvalai"],
+  Namakkal: ["Namakkal","Rasipuram","Tiruchengode","Paramathi-Velur","Kollimalai"],
+  Nilgiris: ["Udhagamandalam","Coonoor","Kotagiri","Gudalur","Pandalur"],
+  Perambalur: ["Perambalur","Kunnam","Veppanthattai","Alathur"],
+
+  Pudukkottai: ["Pudukkottai","Aranthangi","Avudayarkoil","Gandarvakottai","Iluppur","Karambakudi","Kulathur","Manamelkudi"],
+  Ramanathapuram: ["Ramanathapuram","Paramakudi","Rameswaram","Mudukulathur","Kamuthi","Kadaladi"],
+  Ranipet: ["Ranipet","Walajah","Arcot","Sholingur","Arakkonam"],
+  Salem: ["Salem","Attur","Omalur","Mettur","Sankari","Edappadi","Yercaud","Gangavalli"],
+  Sivagangai: ["Sivagangai","Karaikudi","Manamadurai","Tirupathur","Devakottai","Ilayangudi"],
+  Tenkasi: ["Tenkasi","Sankarankovil","Kadayanallur","Shenkottai","Veerakeralampudur","Alangulam"],
+
+  Thanjavur: ["Thanjavur","Kumbakonam","Pattukkottai","Orathanadu","Papanasam","Peravurani","Budalur"],
+  Theni: ["Theni","Periyakulam","Uthamapalayam","Bodinayakanur","Andipatti"],
+  Thoothukudi: ["Thoothukudi","Tiruchendur","Kovilpatti","Ottapidaram","Vilathikulam","Sathankulam","Srivaikuntam"],
+  Tiruchirappalli: ["Tiruchirappalli","Lalgudi","Manachanallur","Musiri","Thuraiyur","Srirangam","Manapparai"],
+  Tirunelveli: ["Tirunelveli","Ambasamudram","Palayamkottai","Nanguneri","Radhapuram","Tenkasi (old)"],
+  Tirupathur: ["Tirupathur","Ambur","Vaniyambadi","Natrampalli"],
+
+  Tiruppur: ["Tiruppur","Palladam","Kangeyam","Dharapuram","Udumalaipettai","Avinashi","Madathukulam"],
+  Tiruvallur: ["Tiruvallur","Ponneri","Gummidipoondi","Avadi","Poonamallee","Uthukottai"],
+  Tiruvannamalai: ["Tiruvannamalai","Arani","Cheyyar","Polur","Chengam","Vandavasi","Kilpennathur"],
+  Tiruvarur: ["Tiruvarur","Mannargudi","Needamangalam","Thiruthuraipoondi","Kodavasal","Valangaiman"],
+  Vellore: ["Vellore","Katpadi","Gudiyatham","Anaicut","Peranambattu","K.V.Kuppam"],
+  Viluppuram: ["Viluppuram","Tindivanam","Gingee","Kallakurichi (old)","Vanur","Ulundurpet"],
+
+  Virudhunagar: ["Virudhunagar","Sivakasi","Sattur","Aruppukottai","Rajapalayam","Srivilliputhur","Tiruchuli"]
 };
 
 const Field = ({ label, children }) => (
@@ -249,10 +293,10 @@ export default function CustomerView() {
               <ReadRow label="District" value={customer.District} />
               <ReadRow label="Taluk" value={customer.Taluk} />
               <div style={{ marginTop: 10 }}>
-                <p style={{ fontSize: 12, color: "#101B28", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Address</p>
-                <p style={{ fontSize: 13, color: "#0F2138", margin: "0 0 16px" }}>{customer.Address || "—"}</p>
-                <p style={{ fontSize: 12, color: "#101B28", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Notes</p>
-                <p style={{ fontSize: 13, color: "#0F2138", margin: 0 }}>{customer.Notes || "—"}</p>
+                <p style={{ fontSize: 12, color: themeG.textLabel, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Address</p>
+                <p style={{ fontSize: 13, color: themeG.textMain, margin: "0 0 16px" }}>{customer.Address || "—"}</p>
+                <p style={{ fontSize: 12, color: themeG.textLabel, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Notes</p>
+                <p style={{ fontSize: 13, color: themeG.textMain, margin: 0 }}>{customer.Notes || "—"}</p>
               </div>
             </>
           )}

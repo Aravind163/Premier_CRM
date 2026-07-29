@@ -26,8 +26,8 @@ return new class extends Migration
             $table->timestamp('CreatedAt')->nullable();
             $table->timestamp('UpdatedAt')->nullable();
 
-            $table->foreign('ProductId')->references('Id')->on('Products')->onDelete('cascade');
-            $table->foreign('CustomerId')->references('Id')->on('Customers')->onDelete('cascade');
+            $table->foreign('ProductId')->references('Id')->on('Products')->onDelete('no action');
+            $table->foreign('CustomerId')->references('Id')->on('Customers')->onDelete('no action');
             $table->unique(['ProductId', 'CustomerId']);
         });
     }

@@ -4,12 +4,48 @@ import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { getG, getRowColors, statusColor } from "../../theme";
 import API from "../../services/api";
+import ExcelToolbar from "../../components/ExcelToolbar";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
+// Columns shown in the Product List table — Excel download/upload
+// columns are always kept identical to this list. Status is left out:
+// it's not something that should be edited via a re-uploaded
+// spreadsheet, and having it round-trip through Excel was a source of
+// confusion (see CUSTOMER_EXCEL_COLUMNS in CustomerList.jsx for the
+// same reasoning).
+//
+// Specs and Price have been dropped from this table/export — they
+// aren't relevant at this list level. Sort No and Shade No are pulled
+// in instead, matching the columns already shown on the customer-facing
+// Product Catalog page (ProductCatalog.jsx), so both screens describe
+// a product the same way.
+const PRODUCT_EXCEL_COLUMNS = [
+  { key: "sortNo",  header: "Sort No" },
+  { key: "shadeNo", header: "Shade No" },
+  { key: "name",    header: "Product Name" },
+  { key: "type",    header: "Type" },
+  { key: "color",   header: "Color" },
+  { key: "qty",     header: "Qty" },
+];
 
 // Built-in defaults shown even if no products of that sub-type exist yet
 const YARN_DEFAULTS  = ["Bundle", "Hank", "Cone"];
 const CLOTH_DEFAULTS = ["Dhoti", "Blouse", "Pant", "Shirt", "Leggings", "Others"];
+
+// ── Dummy fallbacks for Sort No / Shade No — same source list used on
+// the customer Product Catalog page, so a product looks the same way
+// in both places. Real values from the API win whenever they're
+// actually present; these only fill the gap.
+const DUMMY_SHADE_NOS = ["101", "102", "103", "104", "105", "106"];
+
+function dummySortNo(product, i) {
+  return product.SortNo || product.Code || String(i + 1).padStart(3, "0");
+}
+function dummyShadeNo(product, i) {
+  const num = product.ShadeNo || DUMMY_SHADE_NOS[i % DUMMY_SHADE_NOS.length];
+  return `SHADE ${num}`;
+}
 
 const ColorDot = ({ hex }) => (
   <span style={{ display:"inline-block", width:14, height:14, borderRadius:"50%", background:hex, border:"1.5px solid rgba(0,0,0,0.14)", verticalAlign:"middle", marginRight:7, flexShrink:0 }} />
@@ -23,13 +59,6 @@ const Badge = ({ text }) => {
     </span>
   );
 };
-
-function parseSpecSummary(str) {
-  if (!str) return "—";
-  return str.split("|").filter(Boolean)
-    .map(part => { const idx = part.indexOf(":"); return idx > -1 ? part.slice(idx + 1) : part; })
-    .join(", ");
-}
 
 export default function ProductList() {
   const { isDark } = useTheme();
@@ -45,31 +74,99 @@ export default function ProductList() {
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState("");
+  const [deletingId, setDeletingId] = useState(null);
 
-  useEffect(() => {
-    (async () => {
+  const load = async () => {
+    try {
+      const res = await API.get("/products");
+      const mapped = res.data.map((p, i) => ({
+        id:       p.Code,
+        dbId:     p.Id,
+        name:     p.Name,
+        type:     p.SubType,
+        category: p.Category,
+        color:    p.Color,
+        sortNo:   dummySortNo(p, i),
+        shadeNo:  dummyShadeNo(p, i),
+        qty:      p.Quantity,
+        status:   p.Status,
+      }));
+      setAllProducts(mapped);
+    } catch (err) {
+      setError("Failed to load products.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  const handleDelete = async (p) => {
+    if (!window.confirm(`Delete product ${p.name} (${p.id})? This cannot be undone.`)) return;
+    setDeletingId(p.dbId);
+    setError("");
+    try {
+      await API.delete(`/products/${p.dbId}`);
+      setAllProducts((list) => list.filter((x) => x.dbId !== p.dbId));
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to delete product.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // A product's own Code + a name/sub-type pairing, both normalised for
+  // case/whitespace — used to recognise an uploaded row as something
+  // that already exists rather than a genuinely new product.
+  const normalizeNameType = (name, type) => `${String(name ?? "").trim().toLowerCase()}|${String(type ?? "").trim().toLowerCase()}`;
+
+  // Bulk-add products from an uploaded Excel file. Category is whatever
+  // this page is currently locked to (matches page content).
+  //
+  // People generally re-download the current list, tweak a few cells,
+  // and re-upload it — so most rows in that file already exist. Skip
+  // any row that matches a product already in the system instead of
+  // inserting it again:
+  //   1. Primary check — the row's own "ID" column (that product's
+  //      Code, carried over from a previous download) matches an
+  //      existing product exactly.
+  //   2. Fallback — for a genuinely new row with no Code yet, match by
+  //      Name + Type within this category instead, updated as we go so
+  //      two duplicate new rows in the same upload don't both get created.
+  const handleImportRows = async (rows) => {
+    let created = 0, failed = 0, duplicates = 0;
+    const existingCodes = new Set(allProducts.map((p) => p.id)); // p.id = Product Code
+    const existingNameType = new Set(
+      allProducts.filter((p) => p.category === tab).map((p) => normalizeNameType(p.name, p.type))
+    );
+
+    for (const row of rows) {
+      if (!row.name || !row.type || row.qty === undefined || row.qty === "") { failed++; continue; }
+
+      if (row.id && existingCodes.has(String(row.id).trim())) { duplicates++; continue; }
+
+      const nameTypeKey = normalizeNameType(row.name, row.type);
+      if (existingNameType.has(nameTypeKey)) { duplicates++; continue; }
+
       try {
-        const res = await API.get("/products");
-        const mapped = res.data.map((p) => ({
-          id:       p.Code,
-          dbId:     p.Id,
-          name:     p.Name,
-          type:     p.SubType,
-          category: p.Category,
-          color:    p.Color,
-          spec:     p.Category === "yarn" ? p.Weight : p.Size,
-          qty:      p.Quantity,
-          price:    parseFloat(p.Price) || 0,
-          status:   p.Status,
-        }));
-        setAllProducts(mapped);
-      } catch (err) {
-        setError("Failed to load products.");
-      } finally {
-        setLoading(false);
+        await API.post("/products", {
+          tab: tab,
+          subType: String(row.type).toLowerCase(),
+          name: row.name,
+          qty: parseInt(row.qty, 10) || 0,
+          color: row.color || undefined,
+          sortNo: row.sortNo || undefined,
+          shadeNo: row.shadeNo || undefined,
+        });
+        created++;
+        existingNameType.add(nameTypeKey);
+      } catch {
+        failed++;
       }
-    })();
-  }, []);
+    }
+    await load();
+    return { created, failed, duplicates };
+  };
 
   const products = allProducts.filter((p) => p.category === tab);
 
@@ -128,10 +225,20 @@ export default function ProductList() {
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
         <input placeholder="Search by name or ID…" value={search} onChange={(e) => setSearch(e.target.value)}
           style={{ padding:"9px 14px", borderRadius:9, border:`1px solid ${themeG.border}`, fontSize:13, width:260, fontFamily:FONT, background:themeG.card, outline:"none", color:themeG.textMain }} />
-        <button onClick={() => navigate("/master/products/add")}
-          style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 20px", borderRadius:9, background:themeG.accent, color:themeG.card, border:"none", fontFamily:FONT, fontSize:13, fontWeight:600, cursor:"pointer", boxShadow:"0 2px 10px rgba(91,155,217,0.32)" }}>
-          + Add Product
-        </button>
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <ExcelToolbar
+            themeG={themeG}
+            rows={filtered}
+            columns={PRODUCT_EXCEL_COLUMNS}
+            filename={`products-${tab}`}
+            reportTitle="Product Details"
+            onImportRows={handleImportRows}
+          />
+          <button onClick={() => navigate("/master/products/add")}
+            style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 20px", borderRadius:9, background:themeG.accent, color:themeG.card, border:"none", fontFamily:FONT, fontSize:13, fontWeight:600, cursor:"pointer", boxShadow:"0 2px 10px rgba(91,155,217,0.32)" }}>
+            + Add Product
+          </button>
+        </div>
       </div>
 
       {/* ── Table ── */}
@@ -139,7 +246,7 @@ export default function ProductList() {
         <table style={{ width:"100%", borderCollapse:"collapse" }}>
           <thead>
             <tr style={{ borderBottom:`1px solid ${themeG.border}` }}>
-              {["ID", "Product Name", "Type", "Color", tab === "yarn" ? "Specs" : "Specs", "Qty", "Price (₹)", "Status", "Actions"].map((h) => (
+              {["Sort No", "Shade No", "Product Name", "Type", "Color", "Qty", "Status", "Actions"].map((h) => (
                 <th key={h} style={{ textAlign:"left", fontSize:11, color:themeG.textLabel, padding:"10px 14px", textTransform:"uppercase", letterSpacing:"0.07em", fontWeight:600, background:"rgba(91,155,217,0.04)", fontFamily:FONT }}>
                   {h}
                 </th>
@@ -148,12 +255,13 @@ export default function ProductList() {
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={9} style={{ textAlign:"center", padding:40, color:themeG.textSub, fontSize:14, fontFamily:FONT }}>No products found.</td></tr>
+              <tr><td colSpan={8} style={{ textAlign:"center", padding:40, color:themeG.textSub, fontSize:14, fontFamily:FONT }}>No products found.</td></tr>
             ) : filtered.map((p) => {
               const rc = ROW_COLORS[p.type?.toLowerCase()] || ROW_COLORS.yarn;
               return (
                 <tr key={p.id} style={{ borderBottom:`1px solid rgba(46,122,114,0.07)`, background:rc.bg }}>
-                  <td style={{ padding:"12px 14px", fontSize:13, color:themeG.accent, fontWeight:600, borderLeft:`3px solid ${rc.dot}`, fontFamily:FONT }}>{p.id}</td>
+                  <td style={{ padding:"12px 14px", fontSize:13, color:themeG.accent, fontWeight:600, borderLeft:`3px solid ${rc.dot}`, fontFamily:FONT }}>{p.sortNo}</td>
+                  <td style={{ padding:"12px 14px", fontSize:13, fontWeight:600, color:themeG.textMain, fontFamily:FONT }}>{p.shadeNo}</td>
                   <td style={{ padding:"12px 14px", fontSize:14, color:themeG.textMain, fontWeight:500, fontFamily:FONT }}>
                     <ColorDot hex={p.color} />{p.name}
                   </td>
@@ -168,16 +276,15 @@ export default function ProductList() {
                       <span style={{ fontSize:12, color:themeG.textSub, fontFamily:FONT }}>{p.color}</span>
                     </div>
                   </td>
-                  <td style={{ padding:"12px 14px", fontSize:13, color:themeG.textMain, fontFamily:FONT, maxWidth:180 }}>
-                    {parseSpecSummary(p.spec)}
-                  </td>
                   <td style={{ padding:"12px 14px", fontSize:13, fontWeight:600, color:p.qty < 50 ? "#B23A3A" : themeG.textMain, fontFamily:FONT }}>{p.qty}</td>
-                  <td style={{ padding:"12px 14px", fontSize:13, fontWeight:700, color:themeG.textMain, fontFamily:FONT }}>₹{p.price.toLocaleString()}</td>
                   <td style={{ padding:"12px 14px" }}><Badge text={p.status} /></td>
                   <td style={{ padding:"12px 14px", whiteSpace:"nowrap" }}>
                     <div style={{ display:"flex", gap:8 }}>
                       <button style={btnStyle("#5B9BD9")} onClick={() => navigate(`/master/products/${p.dbId}`)}>View</button>
                       <button style={btnStyle(themeG.accent)} onClick={() => navigate(`/master/products/${p.dbId}?edit=1`)}>Edit</button>
+                      <button style={btnStyle("#B23A3A")} disabled={deletingId === p.dbId} onClick={() => handleDelete(p)}>
+                        {deletingId === p.dbId ? "…" : "Delete"}
+                      </button>
                     </div>
                   </td>
                 </tr>

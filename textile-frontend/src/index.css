@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --pine: #0F2138;
   --pinedeep: #081422;
@@ -264,3 +268,127 @@ a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-vis
   font-size: .75rem; font-weight: 600; border: 1px solid #DBE3EC; color: #0F2138; background: #fff;
 }
 .pg-btn.active { background: #1F5C99; border-color: #1F5C99; color: #fff; }
+
+/* =====================================================================
+   Marketing Review screen additions
+===================================================================== */
+
+/* Dark header data table */
+table.data-dark { border-collapse: collapse; width: 100%; font-size: .78rem; }
+table.data-dark thead th {
+  background: linear-gradient(180deg, #1A3D63, #122C48);
+  color: #EAF2FA; text-align: left; font-size: .66rem; text-transform: uppercase;
+  letter-spacing: .05em; font-weight: 700; padding: .65rem .7rem; white-space: nowrap;
+  position: sticky; top: 0; z-index: 1;
+}
+table.data-dark thead th:first-child { border-top-left-radius: 10px; }
+table.data-dark thead th:last-child { border-top-right-radius: 10px; }
+table.data-dark tbody td { padding: .6rem .7rem; border-bottom: 1px solid #EEF2F6; vertical-align: middle; color: #16283C; }
+table.data-dark tbody tr:hover td { background: #F7FAFC; }
+table.data-dark tfoot td { padding: .65rem .7rem; font-weight: 700; background: #E9F0F7; border-top: 2px solid #C6D3E2; color: #122C48; }
+
+/* Large colored category tab (Blouse / Dhoti / Uniform / Others pattern) */
+.cat-tab {
+  display: flex; align-items: center; gap: .6rem; padding: .7rem 1.1rem; border-radius: 12px;
+  font-weight: 700; font-size: .85rem; color: #fff; transition: all .15s ease;
+  opacity: .55; filter: saturate(.6); border: none; cursor: pointer;
+}
+.cat-tab.active { opacity: 1; filter: none; box-shadow: 0 6px 16px -6px rgba(15,33,56,0.4); transform: translateY(-1px); }
+.cat-tab:hover { opacity: .9; }
+.cat-tab-icon { width: 1.9rem; height: 1.9rem; border-radius: 8px; background: rgba(255,255,255,0.22); display: flex; align-items: center; justify-content: center; }
+.cat-tab-count { font-size: .68rem; font-weight: 600; opacity: .85; display: block; }
+
+/* Right-hand summary panel */
+.summary-panel { background: #fff; border: 1px solid #DBE3EC; border-radius: 14px; padding: 1rem 1.1rem; }
+.summary-row { display: flex; align-items: center; justify-content: space-between; padding: .4rem 0; border-bottom: 1px solid #EEF2F6; font-size: .78rem; }
+.summary-row:last-child { border-bottom: none; }
+.summary-row .label { color: #526073; }
+.summary-row .value { font-weight: 700; font-family: var(--mono); color: #0F2138; }
+
+/* Workflow stepper (vertical, numbered) */
+.wf-step { display: flex; gap: .65rem; position: relative; padding-bottom: 1.1rem; }
+.wf-step:last-child { padding-bottom: 0; }
+.wf-step::before { content: ""; position: absolute; left: .65rem; top: 1.6rem; bottom: 0; width: 1px; background: #DBE3EC; }
+.wf-step:last-child::before { display: none; }
+.wf-dot { width: 1.4rem; height: 1.4rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .65rem; font-weight: 700; flex-shrink: 0; z-index: 1; }
+.wf-dot.done { background: #1F5C99; color: #fff; }
+.wf-dot.active { background: #D69426; color: #fff; }
+.wf-dot.pending { background: #E7ECF1; color: #8C96A3; }
+.wf-title { font-size: .78rem; font-weight: 600; color: #0F2138; }
+.wf-sub { font-size: .68rem; }
+.wf-sub.done { color: #1F5C99; }
+.wf-sub.active { color: #A8701F; }
+.wf-sub.pending { color: #8C96A3; }
+
+/* Legend dot */
+.legend-dot { width: .55rem; height: .55rem; border-radius: 50%; display: inline-block; }
+
+/* ---- Minimal utility classes used by the Marketing Review page ----
+   (Premier's frontend has no Tailwind; these hand-written utilities
+   cover just what that page needs, namespaced so they can't collide
+   with anything else.) */
+.mr-flex { display: flex; }
+.mr-flex-col { display: flex; flex-direction: column; }
+.mr-items-center { align-items: center; }
+.mr-items-end { align-items: flex-end; }
+.mr-justify-between { justify-content: space-between; }
+.mr-justify-end { justify-content: flex-end; }
+.mr-flex-wrap { flex-wrap: wrap; }
+.mr-flex-1 { flex: 1; }
+.mr-gap-1 { gap: .25rem; }
+.mr-gap-2 { gap: .5rem; }
+.mr-gap-3 { gap: .75rem; }
+.mr-gap-4 { gap: 1rem; }
+.mr-gap-5 { gap: 1.25rem; }
+.mr-mb-3 { margin-bottom: .75rem; }
+.mr-mb-4 { margin-bottom: 1rem; }
+.mr-mb-5 { margin-bottom: 1.25rem; }
+.mr-mt-3 { margin-top: .75rem; }
+.mr-mt-4 { margin-top: 1rem; }
+.mr-p-3 { padding: .75rem; }
+.mr-p-4 { padding: 1rem; }
+.mr-pt-3 { padding-top: .75rem; }
+.mr-w-full { width: 100%; }
+.mr-min-w-0 { min-width: 0; }
+.mr-text-xs { font-size: .72rem; }
+.mr-text-sm { font-size: .8125rem; }
+.mr-text-right { text-align: right; }
+.mr-text-left { text-align: left; }
+.mr-text-center { text-align: center; }
+.mr-font-semibold { font-weight: 600; }
+.mr-font-medium { font-weight: 500; }
+.mr-uppercase { text-transform: uppercase; }
+.mr-tracking-wide { letter-spacing: .05em; }
+.mr-whitespace-nowrap { white-space: nowrap; }
+.mr-tabular-nums { font-variant-numeric: tabular-nums; }
+.mr-cursor-pointer { cursor: pointer; }
+.mr-overflow-x-auto { overflow-x: auto; }
+.mr-rounded { border-radius: .4rem; }
+.mr-py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+.mr-border-top { border-top: 1px solid #E7ECE6; }
+.text-pine { color: #0F2138; }
+.text-slate { color: #526073; }
+.text-moss { color: #1F5C99; }
+.text-rust { color: #B23A3A; }
+
+.mr-grid { display: grid; gap: 1rem !important; }
+.mr-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.mr-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.mr-grid-4 { grid-template-columns: repeat(4, 1fr); }
+.mr-grid-5 { grid-template-columns: repeat(5, 1fr); }
+.mr-grid-6 { grid-template-columns: repeat(6, 1fr); }
+@media (max-width: 1200px) {
+  .mr-grid-5 { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 1024px) {
+  .mr-grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .mr-grid-5 { grid-template-columns: repeat(2, 1fr); }
+  .mr-grid-6 { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 640px) {
+  .mr-grid-2, .mr-grid-3, .mr-grid-4, .mr-grid-5, .mr-grid-6 { grid-template-columns: repeat(1, 1fr); }
+}
+.mr-lg-grid-main { display: grid; grid-template-columns: 3fr 1fr; gap: 1.25rem; align-items: start; }
+@media (max-width: 1024px) {
+  .mr-lg-grid-main { grid-template-columns: 1fr; }
+}

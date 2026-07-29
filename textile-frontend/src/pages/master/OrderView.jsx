@@ -74,27 +74,68 @@ export default function OrderView() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await API.get(`/orders/${id}`);
-        setOrder(res.data);
-        setForm({
-          qty: res.data.Quantity,
-          pricePerUnit: res.data.PricePerUnit,
-          discount: res.data.DiscountPct || 0,
-          status: res.data.Status,
-          paymentStatus: res.data.PaymentStatus,
-          deliveryDate: res.data.DeliveryDate ? res.data.DeliveryDate.substring(0, 10) : "",
-          notes: res.data.Notes || "",
-        });
-      } catch (err) {
-        setError("Failed to load order.");
-      } finally {
-        setLoading(false);
+  // Multi-product orders: sibling line items sharing this order's
+  // OrderDetails.GroupRef — each is its own Order row under the hood.
+  const [groupMembers, setGroupMembers] = useState([]);
+  const [removingMemberId, setRemovingMemberId] = useState(null);
+
+  const loadOrder = async () => {
+    try {
+      const res = await API.get(`/orders/${id}`);
+      setOrder(res.data);
+      setForm({
+        qty: res.data.Quantity,
+        pricePerUnit: res.data.PricePerUnit,
+        discount: res.data.DiscountPct || 0,
+        status: res.data.Status,
+        paymentStatus: res.data.PaymentStatus,
+        deliveryDate: res.data.DeliveryDate ? res.data.DeliveryDate.substring(0, 10) : "",
+        notes: res.data.Notes || "",
+      });
+
+      const groupRef = res.data.OrderDetails?.GroupRef;
+      if (groupRef) {
+        const all = await API.get("/orders");
+        setGroupMembers(all.data.filter((o) => o.OrderDetails?.GroupRef === groupRef));
+      } else {
+        setGroupMembers([]);
       }
-    })();
-  }, [id]);
+    } catch (err) {
+      setError("Failed to load order.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadOrder(); /* eslint-disable-next-line */ }, [id]);
+
+  const isGroup = groupMembers.length > 1;
+
+  // Remove a single product from a multi-product order. If it's the
+  // one currently being viewed, jump to another member of the same
+  // group (or back to the list if it was the last one left).
+  const handleRemoveMember = async (memberId) => {
+    if (!window.confirm("Remove this product from the order?")) return;
+    setRemovingMemberId(memberId);
+    setError("");
+    try {
+      await API.delete(`/orders/${memberId}`);
+      const remaining = groupMembers.filter((m) => m.Id !== memberId);
+      if (memberId === Number(id)) {
+        if (remaining.length > 0) {
+          navigate(`/master/orders/${remaining[0].Id}`, { replace: true });
+        } else {
+          navigate("/master/orders");
+        }
+      } else {
+        setGroupMembers(remaining);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to remove product.");
+    } finally {
+      setRemovingMemberId(null);
+    }
+  };
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -120,9 +161,13 @@ export default function OrderView() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Delete order ${order.Code}? This cannot be undone.`)) return;
+    const confirmText = isGroup
+      ? `Delete this whole order — all ${groupMembers.length} products in it? This cannot be undone.`
+      : `Delete order ${order.Code}? This cannot be undone.`;
+    if (!window.confirm(confirmText)) return;
     try {
-      await API.delete(`/orders/${id}`);
+      const ids = isGroup ? groupMembers.map((m) => m.Id) : [id];
+      await Promise.all(ids.map((mid) => API.delete(`/orders/${mid}`)));
       navigate("/master/orders");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to delete order.");
@@ -185,10 +230,53 @@ export default function OrderView() {
         </div>
       )}
 
+      {isGroup && (
+        <div style={{ ...card, marginBottom: 24 }}>
+          <h3 style={cardTitle}>Products in this Order ({groupMembers.length})</h3>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                {["Product", "Qty", "Price/Unit", "Discount", "Amount", "Status", ""].map((h) => (
+                  <th key={h} style={{ textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "8px 10px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {groupMembers.map((m) => (
+                <tr key={m.Id} style={{ background: String(m.Id) === String(id) ? "rgba(91,155,217,0.08)" : "transparent" }}>
+                  <td style={{ padding: "9px 10px", fontSize: 13, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` }}>
+                    <span style={{ cursor: "pointer", color: themeG.accent, fontWeight: 600 }} onClick={() => navigate(`/master/orders/${m.Id}`)}>
+                      {m.product?.Name ?? "—"}
+                    </span>
+                  </td>
+                  <td style={{ padding: "9px 10px", fontSize: 13, borderBottom: `1px solid ${themeG.border}` }}>{m.Quantity}</td>
+                  <td style={{ padding: "9px 10px", fontSize: 13, borderBottom: `1px solid ${themeG.border}` }}>₹{parseFloat(m.PricePerUnit).toLocaleString()}</td>
+                  <td style={{ padding: "9px 10px", fontSize: 13, borderBottom: `1px solid ${themeG.border}` }}>{m.DiscountPct || 0}%</td>
+                  <td style={{ padding: "9px 10px", fontSize: 13, fontWeight: 700, borderBottom: `1px solid ${themeG.border}` }}>₹{parseFloat(m.TotalAmount).toLocaleString()}</td>
+                  <td style={{ padding: "9px 10px", borderBottom: `1px solid ${themeG.border}` }}><Badge text={m.Status} colorFn={statusColor} /></td>
+                  <td style={{ padding: "9px 10px", borderBottom: `1px solid ${themeG.border}` }}>
+                    <button
+                      onClick={() => handleRemoveMember(m.Id)}
+                      disabled={removingMemberId === m.Id}
+                      style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(178,58,58,0.30)", background: "rgba(178,58,58,0.06)", color: "#B23A3A", cursor: "pointer", fontSize: 12, fontWeight: 600 }}
+                    >
+                      {removingMemberId === m.Id ? "…" : "Remove"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p style={{ fontSize: 11.5, color: themeG.textSub, marginTop: 10 }}>
+            Removing a product only takes it out of this order — the rest of the order is unaffected. Use "Delete" below to remove the whole order.
+          </p>
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
 
         <div style={card}>
-          <h3 style={cardTitle}>Order Details</h3>
+          <h3 style={cardTitle}>{isGroup ? "Order Details (selected product)" : "Order Details"}</h3>
 
           <ReadRow label="Order Code" value={order.Code} />
           <ReadRow label="Customer" value={order.customer ? `${order.customer.Name} (${order.customer.Code})` : "—"} />
@@ -262,14 +350,14 @@ export default function OrderView() {
                 <Badge text={order.Status} colorFn={statusColor} />
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0" }}>
-                <span style={{ fontSize: 13, color: "#526073" }}>Payment</span>
+                <span style={{ fontSize: 13, color: themeG.textSub }}>Payment</span>
                 <Badge text={order.PaymentStatus} colorFn={paymentColor} />
               </div>
               <ReadRow label="Delivery Date" value={order.DeliveryDate ? order.DeliveryDate.substring(0, 10) : "—"} />
               <ReadRow label="Created" value={order.CreatedAt?.substring(0, 10)} />
               <div style={{ marginTop: 10 }}>
-                <p style={{ fontSize: 12, color: "#101B28", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Notes</p>
-                <p style={{ fontSize: 13, color: "#0F2138", margin: 0 }}>{order.Notes || "—"}</p>
+                <p style={{ fontSize: 12, color: themeG.textLabel, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Notes</p>
+                <p style={{ fontSize: 13, color: themeG.textMain, margin: 0 }}>{order.Notes || "—"}</p>
               </div>
             </>
           )}
@@ -315,6 +403,65 @@ export default function OrderView() {
           )}
         </div>
         {dueError && <p style={{ color: "#B23A3A", fontSize: 12.5, marginTop: 10 }}>{dueError}</p>}
+      </div>
+
+      {/* Fulfilment, credit hold, rejection, and invoicing — surfaces the
+          O2C fields that live on this order but had no home in the UI:
+          FIFO/EB4 warehouse source, LR/dispatch details, credit-hold
+          status, rejection reason, and the invoice generated against it. */}
+      <div style={{ ...card, marginTop: 24 }}>
+        <h3 style={cardTitle}>Fulfilment & Billing</h3>
+
+        {order.OnHold && (
+          <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)" }}>
+            <strong style={{ color: "#96302F", fontSize: 13 }}>⛔ On hold — credit/discount review</strong>
+            <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "#96302F" }}>{order.HoldReason}</p>
+            <p style={{ margin: "6px 0 0", fontSize: 11.5, color: themeG.textSub }}>
+              Release from the Orders list (Order Status tab) once the customer's credit position is clear.
+            </p>
+          </div>
+        )}
+
+        {order.Status === "declined" && order.RejectionReason && (
+          <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(178,58,58,0.06)", border: "1px solid rgba(178,58,58,0.2)" }}>
+            <strong style={{ color: "#96302F", fontSize: 13 }}>Rejection reason</strong>
+            <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "#96302F" }}>{order.RejectionReason}</p>
+          </div>
+        )}
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          <div>
+            <p style={{ fontSize: 12, color: themeG.textLabel, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Dispatch</p>
+            <ReadRow label="Warehouse Source" value={
+              order.WarehouseSource ? (order.WarehouseSource === "rack" ? "Rack Stock" : "EB4 Dispatch Warehouse") : "—"
+            } />
+            <ReadRow label="LR Number" value={order.LRNumber} />
+            <ReadRow label="Transport" value={order.TransportName} />
+            <ReadRow label="Dispatched" value={order.DispatchedAt ? new Date(order.DispatchedAt).toLocaleDateString() : "—"} />
+          </div>
+          <div>
+            <p style={{ fontSize: 12, color: themeG.textLabel, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Invoice</p>
+            {order.invoice ? (
+              <>
+                <ReadRow label="Invoice No." value={order.invoice.InvoiceNumber} />
+                <ReadRow label="Total" value={`₹${parseFloat(order.invoice.TotalAmount).toLocaleString()}`} />
+                <ReadRow label="Status" value={order.invoice.Status} />
+              </>
+            ) : order.Status === "dispatched" ? (
+              <div>
+                <p style={{ fontSize: 12.5, color: themeG.textSub, margin: "0 0 10px" }}>Not invoiced yet.</p>
+                <button
+                  onClick={() => navigate("/master/invoices")}
+                  style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: themeG.accent, color: "#fff", fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}
+                >
+                  Generate in Invoices →
+                </button>
+              </div>
+            ) : (
+              <p style={{ fontSize: 12.5, color: themeG.textSub, margin: 0 }}>Invoicing opens once this order is dispatched.</p>
+            )}
+          </div>
+        </div>
       </div>
 
       

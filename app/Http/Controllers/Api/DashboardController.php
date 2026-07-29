@@ -232,6 +232,93 @@ class DashboardController extends Controller
     }
 
     /**
+     * GET /api/dashboard/compliance
+     *
+     * Customer Compliance Status Dashboard — the flow diagram's box between
+     * Goods Dispatch and Claim Process. Per customer: credit utilisation,
+     * overdue bills, open complaints, and an overall status label so
+     * Marketing can see at a glance who needs attention.
+     */
+    public function compliance(Request $request)
+    {
+        $caller = $request->user();
+        if (!$caller || $caller->role === 'customer') {
+            return response()->json(['message' => 'Not permitted.'], 403);
+        }
+
+        $customerQ = Customer::query()->where('Status', 'approved');
+
+        if ($caller->role === 'end_user') {
+            $customerQ->whereIn('Taluk', $this->callerAreas($caller, 'Taluk'));
+        } elseif ($caller->role === 'admin') {
+            $customerQ->whereIn('District', $this->callerAreas($caller, 'District'));
+        }
+
+        $customers = $customerQ->get();
+        $customerIds = $customers->pluck('Id');
+
+        $overdueOrders = Order::whereIn('CustomerId', $customerIds)
+            ->whereNotNull('PaymentDueDate')
+            ->where('PaymentDueDate', '<', now()->toDateString())
+            ->where('PaymentStatus', '!=', 'paid')
+            ->get()
+            ->groupBy('CustomerId');
+
+        $openComplaints = \App\Models\Complaint::whereIn('CustomerId', $customerIds)
+            ->whereIn('Status', ['Open', 'In Progress'])
+            ->get()
+            ->groupBy('CustomerId');
+
+        $onHoldOrders = Order::whereIn('CustomerId', $customerIds)
+            ->where('OnHold', true)
+            ->get()
+            ->groupBy('CustomerId');
+
+        $rows = $customers->map(function ($c) use ($overdueOrders, $openComplaints, $onHoldOrders) {
+            $overdue = $overdueOrders->get($c->Id, collect());
+            $complaints = $openComplaints->get($c->Id, collect());
+            $holds = $onHoldOrders->get($c->Id, collect());
+
+            $utilisation = $c->CreditLimit && (float) $c->CreditLimit > 0
+                ? round(((float) $c->Outstanding / (float) $c->CreditLimit) * 100, 1)
+                : null;
+
+            $status = 'Good';
+            if ($holds->count() > 0 || ($utilisation !== null && $utilisation >= 100)) {
+                $status = 'Hold';
+            } elseif ($overdue->count() > 0 || $complaints->count() > 0 || ($utilisation !== null && $utilisation >= 80)) {
+                $status = 'Watch';
+            }
+
+            return [
+                'customerId'       => $c->Id,
+                'code'             => $c->Code,
+                'name'             => $c->Name,
+                'creditLimit'      => (float) ($c->CreditLimit ?? 0),
+                'outstanding'      => (float) ($c->Outstanding ?? 0),
+                'utilisationPct'   => $utilisation,
+                'overdueOrders'    => $overdue->count(),
+                'overdueAmount'    => (float) $overdue->sum('TotalAmount'),
+                'openComplaints'   => $complaints->count(),
+                'ordersOnHold'     => $holds->count(),
+                'status'           => $status,
+            ];
+        })
+        ->sortBy(fn ($r) => ['Hold' => 0, 'Watch' => 1, 'Good' => 2][$r['status']])
+        ->values();
+
+        return response()->json([
+            'summary' => [
+                'total' => $rows->count(),
+                'hold'  => $rows->where('status', 'Hold')->count(),
+                'watch' => $rows->where('status', 'Watch')->count(),
+                'good'  => $rows->where('status', 'Good')->count(),
+            ],
+            'customers' => $rows,
+        ]);
+    }
+
+    /**
      * Normalise a caller's own assigned District/Taluk. Mirrors
      * CustomerController::callerAreas() / OrderController::callerAreas().
      */

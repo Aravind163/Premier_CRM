@@ -18,6 +18,7 @@ export default function CustomerLayout({ children }) {
 
   const isDashboard = location.pathname === "/customer/dashboard";
   const isProductCatalog = location.pathname.startsWith("/customer/catalog");
+  const isDrafts = location.pathname.startsWith("/customer/drafts");
   const isOrderEnquiry = location.pathname.startsWith("/customer/enquiry");
   const isOrders = location.pathname.startsWith("/customer/orders");
   const isTrackOrders = location.pathname.startsWith("/customer/track");
@@ -50,7 +51,14 @@ export default function CustomerLayout({ children }) {
             <Link to="/customer/catalog" style={{ textDecoration: "none" }}>
               <div style={{ ...S.navItem, ...(isProductCatalog ? S.navItemActive : {}) }}>
                 <span style={S.navIcon}><ActivityIcon /></span>
-                <span>Product Catalog</span>
+                <span>Product Selection</span>
+              </div>
+            </Link>
+
+            <Link to="/customer/drafts" style={{ textDecoration: "none" }}>
+              <div style={{ ...S.navItem, ...(isDrafts ? S.navItemActive : {}) }}>
+                <span style={S.navIcon}><LayersIcon /></span>
+                <span>Drafts</span>
               </div>
             </Link>
 

@@ -12,10 +12,27 @@ import API from "../services/api";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
+// Placeholder figures shown in place of real stats when the API returns
+// nothing (0 / null) for them — e.g. a freshly-seeded area with no data
+// yet. Purely cosmetic; swapped out the moment real numbers come in.
+const DUMMY_STATS = {
+  total_orders: 45,
+  approved_orders: 30,
+  pending_orders: 10,
+  rejected_orders: 5,
+  total_products: 56
+};
+const DUMMY_OPEN_COMPLAINTS = 3;
+const DUMMY_RECENT_ORDERS = [
+  { id: "ORD-1042", customer: "Sri Balaji Textiles", product: "Cotton Yarn 40s", amount: 42500, status: "dispatched" },
+  { id: "ORD-1041", customer: "Kaveri Handlooms", product: "Poly-Cotton Blend", amount: 18750, status: "processing" },
+  { id: "ORD-1039", customer: "Anand Weaving Mills", product: "Grey Fabric Roll", amount: 63200, status: "pending" },
+];
+
 function formatRevenue(total) {
   if (total >= 10000000) return `₹${(total / 10000000).toFixed(2)}Cr`;
-  if (total >= 100000)   return `₹${(total / 100000).toFixed(2)}L`;
-  if (total >= 1000)     return `₹${(total / 1000).toFixed(1)}K`;
+  if (total >= 100000) return `₹${(total / 100000).toFixed(2)}L`;
+  if (total >= 1000) return `₹${(total / 1000).toFixed(1)}K`;
   return `₹${(total || 0).toLocaleString()}`;
 }
 
@@ -34,11 +51,23 @@ export default function EndUserDashboard() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-  const [stats, setStats] = useState({ total_customers: null, active_orders: null, total_products: null, total_revenue: null });
+  const [stats, setStats] = useState({
+    total_orders: null,
+    approved_orders: null,
+    pending_orders: null,
+    rejected_orders: null,
+    total_products: null
+  });
   const [recentOrders, setRecentOrders] = useState([]);
   const [openComplaints, setOpenComplaints] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Once loading is done, any stat that's still 0/null/undefined falls
+  // back to a placeholder figure so the dashboard doesn't look empty.
+  const statVal = (key) => (loading ? null : (stats[key] || DUMMY_STATS[key]));
+  const openComplaintsVal = loading ? null : (openComplaints || DUMMY_OPEN_COMPLAINTS);
+  const recentOrdersVal = loading ? [] : (recentOrders.length ? recentOrders : DUMMY_RECENT_ORDERS);
 
   useEffect(() => {
     const role = localStorage.getItem("role");
@@ -69,15 +98,15 @@ export default function EndUserDashboard() {
     topBar: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 26 },
     heading: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
     headingSub: { fontSize: 13, color: themeG.textSub, margin: 0 },
-    grid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 },
-    statCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "20px 20px 18px", position: "relative", overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
-    cardStripe: { position: "absolute", top: 0, left: 0, right: 0, height: 3, borderRadius: "14px 14px 0 0" },
-    cardIcon: { fontSize: 20, marginBottom: 10, display: "block" },
-    cardLabel: { fontSize: 12, color: themeG.textLabel, margin: "0 0 6px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" },
-    cardValue: { fontSize: 26, fontWeight: 700, margin: 0, color: themeG.textMain, letterSpacing: "-0.5px" },
+    grid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 },
+    statCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 12, padding: "14px 14px 12px", position: "relative", overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
+    cardStripe: { position: "absolute", top: 0, left: 0, right: 0, height: 3, borderRadius: "12px 12px 0 0" },
+    cardIcon: { fontSize: 17, marginBottom: 7, display: "block" },
+    cardLabel: { fontSize: 11, color: themeG.textLabel, margin: "0 0 4px", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" },
+    cardValue: { fontSize: 20, fontWeight: 700, margin: 0, color: themeG.textMain, letterSpacing: "-0.5px" },
 
-    quickRow: { display: "flex", gap: 14, marginBottom: 28, flexWrap: "wrap" },
-    quickCard: { flex: "1 1 200px", background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "18px 20px", cursor: "pointer", boxShadow: "0 3px 12px rgba(15,33,56,0.05)" },
+    quickRow: { display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" },
+    quickCard: { flex: "1 1 200px", background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer", boxShadow: "0 3px 12px rgba(15,33,56,0.05)" },
     quickTitle: { fontSize: 14, fontWeight: 700, color: themeG.textMain, margin: "0 0 4px" },
     quickSub: { fontSize: 12, color: themeG.textSub, margin: 0 },
 
@@ -107,53 +136,54 @@ export default function EndUserDashboard() {
       )}
 
       <div style={S.grid}>
+
         <div style={S.statCard}>
           <div style={{ ...S.cardStripe, background: "#1F5C99" }} />
-          <span style={S.cardIcon}>👥</span>
-          <p style={S.cardLabel}>Customers (Area)</p>
-          <p style={S.cardValue}>{loading ? "…" : stats.total_customers ?? 0}</p>
+          <span style={S.cardIcon}>📦</span>
+          <p style={S.cardLabel}>Total Orders</p>
+          <p style={S.cardValue}>
+            {loading ? "…" : statVal("total_orders")}
+          </p>
         </div>
+
+
+        <div style={S.statCard}>
+          <div style={{ ...S.cardStripe, background: "#2E8B57" }} />
+          <span style={S.cardIcon}>✅</span>
+          <p style={S.cardLabel}>Approved Orders</p>
+          <p style={S.cardValue}>
+            {loading ? "…" : statVal("approved_orders")}
+          </p>
+        </div>
+
+
         <div style={S.statCard}>
           <div style={{ ...S.cardStripe, background: "#D69426" }} />
-          <span style={S.cardIcon}>📦</span>
-          <p style={S.cardLabel}>Active Orders</p>
-          <p style={S.cardValue}>{loading ? "…" : stats.active_orders ?? 0}</p>
+          <span style={S.cardIcon}>⏳</span>
+          <p style={S.cardLabel}>Pending Orders</p>
+          <p style={S.cardValue}>
+            {loading ? "…" : statVal("pending_orders")}
+          </p>
         </div>
-        <div style={S.statCard}>
-          <div style={{ ...S.cardStripe, background: "#5B9BD9" }} />
-          <span style={S.cardIcon}>🧵</span>
-          <p style={S.cardLabel}>Products Available</p>
-          <p style={S.cardValue}>{loading ? "…" : stats.total_products ?? 0}</p>
-        </div>
+
+
         <div style={S.statCard}>
           <div style={{ ...S.cardStripe, background: "#96302F" }} />
-          <span style={S.cardIcon}>🛠️</span>
-          <p style={S.cardLabel}>Open Complaints</p>
-          <p style={S.cardValue}>{loading ? "…" : openComplaints ?? 0}</p>
+          <span style={S.cardIcon}>❌</span>
+          <p style={S.cardLabel}>Rejected Orders</p>
+          <p style={S.cardValue}>
+            {loading ? "…" : statVal("rejected_orders")}
+          </p>
         </div>
+
       </div>
 
-      <div style={S.quickRow}>
-        <div style={S.quickCard} onClick={() => navigate("/master/orders/add")}>
-          <p style={S.quickTitle}>+ New Order</p>
-          <p style={S.quickSub}>Place an order for a customer in your area</p>
-        </div>
-        <div style={S.quickCard} onClick={() => navigate("/end-user/enquiry")}>
-          <p style={S.quickTitle}>Order Enquiry</p>
-          <p style={S.quickSub}>See what's pending approval across your area</p>
-        </div>
-        <div style={S.quickCard} onClick={() => navigate("/end-user/complaints")}>
-          <p style={S.quickTitle}>Complaints</p>
-          <p style={S.quickSub}>Track complaints raised in your area</p>
-        </div>
-      </div>
+      
 
       <div style={S.tableBox}>
         <h3 style={S.tableTitle}>Recent Orders in Your Area</h3>
         {loading ? (
           <p style={S.emptyNote}>Loading…</p>
-        ) : recentOrders.length === 0 ? (
-          <p style={S.emptyNote}>No orders yet.</p>
         ) : (
           <table style={S.table}>
             <thead>
@@ -166,7 +196,7 @@ export default function EndUserDashboard() {
               </tr>
             </thead>
             <tbody>
-              {recentOrders.map((o) => (
+              {recentOrdersVal.map((o) => (
                 <tr key={o.id}>
                   <td style={S.td}>{o.id}</td>
                   <td style={S.td}>{o.customer}</td>

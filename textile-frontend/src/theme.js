@@ -73,6 +73,9 @@ export const statusColor = (s) => {
     delivered:  { bg: "rgba(15,33,56,0.12)",   color: "#8A5A0E", border: "rgba(15,33,56,0.30)" },
     processing: { bg: "rgba(58,92,140,0.10)",  color: "#3A5C8C", border: "rgba(58,92,140,0.26)" },
     dispatched: { bg: "rgba(74,46,122,0.12)",  color: "#3A2560", border: "rgba(74,46,122,0.28)" },
+    issued:     { bg: "rgba(214,148,38,0.12)",  color: "#8A5A0E", border: "rgba(214,148,38,0.30)" },
+    paid:       { bg: "rgba(46,122,114,0.14)",  color: "#1F5C4D", border: "rgba(46,122,114,0.32)" },
+    cancelled:  { bg: "rgba(178,58,58,0.10)",   color: "#96302F", border: "rgba(178,58,58,0.26)" },
   };
   return map[(s || "").toLowerCase()] || map.pending;
 };

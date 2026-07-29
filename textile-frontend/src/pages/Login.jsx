@@ -31,6 +31,7 @@ export default function Login() {
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword]     = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError]           = useState("");
   const [loading, setLoading]       = useState(false);
   const navigate = useNavigate();
@@ -40,6 +41,7 @@ export default function Login() {
     setError("");
     setIdentifier("");
     setPassword("");
+    setShowPassword(false);
   };
 
   const handleLogin = async () => {
@@ -65,6 +67,14 @@ export default function Login() {
       localStorage.setItem("token", token);
       localStorage.setItem("role", role);
       localStorage.setItem("user", JSON.stringify(res.data.user));
+      // The account's own assigned District/Taluk (used to lock down which
+      // customers an end_user/admin can view or create) lives on the User
+      // row itself and comes back inside res.data.user — cache it under
+      // its own keys too since several screens (EndUserLayout's area
+      // badge, Add Customer's area lock, Quick Add) read it directly from
+      // localStorage rather than re-parsing "user" every time.
+      if (res.data.user?.Taluk)    localStorage.setItem("Taluk", JSON.stringify(res.data.user.Taluk));
+      if (res.data.user?.District) localStorage.setItem("District", JSON.stringify(res.data.user.District));
 
       navigate(ROLE_HOME[role] || "/dashboard");
     } catch (err) {
@@ -143,15 +153,23 @@ export default function Login() {
         {/* Password input */}
         <div style={styles.inputWrap}>
           <input
-            type="password"
+            type={showPassword ? "text" : "password"}
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={handleKeyDown}
-            style={styles.input}
+            style={{ ...styles.input, paddingRight: 44 }}
             autoComplete="current-password"
           />
-          <span style={styles.inputIcon}><LockIcon /></span>
+          <button
+            type="button"
+            onClick={() => setShowPassword((p) => !p)}
+            style={styles.eyeBtn}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            title={showPassword ? "Hide password" : "Show password"}
+          >
+            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+          </button>
         </div>
 
         <button
@@ -182,11 +200,19 @@ function UserIcon() {
     </svg>
   );
 }
-function LockIcon() {
+function EyeIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      <path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+function EyeOffIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-10.5-8-10.5-8a19.7 19.7 0 0 1 4.19-5.19M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10.5 8 10.5 8a19.5 19.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
     </svg>
   );
 }
@@ -352,6 +378,24 @@ btn: {
     display: "flex",
     alignItems: "center",
     pointerEvents: "none",
+  },
+
+  eyeBtn: {
+    position: "absolute",
+    right: 10,
+    top: "50%",
+    transform: "translateY(-50%)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 30,
+    height: 30,
+    padding: 0,
+    background: "transparent",
+    border: "none",
+    borderRadius: 6,
+    color: "#777",
+    cursor: "pointer",
   },
 
  

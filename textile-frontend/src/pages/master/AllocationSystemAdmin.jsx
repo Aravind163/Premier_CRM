@@ -23,8 +23,8 @@ const Badge = ({ text }) => {
 };
 
 const actionBtn = (bg, color, border) => ({
-  padding: "7px 14px", borderRadius: 8, border: `1px solid ${border}`, background: bg, color,
-  cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 600,
+  padding: "5px 10px", borderRadius: 7, border: `1px solid ${border}`, background: bg, color,
+  cursor: "pointer", fontFamily: "inherit", fontSize: 11.5, fontWeight: 600, whiteSpace: "nowrap",
 });
 
 const inputStyle = {
@@ -141,8 +141,8 @@ export default function AllocationSystemAdmin({ embedded = false }) {
     setError("");
   };
 
-  const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain };
-  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.04)" };
+  const td = { padding: "10px 12px", fontSize: 13, color: themeG.textMain };
+  const th = { textAlign: "left", fontSize: 10.5, color: themeG.textLabel, padding: "9px 12px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, background: "rgba(91,155,217,0.04)" };
 
   const openAssign = (emp) => {
     setAssignTarget(emp);
@@ -279,7 +279,7 @@ export default function AllocationSystemAdmin({ embedded = false }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-        {["All","pending", "approved", "inactive"].map((f) => (
+        {["pending", "approved", "inactive", "all"].map((f) => (
           <button key={f} onClick={() => setFilter(f)}
             style={{ padding: "8px 18px", borderRadius: 20, border: "1.5px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, textTransform: "capitalize", background: filter === f ? themeG.accent : themeG.card, color: filter === f ? themeG.card : themeG.textSub, borderColor: filter === f ? themeG.accent : themeG.border }}>
             {f}
@@ -299,12 +299,13 @@ export default function AllocationSystemAdmin({ embedded = false }) {
       )}
 
       <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.05)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", tableLayout: "auto", borderCollapse: "collapse" }}>
           <thead>
             <tr>
               {(isAdminMode
-                ? ["Name", "Phone", "Districts", "Joined", "Status", "Actions"]
-                : ["Name", "Phone", "Districts", "Taluks", "Joined", "Status", "Actions"]
+                ? ["Employee", "Districts", "Joined", "Status", "Actions"]
+                : ["Employee", "Districts", "Taluks", "Joined", "Status", "Actions"]
               ).map((h) => (
                 <th key={h} style={th}>{h}</th>
               ))}
@@ -312,36 +313,40 @@ export default function AllocationSystemAdmin({ embedded = false }) {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={isAdminMode ? 6 : 7} style={{ ...td, textAlign: "center", padding: 30 }}>Loading…</td></tr>
+              <tr><td colSpan={isAdminMode ? 5 : 6} style={{ ...td, textAlign: "center", padding: 30 }}>Loading…</td></tr>
             ) : admins.length === 0 ? (
-              <tr><td colSpan={isAdminMode ? 6 : 7} style={{ ...td, textAlign: "center", padding: 30, color: themeG.textSub }}>No {isAdminMode ? "admins" : "end users"} in this filter.</td></tr>
+              <tr><td colSpan={isAdminMode ? 5 : 6} style={{ ...td, textAlign: "center", padding: 30, color: themeG.textSub }}>No {isAdminMode ? "admins" : "end users"} in this filter.</td></tr>
             ) : admins.map((e) => {
               const dists = toArr(e.District);
               const taluks = toArr(e.Taluk);
               return (
                 <tr key={e.Id} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
-                  <td style={{ ...td, fontWeight: 600, color: themeG.accent, cursor: "pointer" }} onClick={() => openEdit(e)}>{e.Name}</td>
-                  <td style={td}>{e.user?.phone || "—"}</td>
+                  <td style={{ ...td, cursor: "pointer" }} onClick={() => openEdit(e)}>
+                    <div style={{ fontWeight: 700, color: themeG.accent }}>{e.Name}</div>
+                    <div style={{ fontSize: 11, color: themeG.textSub, marginTop: 2 }}>
+                      {e.user?.phone || "—"}{e.user?.email ? ` · ${e.user.email}` : ""}
+                    </div>
+                  </td>
                   <td style={td}>
                     {dists.length > 0
-                      ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{dists.map(d => <span key={d} style={areaPill}>{d}</span>)}</div>
+                      ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{dists.map(d => <span key={d} style={districtPillHighlighted}>{d}</span>)}</div>
                       : <span style={{ color: "#B23A3A" }}>Not assigned</span>}
                   </td>
                   {!isAdminMode && (
                     <td style={td}>
                       {taluks.length > 0
-                        ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{taluks.map(t => <span key={t} style={{ ...areaPill, background: "rgba(58,92,140,0.10)", color: "#3A5C8C", border: "1px solid rgba(58,92,140,0.22)" }}>{t}</span>)}</div>
+                        ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{taluks.map(t => <span key={t} style={talukPillHighlighted}>{t}</span>)}</div>
                         : <span style={{ color: themeG.textSub, fontSize: 12 }}>—</span>}
                     </td>
                   )}
                   <td style={td}>{e.JoinedAt?.substring(0, 10)}</td>
                   <td style={td}><Badge text={e.Status} /></td>
                   <td style={td}>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                       <button onClick={() => openAssign(e)} style={actionBtn("rgba(58,92,140,0.10)", "#3A5C8C", "rgba(58,92,140,0.26)")}>
                         {isAdminMode
-                          ? (dists.length > 0 ? "Reassign District(s)" : "Assign District(s) & Approve")
-                          : (dists.length > 0 || taluks.length > 0 ? "Reassign Area" : "Assign Area & Approve")}
+                          ? (dists.length > 0 ? "Reassign" : "Assign & Approve")
+                          : (dists.length > 0 || taluks.length > 0 ? "Reassign" : "Assign & Approve")}
                       </button>
                       {e.Status !== "inactive" && (
                         <button disabled={actingId === e.Id} onClick={() => setStatus(e.Id, "inactive")} style={actionBtn("rgba(150,150,150,0.10)", "#526073", "rgba(150,150,150,0.26)")}>Deactivate</button>
@@ -353,6 +358,7 @@ export default function AllocationSystemAdmin({ embedded = false }) {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       <p style={{ marginTop: 14, fontSize: 13, color: themeG.textSub }}>
@@ -367,7 +373,7 @@ export default function AllocationSystemAdmin({ embedded = false }) {
               {assignTarget.Name}
             </h3>
             <p style={{ fontSize: 12, color: themeG.textSub, margin: "0 0 18px" }}>
-              Phone: {assignTarget.user?.phone || "—"}
+              Phone: {assignTarget.user?.phone || "—"} · Email: {assignTarget.user?.email || "—"}
             </p>
 
             <div style={fieldWrap}>
@@ -470,6 +476,7 @@ export default function AllocationSystemAdmin({ embedded = false }) {
                   ...(isAdminMode ? [] : [["Taluks", toArr(selected.Taluk).join(", ") || "—"]]),
                   ["Joined", selected.JoinedAt?.substring(0, 10)],
                   ["Phone", selected.user?.phone ?? "—"],
+                  ["Email", selected.user?.email ?? "—"],
                   ["Status", selected.Status],
                 ].map(([k, v]) => (
                   <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
@@ -573,3 +580,16 @@ function PlusIcon() {
 const overlay = { position: "fixed", inset: 0, background: "rgba(8,20,34,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 };
 const modal = { background: "#ffffff", borderRadius: 16, padding: 28, width: 400, boxShadow: "0 12px 40px rgba(0,0,0,0.18)", maxHeight: "90vh", overflowY: "auto" };
 const areaPill = { display: "inline-block", background: "rgba(46,122,114,0.12)", color: "#101B28", border: "1px solid rgba(46,122,114,0.25)", borderRadius: 12, padding: "2px 10px", fontSize: 11.5, fontWeight: 600 };
+// Highlighted variants — the assigned District/Taluk are the whole point of
+// this screen, so they get a stronger, unmistakable highlight instead of a
+// faint neutral pill.
+const districtPillHighlighted = {
+  display: "inline-block", background: "rgba(31,92,153,0.16)", color: "#0F3D66",
+  border: "1.5px solid #1F5C99", borderRadius: 12, padding: "2px 10px",
+  fontSize: 11.5, fontWeight: 700, boxShadow: "0 0 0 1px rgba(31,92,153,0.10)",
+};
+const talukPillHighlighted = {
+  display: "inline-block", background: "rgba(214,148,38,0.16)", color: "#8A5A0E",
+  border: "1.5px solid #D69426", borderRadius: 12, padding: "2px 10px",
+  fontSize: 11.5, fontWeight: 700, boxShadow: "0 0 0 1px rgba(214,148,38,0.10)",
+};

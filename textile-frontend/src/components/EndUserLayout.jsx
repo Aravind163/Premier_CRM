@@ -6,12 +6,37 @@
 // data, so they don't need that whole menu tree.
 //
 // Nav:
-//   Dashboard        -> /end-user/dashboard
-//   My Orders         -> New Order (/master/orders/add) + Order List (/master/orders)
-//   Order Enquiry     -> /end-user/enquiry   (read-only, area-wide pending orders)
-//   Complaints        -> /end-user/complaints (read-only, area-wide complaints)
+//   Dashboard          -> /end-user/dashboard
+//   Product Selection  -> /end-user/product-selection (its own top-level
+//                          link, right under Dashboard — it's the single
+//                          most-used screen for a field officer, so it no
+//                          longer sits buried inside a dropdown)
+//   Customers           -> Add Customer (/end-user/customers/add) + Customer List (/end-user/customers)
+//   Enquiry Order        -> Order Enquired (/master/enquiry) + Drafts
+//                          (/end-user/drafts) + My Orders (/master/orders,
+//                          default tab) + Customer Orders
+//                          (/master/orders?tab=customer). "My Orders" and
+//                          "Customer Orders" used to be in-page tabs on
+//                          one Order List screen — they're now their own
+//                          sidebar entries so each is a distinct,
+//                          bookmarkable page instead of two sub-pages
+//                          hiding inside one.
+//   Complaints          -> /end-user/complaints (read-only, area-wide complaints)
+//
+// NOTE: /master/orders itself still needs to read the `tab` query param
+// (default "mine", or "customer") to pick which list it renders, and its
+// old in-page "My Orders"/"Customer Orders" toggle buttons can come out
+// now that the sidebar drives that instead. That page wasn't provided
+// here, so this file only does the sidebar-side half of the split.
+//
+// A field officer's cart-to-order lifecycle: build a cart in Product
+// Selection, optionally park it in Drafts instead of submitting, submit
+// it (from Cart Checkout, reached via Product Selection's "View Cart &
+// Submit") which lands it as a pending enquiry (Order Enquired), then
+// track it in My Orders — alongside every order placed by their
+// customers, in Customer Orders.
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import Header from "./Header";
 import Footer from "./Footer";
 import { useTheme } from "../ThemeContext";
@@ -21,16 +46,30 @@ const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 export default function EndUserLayout({ children }) {
   const { colors, isDark } = useTheme();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const taluks = readTaluks();
 
-  const isDashboard   = location.pathname === "/end-user/dashboard";
-  const isNewOrder    = location.pathname === "/master/orders/add";
-  const isOrderList   = location.pathname.startsWith("/master/orders") && !isNewOrder;
-  const isEnquiry     = location.pathname.startsWith("/master/enquiry");
-  const isComplaints  = location.pathname.startsWith("/end-user/complaints");
+  const isDashboard = location.pathname === "/end-user/dashboard";
+  const isNewOrder = location.pathname === "/master/orders/add";
+  const isOrdersPage = location.pathname.startsWith("/master/orders") && !isNewOrder;
+  // "My Orders" is the default tab on /master/orders — anything other
+  // than an explicit ?tab=customer counts as My Orders being active.
+  const isCustomerOrders = isOrdersPage && searchParams.get("tab") === "customer";
+  const isMyOrders = isOrdersPage && !isCustomerOrders;
+  const isEnquiry = location.pathname.startsWith("/master/enquiry");
+  const isProductSelection = location.pathname === "/end-user/product-selection";
+  const isCartCheckout = location.pathname === "/end-user/order-cart";
+  const isDrafts = location.pathname === "/end-user/drafts";
+  const isComplaints = location.pathname.startsWith("/end-user/complaints");
+  const isAddCustomer = location.pathname === "/end-user/customers/add";
+  const isCustomerList = location.pathname === "/end-user/customers";
 
-  const [ordersOpen, setOrdersOpen] = useState(isNewOrder || isOrderList);
+  // "Enquiry Order" group — everything in the enquiry-to-order lifecycle:
+  // Order Enquired, Drafts, My Orders, Customer Orders. Product Selection
+  // lives outside this group as its own top-level link (see nav below).
+  const [enquiryOpen, setEnquiryOpen] = useState(isEnquiry || isDrafts || isCartCheckout || isOrdersPage);
+  const [customersOpen, setCustomersOpen] = useState(isAddCustomer || isCustomerList);
 
   const S = buildStyles(colors, isDark);
 
@@ -64,25 +103,39 @@ export default function EndUserLayout({ children }) {
               </div>
             </Link>
 
-            {/* Order Enquiry — entry point of the O2C flow, so it comes
-                before My Orders: Assign -> Approve -> Add Order. */}
-            <Link to="/master/enquiry" style={{ textDecoration: "none" }}>
-              <div style={{ ...S.navItem, ...(isEnquiry ? S.navItemActive : {}) }}>
-                <span style={S.navIcon}><ActivityIcon /></span>
-                <span>Order Enquiry</span>
+            <Link to="/end-user/product-selection" style={{ textDecoration: "none" }}>
+              <div style={{ ...S.navItem, ...(isProductSelection ? S.navItemActive : {}) }}>
+                <span style={S.navIcon}><ProductIcon /></span>
+                <span>Product Selection</span>
               </div>
             </Link>
 
             <div style={S.navGroup}>
-              <div style={S.navGroupHeader} onClick={() => setOrdersOpen(!ordersOpen)}>
-                <span style={S.navIcon}><OrdersIcon /></span>
-                <span style={S.navGroupLabel}>My Orders</span>
-                <span style={{ ...S.chevron, transform: ordersOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon /></span>
+              <div style={S.navGroupHeader} onClick={() => setCustomersOpen(!customersOpen)}>
+                <span style={S.navIcon}><UsersIcon /></span>
+                <span style={S.navGroupLabel}>Customers</span>
+                <span style={{ ...S.chevron, transform: customersOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon /></span>
               </div>
-              {ordersOpen && (
+              {customersOpen && (
                 <div style={S.navGroupBody}>
-                  <NavLeaf to="/master/orders/add" label="New Order"  active={isNewOrder}  S={S} />
-                  <NavLeaf to="/master/orders"     label="Order List" active={isOrderList} S={S} />
+                  <NavLeaf to="/end-user/customers/add" label="Add Customer" active={isAddCustomer} S={S} />
+                  <NavLeaf to="/end-user/customers" label="Customer List" active={isCustomerList} S={S} />
+                </div>
+              )}
+            </div>
+
+            <div style={S.navGroup}>
+              <div style={S.navGroupHeader} onClick={() => setEnquiryOpen(!enquiryOpen)}>
+                <span style={S.navIcon}><OrdersIcon /></span>
+                <span style={S.navGroupLabel}>Enquiry Order</span>
+                <span style={{ ...S.chevron, transform: enquiryOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon /></span>
+              </div>
+              {enquiryOpen && (
+                <div style={S.navGroupBody}>
+                  <NavLeaf to="/master/enquiry" label="Order Enquired" active={isEnquiry} S={S} />
+                  <NavLeaf to="/end-user/drafts" label="Drafts" active={isDrafts} S={S} />
+                  <NavLeaf to="/master/orders" label="My Orders" active={isMyOrders} S={S} />
+                  <NavLeaf to="/master/orders?tab=customer" label="Customer Orders" active={isCustomerOrders} S={S} />
                 </div>
               )}
             </div>
@@ -90,7 +143,7 @@ export default function EndUserLayout({ children }) {
             <Link to="/end-user/complaints" style={{ textDecoration: "none" }}>
               <div style={{ ...S.navItem, ...(isComplaints ? S.navItemActive : {}) }}>
                 <span style={S.navIcon}><ChartIcon /></span>
-                <span>Complaints</span>
+                <span>Complaints & Claims</span>
               </div>
             </Link>
           </nav>
@@ -194,7 +247,7 @@ function buildStyles(colors, isDark) {
       display: "flex", alignItems: "center", gap: 10,
       padding: "10px 12px", borderRadius: 8, marginBottom: 2,
       cursor: "pointer", fontSize: 14,
-      color: "rgba(255,255,255,0.65)", transition: "all 0.15s",
+      color: "rgba(255, 255, 255, 0.96)", transition: "all 0.15s",
       fontFamily: FONT,
     },
     navItemActive: {
@@ -202,24 +255,28 @@ function buildStyles(colors, isDark) {
       color: "#ffffff", fontWeight: 600,
       borderLeft: "3px solid #D69426",
     },
-    navIcon: { display: "flex", alignItems: "center", color: "inherit" },
+    navIcon: {
+      display: "flex",
+      alignItems: "center",
+      color: "#ffffff",
+    },
     navGroup: { marginBottom: 2 },
     navGroupHeader: {
       display: "flex", alignItems: "center", gap: 10,
       padding: "10px 12px", borderRadius: 8,
       cursor: "pointer", fontSize: 14,
-      color: "rgba(255,255,255,0.65)", transition: "all 0.15s",
+      color: "rgba(255, 255, 255, 0.96)", transition: "all 0.15s",
       fontFamily: FONT,
     },
     navGroupLabel: { flex: 1, fontWeight: 500 },
     chevron: {
       display: "flex", alignItems: "center",
-      color: "rgba(255,255,255,0.40)", transition: "transform 0.15s",
+      color: "rgba(255, 255, 255, 0.97)", transition: "transform 0.15s",
     },
     navGroupBody: { paddingLeft: 12, marginTop: 2, marginBottom: 4 },
     navLeafItem: {
       padding: "8px 12px", fontSize: 12.5,
-      color: "rgba(255,255,255,0.55)", cursor: "pointer",
+      color: "rgba(255, 255, 255, 0.94)", cursor: "pointer",
       borderRadius: 6, transition: "all 0.15s", fontFamily: FONT,
     },
     navLeafActive: {
@@ -253,6 +310,14 @@ function GridIcon() {
     </svg>
   );
 }
+function ProductIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.59 13.41 13.41 20.59a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+      <line x1="7" y1="7" x2="7.01" y2="7" />
+    </svg>
+  );
+}
 function OrdersIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -278,6 +343,16 @@ function ChevronIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="9 6 15 12 9 18" />
+    </svg>
+  );
+}
+function UsersIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   );
 }

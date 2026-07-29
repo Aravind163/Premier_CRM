@@ -9,7 +9,7 @@ class Order extends Model
     protected $table = 'Orders';
     protected $primaryKey = 'Id';
 
-    protected $appends = ['is_overdue'];
+    protected $appends = ['is_overdue', 'balance_due', 'days_overdue'];
 
     const CREATED_AT = 'CreatedAt';
     const UPDATED_AT = 'UpdatedAt';
@@ -17,10 +17,17 @@ class Order extends Model
     protected $fillable = [
     'Code', 'CustomerId', 'ProductId', 'Category', 'SubType', 'Quantity',
     'PricePerUnit', 'DiscountPct', 'TotalAmount', 'Status', 'PaymentStatus',
+    'AmountPaid',
     'DeliveryDate', 'Notes', 'CreatedBy', 'ApprovedBy',
     'OrderDetails',
     // Order Enquiry workflow (assign -> approve -> convert to order)
     'AssignedTo', 'AssignedAt',
+    // Approve / Reject with reason (O2C Step 4)
+    'RejectionReason',
+    // Credit / discount hold (O2C Step 9)
+    'OnHold', 'HoldReason', 'HoldPlacedAt',
+    // FIFO / EB4 fulfilment source (O2C Step 8)
+    'WarehouseSource',
     // Goods Dispatch (O2C Step 7)
     'LRNumber', 'TransportName', 'DispatchedAt', 'DispatchedBy',
     // Payment due date / credit term
@@ -31,11 +38,15 @@ protected $casts = [
     'PricePerUnit' => 'decimal:2',
     'DiscountPct'  => 'decimal:2',
     'TotalAmount'  => 'decimal:2',
+    'AmountPaid'   => 'decimal:2',
+    'PaymentTermDays' => 'integer',
     'DeliveryDate' => 'date',
     'OrderDetails' => 'array',
     'DispatchedAt' => 'datetime',
     'PaymentDueDate' => 'date',
     'AssignedAt' => 'datetime',
+    'OnHold' => 'boolean',
+    'HoldPlacedAt' => 'datetime',
 ];
 
     protected static function booted(): void
@@ -81,6 +92,11 @@ protected $casts = [
         return $this->belongsTo(User::class, 'AssignedTo');
     }
 
+    public function invoice()
+    {
+        return $this->hasOne(Invoice::class, 'OrderId');
+    }
+
     /** True once PaymentDueDate has passed and the bill still isn't fully paid. */
     public function getIsOverdueAttribute(): bool
     {
@@ -88,5 +104,20 @@ protected $casts = [
             return false;
         }
         return $this->PaymentDueDate->isPast();
+    }
+
+    /** How much of this bill is still unpaid. */
+    public function getBalanceDueAttribute(): float
+    {
+        return round((float) $this->TotalAmount - (float) ($this->AmountPaid ?? 0), 2);
+    }
+
+    /** Whole days past the due date, unpaid — 0 if not overdue. */
+    public function getDaysOverdueAttribute(): int
+    {
+        if (!$this->is_overdue) {
+            return 0;
+        }
+        return (int) $this->PaymentDueDate->diffInDays(now()->startOfDay());
     }
 }

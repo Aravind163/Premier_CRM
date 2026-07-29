@@ -34,4 +34,9 @@ class ProductAllocation extends Model
     {
         return $this->belongsTo(User::class, 'AllocatedBy');
     }
+
+    public function consumptions()
+    {
+        return $this->hasMany(AllocationBatchConsumption::class, 'ProductAllocationId');
+    }
 }

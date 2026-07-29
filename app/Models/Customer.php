@@ -14,13 +14,21 @@ class Customer extends Model
 
     protected $fillable = [
         'Code', 'UserId', 'Name', 'Phone', 'Email', 'Type', 'District', 'Taluk',
-        'Address', 'CreditLimit', 'Outstanding', 'Status', 'Notes',
+        'Address', 'CreditLimit', 'MaxDiscountPct', 'Outstanding', 'Status', 'Notes',
         'CreatedBy', 'ApprovedBy',
+        // Mobile-app "Add Customer" parity fields (see 2026_07_16 migration)
+        'BusinessType', 'Emails', 'Phones', 'Addresses', 'ContactPersons',
+        'GSTNo', 'PANNo', 'TANNo',
     ];
 
     protected $casts = [
         'CreditLimit' => 'decimal:2',
+        'MaxDiscountPct' => 'decimal:2',
         'Outstanding' => 'decimal:2',
+        'Emails' => 'array',
+        'Phones' => 'array',
+        'Addresses' => 'array',
+        'ContactPersons' => 'array',
     ];
 
     protected static function booted(): void

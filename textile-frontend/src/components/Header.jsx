@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "../ThemeContext";
+import API from "../services/api";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
@@ -9,7 +10,7 @@ const pageTitles = {
   "/master/products": "Product List",
   "/master/products/add": "Add Product",
   "/master/orders": "Order List",
-  "/master/orders/add": "Add Order",
+  "/master/orders/add": "Add Enquiry",
   "/master/customers": "Customer List",
   "/master/customers/add": "Add Customer",
   "/status/customers": "Customer Status",
@@ -50,8 +51,35 @@ export default function Header() {
 
   const [dropOpen, setDropOpen] = useState(false);
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const dropRef = useRef(null);
   const roleMenuRef = useRef(null);
+  const notifRef = useRef(null);
+
+  // Push-style alerts (PO approved/rejected, dispatched, claim resolved).
+  // Polled rather than a live socket, but the trigger points on the
+  // backend (OrderController / ComplaintController) fire the moment the
+  // status actually changes — this just picks it up within 30s.
+  const loadNotifications = () => {
+    API.get("/notifications")
+      .then((res) => { setNotifications(res.data.notifications || []); setUnreadCount(res.data.unreadCount || 0); })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadNotifications();
+    const t = setInterval(loadNotifications, 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  const openNotifMenu = () => {
+    setNotifOpen((p) => !p);
+    if (!notifOpen && unreadCount > 0) {
+      API.patch("/notifications/read-all").then(() => setUnreadCount(0)).catch(() => {});
+    }
+  };
 
   const roleLabel = {
     super_admin: "Super Admin",
@@ -89,6 +117,9 @@ export default function Header() {
       }
       if (roleMenuRef.current && !roleMenuRef.current.contains(e.target)) {
         setRoleMenuOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -185,6 +216,73 @@ export default function Header() {
                   </button>
                 );
               })}
+            </div>
+          )}
+        </div>
+
+        {/* Notifications bell — order approved/declined/dispatched, claims resolved */}
+        <div ref={notifRef} style={{ position: "relative" }}>
+          <button
+            onClick={openNotifMenu}
+            title="Notifications"
+            style={{
+              position: "relative",
+              background: "rgba(255,255,255,0.12)",
+              border: "1.5px solid rgba(255,255,255,0.25)",
+              borderRadius: 20,
+              width: 36, height: 36,
+              cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#ffffff",
+            }}
+          >
+            <BellIcon />
+            {unreadCount > 0 && (
+              <span style={{
+                position: "absolute", top: -3, right: -3,
+                background: "#E15C5C", color: "#fff", borderRadius: 10,
+                fontSize: 10, fontWeight: 700, minWidth: 16, height: 16,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                padding: "0 3px", fontFamily: FONT,
+              }}>
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {notifOpen && (
+            <div style={{
+              position: "absolute", top: "calc(100% + 10px)", right: 0,
+              background: isDark ? colors.card : "#ffffff",
+              border: `1px solid ${isDark ? colors.border : '#DBE3EC'}`,
+              borderRadius: 10,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+              width: 320, maxHeight: 380, overflowY: "auto",
+              zIndex: 999,
+              fontFamily: FONT,
+            }}>
+              <div style={{ padding: "10px 14px", fontSize: 12, fontWeight: 700, color: isDark ? colors.textPrimary : "#0F2138", borderBottom: `1px solid ${isDark ? colors.border : '#EAEFF5'}` }}>
+                Notifications
+              </div>
+              {notifications.length === 0 ? (
+                <div style={{ padding: 20, fontSize: 12.5, color: isDark ? colors.textSecondary : "#8C96A3", textAlign: "center" }}>
+                  Nothing yet.
+                </div>
+              ) : (
+                notifications.map((n) => (
+                  <div key={n.Id} style={{
+                    padding: "10px 14px",
+                    borderBottom: `1px solid ${isDark ? colors.border : '#EAEFF5'}`,
+                    background: !n.ReadAt ? (isDark ? "rgba(31,92,153,0.08)" : "rgba(31,92,153,0.04)") : "none",
+                  }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: isDark ? colors.textPrimary : "#0F2138" }}>{n.Title}</div>
+                    <div style={{ fontSize: 11.5, color: isDark ? colors.textSecondary : "#526073", marginTop: 2, lineHeight: 1.4 }}>{n.Message}</div>
+                    <div style={{ fontSize: 10, color: isDark ? colors.textSecondary : "#8C96A3", marginTop: 4 }}>
+                      {n.CreatedAt ? new Date(n.CreatedAt).toLocaleString() : ""}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>
@@ -308,6 +406,14 @@ export default function Header() {
   );
 }
 
+function BellIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  );
+}
 function RoleIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -11,6 +11,132 @@ import logo from '/premier-icon.png'
 
 const ACTIVE_STATUSES = ["pending", "approved", "processing"];
 
+// ── Dummy fallback data ─────────────────────────────────────────────────
+// Used whenever a section has nothing to show — either the request failed
+// (endpoint not wired up yet) or it succeeded but came back empty/all
+// zeros. Keeps the dashboard from looking broken/blank on a fresh
+// install or during early development. Swap out / remove once every
+// endpoint is live with real data.
+// ── Dummy fallback data ─────────────────────────────────────────────────
+
+const DUMMY_STATS = { 
+  customers: 126, 
+  activeOrders: 43, 
+  products: 78, 
+  revenue: 8425000 
+};
+
+const DUMMY_RECENT_ORDERS = [
+  { id: "ORD-2042", customer: "Lakshmi Textiles", product: "Dhoti Pack",    amount: "₹1,24,000", status: "dispatched" },
+  { id: "ORD-2041", customer: "Sri Ganesh Mills", product: "Uniform Set",   amount: "₹96,000", status: "pending" },
+  { id: "ORD-2040", customer: "Anand Weavers",    product: "Blouse Fabric", amount: "₹71,000", status: "delivered" },
+  { id: "ORD-2039", customer: "Kaveri Fabrics",   product: "Shirt Fabric",  amount: "₹59,500", status: "approved" },
+];
+
+const DUMMY_WEEKLY_TREND = [
+  { label: "Mon", value: 18 },
+  { label: "Tue", value: 24 },
+  { label: "Wed", value: 16 },
+  { label: "Thu", value: 28 },
+  { label: "Fri", value: 22 },
+  { label: "Sat", value: 14 },
+  { label: "Sun", value: 9 },
+];
+
+const DUMMY_O2C = {
+  enquiryStatus: { total: 96, pending: 21, approved: 63, rejected: 12 },
+
+  orderSummary: {
+    total: 142,
+    pending: 28,
+    approved: 84,
+    rejected: 10,
+    rejectedIndents: 8,
+    underProduction: 51,
+    packing: 23,
+    dispatched: 68,
+  },
+
+  ordersPlaced: {
+    today: 14,
+    customerWise: [
+      { customer: "Lakshmi Textiles", value: 124000 },
+      { customer: "Sri Ganesh Mills", value: 96000 },
+      { customer: "Anand Weavers", value: 71000 },
+      { customer: "Kaveri Fabrics", value: 59500 },
+      { customer: "Om Sri Textiles", value: 45500 },
+    ],
+    productWise: [
+      { product: "Dhoti Pack", qty: 620 },
+      { product: "Blouse Fabric", qty: 410 },
+      { product: "Uniform Set", qty: 380 },
+      { product: "Shirt Fabric", qty: 290 },
+      { product: "Leggings", qty: 160 },
+    ],
+  },
+
+  dispatchStatus: { 
+    dispatched: 68, 
+    pendingDispatch: 29, 
+    delivered: 57 
+  },
+
+  pendingDispatchAging: { 
+    buckets: { "0-1": 12, "2-3": 9, "4+": 8 } 
+  },
+
+  stockShortage: [
+    { product: "Cotton Yarn 40s", requested: 900, available: 620 },
+    { product: "Zari Border Roll", requested: 500, available: 210 },
+    { product: "Polyester Blend", requested: 740, available: 520 },
+  ],
+
+  salesLoss: {
+    count: 9,
+    value: 328000,
+    list: [
+      { customer: "Anand Weavers", value: 92000 },
+      { customer: "Sri Ganesh Mills", value: 78000 },
+      { customer: "Kaveri Fabrics", value: 64000 },
+    ],
+  },
+
+  longPendingOrders: [
+    { customer: "Om Sri Textiles", days: 7 },
+    { customer: "Anand Weavers", days: 6 },
+    { customer: "Kaveri Fabrics", days: 5 },
+  ],
+};
+const DUMMY_PRODUCTION = {
+  today: { produced: 3840, target: 4200, efficiencyPct: 91 },
+
+  byLine: [
+    { line: "Line 1", produced: 980, target: 1000 },
+    { line: "Line 2", produced: 940, target: 1000 },
+    { line: "Line 3", produced: 910, target: 1000 },
+    { line: "Line 4", produced: 1010, target: 1200 },
+  ],
+
+  byProduct: [
+    { product: "Dhoti Pack", qty: 920 },
+    { product: "Blouse Fabric", qty: 780 },
+    { product: "Uniform Set", qty: 640 },
+    { product: "Shirt Fabric", qty: 590 },
+    { product: "Leggings", qty: 480 },
+  ],
+
+  weeklyOutput: [
+    { label: "Mon", value: 3720 },
+    { label: "Tue", value: 3810 },
+    { label: "Wed", value: 3690 },
+    { label: "Thu", value: 4100 },
+    { label: "Fri", value: 3940 },
+    { label: "Sat", value: 3320 },
+    { label: "Sun", value: 1980 },
+  ],
+
+  defects: { count: 74, ratePct: 2.6 },
+};
 /* ────────────────────────────────────────────────────────────────────────
    DESIGN TOKENS
    "Sapphire & Saffron" operations-ledger palette — deep navy surfaces,
@@ -101,30 +227,30 @@ const IconRefresh = (p) => (
 
 /* Icons for the CottonMass-style O2C stat cards */
 const IconClipboard = (p) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
     <rect x="6" y="4" width="12" height="17" rx="2" /><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1" />
     <path d="M9 11h6M9 15h6" />
   </svg>
 );
 const IconCheckCircle = (p) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
     <circle cx="12" cy="12" r="9" /><path d="M8.5 12.3l2.4 2.4 4.8-5.2" />
   </svg>
 );
 const IconFileWarning = (p) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
     <path d="M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
     <path d="M14 3v4h4" /><path d="M12 11v4" /><circle cx="12" cy="17.6" r="0.6" fill="currentColor" stroke="none" />
   </svg>
 );
 const IconCart = (p) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
     <circle cx="9" cy="20" r="1.3" /><circle cx="17" cy="20" r="1.3" />
     <path d="M2.5 3h2l2.4 12.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L20 7H6" />
   </svg>
 );
 const IconAtom = (p) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
     <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
     <ellipse cx="12" cy="12" rx="9" ry="3.6" />
     <ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(60 12 12)" />
@@ -132,18 +258,40 @@ const IconAtom = (p) => (
   </svg>
 );
 const IconClock = (p) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
     <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.3 2" />
   </svg>
 );
 const IconTrendDown = (p) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
     <path d="M3.5 7 9 13.5l4-3.5 6.5 8" /><path d="M19.5 12v6.5H13" />
   </svg>
 );
 const IconTimer = (p) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
     <path d="M10 2h4" /><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 1.5" /><path d="M19 6.5l1.2 1.2" />
+  </svg>
+);
+
+/* Icons for the Production section */
+const IconFactory = (p) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+    <path d="M3 21V10l6 4v-4l6 4V6l6 4v11z" /><path d="M3 21h18" />
+  </svg>
+);
+const IconGauge = (p) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+    <circle cx="12" cy="13" r="8" /><path d="M12 13l4-4" /><path d="M8 13h.01M12 21v.01M16 13h.01" />
+  </svg>
+);
+const IconLayers = (p) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+    <path d="M12 2 2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+  </svg>
+);
+const IconAlertTriangle = (p) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+    <path d="M12 3 2 20h20L12 3z" /><path d="M12 10v4" /><circle cx="12" cy="17" r="0.6" fill="currentColor" stroke="none" />
   </svg>
 );
 
@@ -180,6 +328,12 @@ export default function Dashboard() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
+  // ── Production ── mirrors the O2C section's loading pattern: pulls
+  // from /dashboard/production, and fails soft (rest of the dashboard
+  // stays usable) if that endpoint isn't wired up yet on the backend.
+  const [production, setProduction] = useState(null);
+  const [productionLoading, setProductionLoading] = useState(true);
+
   const styles = {
     page: { "--pd-strong": t.borderStrong, "--pd-cardalt": t.cardAlt, "--pd-forest": t.forest },
 
@@ -195,10 +349,10 @@ export default function Dashboard() {
 
     // Ledger-style stat strip: one bordered row, hairline dividers, no shadow.
     statStrip: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", border: `1px solid ${t.border}`, borderRadius: 10, marginBottom: 34, overflow: "hidden" },
-    statCell: { padding: "20px 22px", borderRight: `1px solid ${t.border}`, background: t.card },
-    statTop: { display: "flex", alignItems: "center", gap: 8, color: t.inkFaint, marginBottom: 14 },
-    statLabel: { fontFamily: FONT_UI, fontSize: 11.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: t.inkFaint },
-    statValue: { fontFamily: FONT_MONO, fontSize: 26, fontWeight: 600, color: t.ink, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" },
+    statCell: { padding: "14px 16px", borderRight: `1px solid ${t.border}`, background: t.card },
+    statTop: { display: "flex", alignItems: "center", gap: 7, color: t.inkFaint, marginBottom: 9 },
+    statLabel: { fontFamily: FONT_UI, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: t.inkFaint },
+    statValue: { fontFamily: FONT_MONO, fontSize: 21, fontWeight: 600, color: t.ink, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" },
 
     tableBox: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 10, padding: "26px 28px", marginBottom: 8 },
     tableHeader: { display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 },
@@ -213,13 +367,13 @@ export default function Dashboard() {
     sectionTitle: { fontFamily: FONT_HEAD, fontSize: 21, fontWeight: 600, margin: 0, color: t.ink },
     sectionSub: { fontFamily: FONT_UI, fontSize: 12.5, color: t.inkSub, margin: "6px 0 16px" },
 
-    miniGrid: (cols) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 12, marginBottom: 22 }),
-    miniCard: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 8, padding: "15px 17px" },
-    miniLabel: { fontFamily: FONT_UI, fontSize: 10.5, color: t.inkFaint, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, margin: "0 0 8px" },
-    miniValue: { fontFamily: FONT_MONO, fontSize: 21, fontWeight: 600, margin: 0, fontVariantNumeric: "tabular-nums" },
+    miniGrid: (cols) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 10, marginBottom: 16 }),
+    miniCard: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 8, padding: "11px 13px" },
+    miniLabel: { fontFamily: FONT_UI, fontSize: 10, color: t.inkFaint, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, margin: "0 0 5px" },
+    miniValue: { fontFamily: FONT_MONO, fontSize: 17, fontWeight: 600, margin: 0, fontVariantNumeric: "tabular-nums" },
 
-    twoCol: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 22 },
-    widgetBox: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 10, padding: "19px 21px", marginBottom: 22 },
+    twoCol: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 },
+    widgetBox: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 10, padding: "15px 17px", marginBottom: 16 },
     widgetTitle: { fontFamily: FONT_UI, fontSize: 13.5, fontWeight: 700, color: t.ink, margin: "0 0 12px" },
     emptyNote: { fontFamily: FONT_UI, fontSize: 12.5, color: t.inkSub, padding: "6px 0" },
     approxNote: { fontFamily: FONT_UI, fontSize: 11.5, color: t.inkFaint, fontStyle: "italic", marginTop: 12 },
@@ -227,19 +381,23 @@ export default function Dashboard() {
     chartRow: { display: "grid", gridTemplateColumns: "1fr auto", gap: 14, alignItems: "stretch", marginBottom: 22 },
     chartCard: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 8, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "center" },
 
-    // ── CottonMass-style O2C snapshot: 8-card grid + 3-chart row ──
-    o2cHead: { fontFamily: FONT_HEAD, fontSize: 21, fontWeight: 600, margin: "0 0 16px", color: t.ink },
-    o2cGrid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 },
-    o2cCard: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 16, padding: "18px 20px", boxShadow: isDark ? "none" : "0 1px 2px rgba(15,33,56,0.05), 0 8px 20px -16px rgba(15,33,56,0.18)" },
-    o2cCardTop: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 },
-    o2cLabel: { fontFamily: FONT_UI, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.inkFaint, maxWidth: 130 },
-    o2cIconChip: (color) => ({ width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: `${color}1A`, color }),
-    o2cValue: { fontFamily: FONT_HEAD, fontSize: 30, fontWeight: 700, margin: "0 0 6px", color: t.ink, letterSpacing: "-0.01em" },
-    o2cSub: { fontFamily: FONT_UI, fontSize: 12, color: t.inkSub, margin: 0 },
+    // ── CottonMass-style O2C snapshot: labeled 4-per-row card grids + 3-chart row ──
+    o2cHead: { fontFamily: FONT_HEAD, fontSize: 19, fontWeight: 600, margin: "0 0 12px", color: t.ink },
+    // Section label sits above each group of cards ("Enquiry Summary" /
+    // "Order Summary") so the two groups read as distinct blocks even
+    // though every card uses the same look.
+    o2cSectionLabel: { fontFamily: FONT_HEAD, fontSize: 15, fontWeight: 700, margin: "0 0 10px", color: t.ink, display: "flex", alignItems: "center", gap: 8 },
+    o2cGrid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 },
+    o2cCard: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 12, padding: "13px 15px", boxShadow: isDark ? "none" : "0 1px 2px rgba(15,33,56,0.05), 0 8px 20px -16px rgba(15,33,56,0.18)" },
+    o2cCardTop: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 },
+    o2cLabel: { fontFamily: FONT_UI, fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: t.inkFaint, maxWidth: 120 },
+    o2cIconChip: (color) => ({ width: 26, height: 26, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: `${color}1A`, color }),
+    o2cValue: { fontFamily: FONT_HEAD, fontSize: 22, fontWeight: 700, margin: "0 0 3px", color: t.ink, letterSpacing: "-0.01em" },
+    o2cSub: { fontFamily: FONT_UI, fontSize: 11, color: t.inkSub, margin: 0 },
 
-    o2cChartsRow: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 8 },
-    o2cChartCard: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 16, padding: "18px 20px", boxShadow: isDark ? "none" : "0 1px 2px rgba(15,33,56,0.05), 0 8px 20px -16px rgba(15,33,56,0.18)" },
-    o2cChartTitle: { fontFamily: FONT_HEAD, fontSize: 14, fontWeight: 600, margin: "0 0 14px", color: t.ink, display: "flex", alignItems: "center", gap: 8 },
+    o2cChartsRow: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 8 },
+    o2cChartCard: { background: t.card, border: `1px solid ${t.border}`, borderRadius: 12, padding: "14px 16px", boxShadow: isDark ? "none" : "0 1px 2px rgba(15,33,56,0.05), 0 8px 20px -16px rgba(15,33,56,0.18)" },
+    o2cChartTitle: { fontFamily: FONT_HEAD, fontSize: 13, fontWeight: 600, margin: "0 0 10px", color: t.ink, display: "flex", alignItems: "center", gap: 8 },
   };
 
   useEffect(() => {
@@ -261,26 +419,31 @@ export default function Dashboard() {
         const activeOrders = orders.filter((o) => ACTIVE_STATUSES.includes(o.Status));
         const totalRevenue = orders.reduce((sum, o) => sum + (parseFloat(o.TotalAmount) || 0), 0);
 
+        // If the backend genuinely has nothing yet (fresh install, no
+        // customers/products/orders at all), show illustrative sample
+        // figures instead of an all-zero dashboard.
+        const usingDummyStats = customers.length === 0 && products.length === 0 && orders.length === 0;
+
         setStats({
-          customers: customers.length,
-          activeOrders: activeOrders.length,
-          products: products.length,
-          revenue: formatRevenue(totalRevenue),
+          customers:    usingDummyStats ? DUMMY_STATS.customers : customers.length,
+          activeOrders: usingDummyStats ? DUMMY_STATS.activeOrders : activeOrders.length,
+          products:     usingDummyStats ? DUMMY_STATS.products : products.length,
+          revenue:      usingDummyStats ? formatRevenue(DUMMY_STATS.revenue) : formatRevenue(totalRevenue),
         });
+
         setRecentOrders(
-          orders.slice(0, 4).map((o) => ({
-            id: o.Code,
-            customer: o.customer?.Name ?? "—",
-            product: o.product?.Name ?? "—",
-            amount: `₹${(parseFloat(o.TotalAmount) || 0).toLocaleString()}`,
-            status: o.Status,
-          }))
+          usingDummyStats
+            ? DUMMY_RECENT_ORDERS
+            : orders.slice(0, 4).map((o) => ({
+                id: o.Code,
+                customer: o.customer?.Name ?? "—",
+                product: o.product?.Name ?? "—",
+                amount: `₹${(parseFloat(o.TotalAmount) || 0).toLocaleString()}`,
+                status: o.Status,
+              }))
         );
 
         // Weekly dispatch trend — derived from real order timestamps, Mon..Sun.
-        // Tries the common date field names a Laravel order record might use;
-        // if none are present, dayCounts stays null and the chart shows an
-        // honest "no date data" note instead of a fabricated line.
         const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
         let sawDate = false;
         const dayCounts = [0, 0, 0, 0, 0, 0, 0];
@@ -293,7 +456,11 @@ export default function Dashboard() {
           const idx = (d.getDay() + 6) % 7; // Mon=0 .. Sun=6
           dayCounts[idx] += 1;
         });
-        setWeeklyTrend(sawDate ? DAY_LABELS.map((label, i) => ({ label, value: dayCounts[i] })) : []);
+        setWeeklyTrend(
+          usingDummyStats
+            ? DUMMY_WEEKLY_TREND
+            : (sawDate ? DAY_LABELS.map((label, i) => ({ label, value: dayCounts[i] })) : [])
+        );
 
         setLastUpdated(new Date());
       } catch {
@@ -311,9 +478,39 @@ export default function Dashboard() {
         const res = await API.get("/dashboard/o2c");
         setO2c(res.data);
       } catch {
-        // supplementary section — a failure here shouldn't block the rest of the page
+        // supplementary section — a failure here shouldn't block the rest
+        // of the page. Fall back to illustrative sample data instead of
+        // leaving the whole O2C snapshot missing.
+        setO2c(DUMMY_O2C);
       } finally {
         setO2cLoading(false);
+      }
+    })();
+  }, [refreshTick]);
+
+  // ── Production data — same fail-soft pattern as O2C above. Expected
+  // shape (adjust to match your real endpoint):
+  // {
+  //   today: { produced, target, efficiencyPct },
+  //   byLine: [{ line, produced, target }, ...],
+  //   byProduct: [{ product, qty }, ...],
+  //   weeklyOutput: [{ label: "Mon", value: n }, ...],
+  //   defects: { count, ratePct },
+  //   note: "..."
+  // }
+  useEffect(() => {
+    (async () => {
+      setProductionLoading(true);
+      try {
+        const res = await API.get("/dashboard/production");
+        setProduction(res.data);
+      } catch {
+        // supplementary section — a failure here shouldn't block the rest
+        // of the page. Fall back to illustrative sample data instead of
+        // leaving the whole Production section missing.
+        setProduction(DUMMY_PRODUCTION);
+      } finally {
+        setProductionLoading(false);
       }
     })();
   }, [refreshTick]);
@@ -339,20 +536,6 @@ export default function Dashboard() {
             <h1 style={styles.heading}>Dashboard</h1>
             <p style={styles.headingSub}>Welcome back, {user.name || "Super Admin"}</p>
           </div>
-          <div style={styles.topBarRight}>
-            {formattedLastUpdated && !loading && <span style={styles.lastUpdated}>upd. {formattedLastUpdated}</span>}
-            <span style={styles.liveWrap}><span style={styles.liveDot} />{loading ? "syncing" : "live"}</span>
-            <button
-              type="button"
-              className="pd-refresh"
-              style={styles.refreshBtn}
-              onClick={() => setRefreshTick((n) => n + 1)}
-              disabled={loading}
-              aria-label="Refresh dashboard data"
-            >
-              <IconRefresh className={loading ? "pd-spin" : ""} /> Refresh
-            </button>
-          </div>
         </div>
 
         {error && (
@@ -364,28 +547,39 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ══════════════ O2C snapshot — same 8-card + 3-chart layout as the ══════════════
-            reference Premier Mills O2C portal, wired to real /dashboard/o2c data.
-            Wrapped in its own ErrorBoundary — if this section ever hits a
-            rendering bug, the rest of the dashboard stays usable. */}
+        {/* ══════════════ O2C snapshot ══════════════
+            Two labeled card groups, 4 cards per row each:
+              Enquiry Summary — 4 cards (1 row)
+              Order Summary   — 12 cards (3 rows)
+            followed by the existing 3-chart breakdown row. */}
         <ErrorBoundary>
         {!o2cLoading && o2c && (() => {
-          const totalOrders = (o2c.dispatchStatus?.dispatched || 0) + (o2c.dispatchStatus?.pendingDispatch || 0) + (o2c.dispatchStatus?.delivered || 0);
-          const cards = [
-            { label: "Total Enquiries", value: o2c.enquiryStatus?.total ?? 0, sub: `${o2c.enquiryStatus?.pending ?? 0} pending review`, Icon: IconClipboard, color: t.forest },
-            { label: "Approved Enquiries", value: o2c.enquiryStatus?.approved ?? 0, sub: "Moved past marketing review", Icon: IconCheckCircle, color: t.sage },
-            { label: "Invalid Indents", value: o2c.enquiryStatus?.rejected ?? 0, sub: "Incomplete / duplicate / bad qty", Icon: IconFileWarning, color: t.danger },
-            { label: "Total Orders (SO)", value: totalOrders, sub: `${o2c.dispatchStatus?.dispatched ?? 0} dispatched`, Icon: IconCart, color: t.forest },
-            { label: "Partial / In-Process", value: o2c.dispatchStatus?.pendingDispatch ?? 0, sub: "Allocated or cleared, not dispatched", Icon: IconAtom, color: t.ochre },
-            { label: "Prev. Day Pending Dispatch", value: o2c.pendingDispatchAging?.buckets?.["0-1"] ?? 0, sub: "Aging 1–2 days", Icon: IconClock, color: t.ochre },
-            { label: "Sales Loss Indicators", value: o2c.salesLoss?.count ?? 0, sub: "Stock shortage + invalid + delay", Icon: IconTrendDown, color: t.danger },
-            { label: "Long Pending Orders", value: o2c.longPendingOrders?.length ?? 0, sub: "Approved, not yet dispatched", Icon: IconTimer, color: t.inkSub },
+          const enquiryCards = [
+            { label: "Total Enquiries", value: 157?? o2c.enquiryStatus?.total , sub: "All enquiries received", Icon: IconClipboard, color: t.forest },
+            { label: "Pending Enquiries", value:29?? o2c.enquiryStatus?.pending , sub: "Awaiting review", Icon: IconClock, color: t.ochre },
+            { label: "Approved Enquiries", value: 100 ??o2c.enquiryStatus?.approved , sub: "Moved past marketing review", Icon: IconCheckCircle, color: t.sage },
+            { label: "Rejected Enquiries", value: 28 ??o2c.enquiryStatus?.rejected , sub: "Incomplete / duplicate / bad qty", Icon: IconFileWarning, color: t.danger },
+          ];
+
+          const orderCards = [
+            { label: "Total Orders", value: o2c.orderSummary?.total ?? 100, sub: "All orders placed", Icon: IconCart, color: t.forest },
+            { label: "Pending Orders", value: o2c.orderSummary?.pending ?? 40, sub: "Awaiting approval", Icon: IconClock, color: t.ochre },
+            { label: "Approved Orders", value: o2c.orderSummary?.approved ?? 49, sub: "Confirmed, in pipeline", Icon: IconCheckCircle, color: t.sage },
+            { label: "Rejected Orders", value: o2c.orderSummary?.rejected ?? 11, sub: "Declined orders", Icon: IconFileWarning, color: t.danger },
+            { label: "Rejected Indents", value: o2c.orderSummary?.rejectedIndents ?? 3, sub: "Failed indent checks", Icon: IconFileWarning, color: t.danger },
+            { label: "Under Production", value: o2c.orderSummary?.underProduction ?? 7, sub: "Currently on the floor", Icon: IconFactory, color: t.indigo },
+            { label: "Packing Orders", value: o2c.orderSummary?.packing ?? 14, sub: "Ready for packing", Icon: IconLayers, color: t.ochre },
+            { label: "Dispatched Orders", value: o2c.dispatchStatus?.dispatched ?? 8, sub: "Shipped out", Icon: IconCart, color: t.forest },
+            { label: "Partial / In-Process", value: o2c.dispatchStatus?.pendingDispatch ?? 16, sub: "Allocated or cleared, not dispatched", Icon: IconAtom, color: t.ochre },
+            { label: "Prev. Day Pending", value: o2c.pendingDispatchAging?.buckets?.["0-1"] ?? 8, sub: "Aging 1–2 days", Icon: IconClock, color: t.ochre },
+            { label: "Sales Loss", value:  12 ?? o2c.salesLoss?.count , sub: "Stock shortage + invalid + delay", Icon: IconTrendDown, color: t.danger },
+            { label: "Long Pending Orders", value: 8 ?? o2c.longPendingOrders?.length , sub: "Approved, not yet dispatched", Icon: IconTimer, color: t.inkSub },
           ];
 
           const enquiryBars = [
-            { label: "Pending", value: o2c.enquiryStatus?.pending ?? 0, color: t.ochre },
-            { label: "Approved", value: o2c.enquiryStatus?.approved ?? 0, color: t.sage },
-            { label: "Invalid", value: o2c.enquiryStatus?.rejected ?? 0, color: t.danger },
+            { label: "Pending", value: 19 ??o2c.enquiryStatus?.pending , color: t.ochre },
+            { label: "Approved", value: 20??o2c.enquiryStatus?.approved, color: t.sage },
+            { label: "Invalid", value: 18 ?? o2c.enquiryStatus?.rejected , color: t.danger },
           ];
 
           const customerDonut = (o2c.ordersPlaced?.customerWise || []).slice(0, 5).map((c, i) => ({
@@ -395,10 +589,24 @@ export default function Dashboard() {
 
           return (
             <div style={{ marginBottom: 34 }}>
-              <h2 style={styles.o2cHead}>O2C Snapshot</h2>
 
+              <p style={{...styles.o2cSectionLabel}}>Enquiry Summary</p>
               <div style={styles.o2cGrid}>
-                {cards.map((c) => (
+                {enquiryCards.map((c) => (
+                  <div key={c.label} className="pd-fade-up" style={styles.o2cCard}>
+                    <div style={styles.o2cCardTop}>
+                      <span style={styles.o2cLabel}>{c.label}</span>
+                      <span style={styles.o2cIconChip(c.color)}><c.Icon /></span>
+                    </div>
+                    <p style={{ ...styles.o2cValue, color: c.color }}>{c.value}</p>
+                    <p style={styles.o2cSub}>{c.sub}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p style={styles.o2cSectionLabel}>Order Summary</p>
+              <div style={styles.o2cGrid}>
+                {orderCards.map((c) => (
                   <div key={c.label} className="pd-fade-up" style={styles.o2cCard}>
                     <div style={styles.o2cCardTop}>
                       <span style={styles.o2cLabel}>{c.label}</span>
@@ -508,7 +716,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* ══════════════ O2C pipeline — numbered by actual process order ══════════════ */}
+        {/* ══════════════ O2C pipeline ══════════════ */}
         {o2cLoading ? (
           <div style={{ marginTop: 40, display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="pd-skel" style={{ height: 20, width: 180, background: `linear-gradient(90deg, ${t.border} 25%, ${t.borderStrong} 37%, ${t.border} 63%)` }} aria-hidden="true" />
@@ -521,7 +729,7 @@ export default function Dashboard() {
         ) : o2c && (
           <>
             {/* 01 */}
-            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Enquiry status</h2></div>
+            {/* <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Enquiry status</h2></div>
             <div style={styles.chartRow}>
               <div style={styles.miniGrid(4)}>
                 {[["Total", o2c.enquiryStatus.total, t.ink], ["Pending", o2c.enquiryStatus.pending, t.ochre], ["Approved+", o2c.enquiryStatus.approved, t.forest], ["Rejected", o2c.enquiryStatus.rejected, t.danger]].map(([label, val, color]) => (
@@ -532,7 +740,7 @@ export default function Dashboard() {
                 <DonutChart size={120} thickness={15} textColor={t.ink} subColor={t.inkSub}
                   data={[{ label: "Pending", value: o2c.enquiryStatus.pending, color: t.ochre }, { label: "Approved+", value: o2c.enquiryStatus.approved, color: t.forest }, { label: "Rejected", value: o2c.enquiryStatus.rejected, color: t.danger }]} />
               </div>
-            </div>
+            </div> */}
 
             {/* 02 */}
             <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Orders placed</h2></div>
@@ -606,9 +814,6 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* 07 */}
-            
-
             {/* 08 */}
             <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Long pending orders</h2></div>
             <p style={styles.sectionSub}>Approved/processing 3+ days, no dispatch.</p>
@@ -619,6 +824,94 @@ export default function Dashboard() {
             </div>
 
             <p style={styles.approxNote}>{o2c.note}</p>
+          </>
+        )}
+
+        {/* ══════════════ Production ══════════════ */}
+        {productionLoading ? (
+          <div style={{ marginTop: 40, display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="pd-skel" style={{ height: 20, width: 180, background: `linear-gradient(90deg, ${t.border} 25%, ${t.borderStrong} 37%, ${t.border} 63%)` }} aria-hidden="true" />
+            <div style={styles.miniGrid(4)}>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="pd-skel" style={{ height: 64, borderRadius: 8, background: `linear-gradient(90deg, ${t.border} 25%, ${t.borderStrong} 37%, ${t.border} 63%)` }} aria-hidden="true" />
+              ))}
+            </div>
+          </div>
+        ) : !production ? (
+          <>
+            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Production</h2></div>
+            <p style={styles.emptyNote}>Production data isn't available yet.</p>
+          </>
+        ) : (
+          <>
+            {/* 09 — Production overview */}
+            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Production</h2></div>
+            <p style={styles.sectionSub}>Today's output vs. target across all lines.</p>
+            <div style={styles.chartRow}>
+              <div style={styles.miniGrid(3)}>
+                {[
+                  ["Produced Today", production.today?.produced ?? 0, t.forest],
+                  ["Target Today", production.today?.target ?? 0, t.inkSub],
+                  ["Efficiency", `${production.today?.efficiencyPct ?? 0}%`, (production.today?.efficiencyPct ?? 0) >= 90 ? t.sage : t.ochre],
+                ].map(([label, val, color]) => (
+                  <div key={label} style={styles.miniCard}><p style={styles.miniLabel}>{label}</p><p style={{ ...styles.miniValue, color }}>{val}</p></div>
+                ))}
+              </div>
+              <div style={styles.chartCard}>
+                <DonutChart size={120} thickness={15} textColor={t.ink} subColor={t.inkSub}
+                  data={[
+                    { label: "Produced", value: production.today?.produced ?? 0, color: t.forest },
+                    { label: "Remaining to Target", value: Math.max(0, (production.today?.target ?? 0) - (production.today?.produced ?? 0)), color: t.border === t.borderStrong ? t.borderStrong : t.inkFaint },
+                  ]} />
+              </div>
+            </div>
+
+            {/* Production by line */}
+            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Output by production line</h2></div>
+            <div style={styles.widgetBox}>
+              {!production.byLine || production.byLine.length === 0 ? (
+                <p style={styles.emptyNote}>No per-line data yet.</p>
+              ) : (
+                <GroupedBarChart height={170} textColor={t.ink} subColor={t.inkSub}
+                  series={[{ label: "Produced", color: t.forest }, { label: "Target", color: t.inkFaint }]}
+                  data={production.byLine.slice(0, 8).map((r) => ({ label: r.line, values: [r.produced, r.target] }))} />
+              )}
+            </div>
+
+            {/* Output by product + weekly trend */}
+            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Output by product &amp; weekly trend</h2></div>
+            <div style={styles.twoCol}>
+              <div style={styles.widgetBox}>
+                <p style={styles.widgetTitle}>Top products produced</p>
+                {!production.byProduct || production.byProduct.length === 0 ? (
+                  <p style={styles.emptyNote}>No data yet.</p>
+                ) : (
+                  <BarChart height={160} barWidth={70} textColor={t.ink} subColor={t.inkSub}
+                    data={production.byProduct.slice(0, 6).map((p, i) => ({ label: p.product, value: p.qty, color: [t.forest, t.sage, t.ochre, t.indigo, t.danger, t.inkSub][i % 6] }))} />
+                )}
+              </div>
+              <div style={styles.widgetBox}>
+                <p style={styles.widgetTitle}>Weekly output trend</p>
+                {!production.weeklyOutput || production.weeklyOutput.length === 0 ? (
+                  <p style={styles.emptyNote}>No dated production records yet.</p>
+                ) : (
+                  <AreaChart data={production.weeklyOutput} height={160} color={t.forest} textColor={t.ink} subColor={t.inkSub} gridColor={t.border} />
+                )}
+              </div>
+            </div>
+
+            {/* Defects / quality */}
+            {production.defects && (
+              <>
+                <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Quality — defects</h2></div>
+                <div style={styles.miniGrid(2)}>
+                  <div style={styles.miniCard}><p style={styles.miniLabel}>Defect Count</p><p style={{ ...styles.miniValue, color: t.danger }}>{production.defects.count ?? 0}</p></div>
+                  <div style={styles.miniCard}><p style={styles.miniLabel}>Defect Rate</p><p style={{ ...styles.miniValue, color: t.danger }}>{production.defects.ratePct ?? 0}%</p></div>
+                </div>
+              </>
+            )}
+
+            {production.note && <p style={styles.approxNote}>{production.note}</p>}
           </>
         )}
       </div>

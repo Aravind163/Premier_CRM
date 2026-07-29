@@ -153,12 +153,75 @@ class CustomerController extends Controller
             'taluk'       => 'required|string|max:100',
             'address'     => 'nullable|string',
             'creditLimit' => 'nullable|numeric',
+            'maxDiscountPct' => 'nullable|numeric|min:0|max:100',
             'notes'       => 'nullable|string',
+
+            // ── Mobile "Add Customer" parity fields ──────────────────────
+            'businessType'   => 'nullable|string|max:30',
+            'emails'         => 'nullable|array|max:2',
+            'emails.*'       => 'nullable|email|max:191',
+            'phones'         => 'nullable|array|max:2',
+            'phones.*'       => 'nullable|string|max:20',
+            'contactPersons' => 'nullable|array|max:2',
+            'contactPersons.*.contactName'  => 'required_with:contactPersons|string|max:191',
+            'contactPersons.*.contactPhone' => 'required_with:contactPersons|string|max:20',
+            'contactPersons.*.designation'  => 'nullable|string|max:100',
+            'contactPersons.*.email'        => 'nullable|email|max:191',
+            'addresses'      => 'nullable|array|max:2',
+            'addresses.*.address'   => 'required_with:addresses|string|max:255',
+            'addresses.*.address2'  => 'nullable|string|max:255',
+            'addresses.*.city'      => 'required_with:addresses|string|max:100',
+            'addresses.*.stateName' => 'required_with:addresses|string|max:100',
+            'addresses.*.district'  => 'nullable|string|max:100',
+            'addresses.*.country'   => 'required_with:addresses|string|max:100',
+            'addresses.*.pincode'   => 'required_with:addresses|string|max:10',
+            'gstNo' => 'nullable|string|max:15',
+            'panNo' => 'nullable|string|max:10',
+            'tanNo' => 'nullable|string|max:10',
         ]);
+
+        $caller = $request->user();
+
+        // Same area scoping used for viewing customers (index()/show()),
+        // now enforced on creation too:
+        //   - Field Officer (end_user): can only add a customer inside
+        //     their own assigned District AND Taluk — e.g. an end_user
+        //     assigned to Madurai / Madurai North + Tirumangalam can only
+        //     create customers in exactly that district+taluk combination.
+        //   - Marketing (admin): can only add a customer inside their own
+        //     assigned District(s) — any taluk within that district is
+        //     fine (e.g. a Madurai admin can add a customer in any taluk
+        //     of Madurai, but not in another district).
+        //   - System Admin (and Super Admin): unrestricted — can add a
+        //     customer for any district/taluk, regardless of their own
+        //     assignment.
+        if ($caller && $caller->role === 'end_user') {
+            $taluks = $this->callerAreas($caller, 'Taluk');
+            if (empty($taluks) || !in_array($validated['taluk'], $taluks, true)) {
+                return response()->json([
+                    'message' => 'You can only add customers in your own assigned Taluk(s).',
+                ], 403);
+            }
+        }
+
+        if ($caller && $caller->role === 'admin') {
+            $districts = $this->callerAreas($caller, 'District');
+            if (empty($districts) || !in_array($validated['district'], $districts, true)) {
+                return response()->json([
+                    'message' => 'You can only add customers in your own assigned District(s).',
+                ], 403);
+            }
+        }
+
+        $emails = array_values(array_filter($validated['emails'] ?? [], fn ($e) => !empty($e)));
+        $phones = array_values(array_filter($validated['phones'] ?? [], fn ($p) => !empty($p)));
+        $primaryEmail = $validated['email'] ?? ($emails[0] ?? null);
+        $primaryPhone = $validated['phone'] ?? ($phones[0] ?? null);
+        $primaryAddress = $validated['addresses'][0]['address'] ?? ($validated['address'] ?? null);
 
         $user = User::create([
             'name'     => $validated['name'],
-            'email'    => $validated['email'] ?? (Str::slug($validated['name']) . '-' . uniqid() . '@premiercrm.com'),
+            'email'    => $primaryEmail ?? (Str::slug($validated['name']) . '-' . uniqid() . '@premiercrm.com'),
             'phone'    => $validated['phone'],
             'password' => $validated['phone'],
             'role'     => 'customer',
@@ -169,17 +232,27 @@ class CustomerController extends Controller
             'Code'        => $this->generateCustomerCode(),
             'UserId'      => $user->id,
             'Name'        => $validated['name'],
-            'Phone'       => $validated['phone'],
-            'Email'       => $validated['email'] ?? null,
+            'Phone'       => $primaryPhone,
+            'Email'       => $primaryEmail,
             'Type'        => $validated['type'],
             'District'    => $validated['district'],
             'Taluk'       => $validated['taluk'],
-            'Address'     => $validated['address'] ?? null,
+            'Address'     => $primaryAddress,
             'CreditLimit' => $validated['creditLimit'] ?? null,
+            'MaxDiscountPct' => $validated['maxDiscountPct'] ?? null,
             'Outstanding' => 0,
             'Status'      => 'pending',
             'Notes'       => $validated['notes'] ?? null,
             'CreatedBy'   => $request->user()->id,
+
+            'BusinessType'   => $validated['businessType'] ?? null,
+            'Emails'         => !empty($emails) ? $emails : null,
+            'Phones'         => !empty($phones) ? $phones : null,
+            'Addresses'      => $validated['addresses'] ?? null,
+            'ContactPersons' => $validated['contactPersons'] ?? null,
+            'GSTNo'          => $validated['gstNo'] ?? null,
+            'PANNo'          => $validated['panNo'] ?? null,
+            'TANNo'          => $validated['tanNo'] ?? null,
         ]);
 
         return response()->json($customer->load('user'), 201);
@@ -203,16 +276,41 @@ class CustomerController extends Controller
             'taluk'       => 'sometimes|required|string|max:100',
             'address'     => 'nullable|string',
             'creditLimit' => 'nullable|numeric',
+            'maxDiscountPct' => 'nullable|numeric|min:0|max:100',
             'outstanding' => 'nullable|numeric',
             'status'      => 'sometimes|required|in:approved,pending,declined',
             'notes'       => 'nullable|string',
+
+            // ── Mobile "Add Customer" parity fields ──────────────────────
+            'businessType'   => 'nullable|string|max:30',
+            'emails'         => 'nullable|array|max:2',
+            'emails.*'       => 'nullable|email|max:191',
+            'phones'         => 'nullable|array|max:2',
+            'phones.*'       => 'nullable|string|max:20',
+            'contactPersons' => 'nullable|array|max:2',
+            'contactPersons.*.contactName'  => 'required_with:contactPersons|string|max:191',
+            'contactPersons.*.contactPhone' => 'required_with:contactPersons|string|max:20',
+            'contactPersons.*.designation'  => 'nullable|string|max:100',
+            'contactPersons.*.email'        => 'nullable|email|max:191',
+            'addresses'      => 'nullable|array|max:2',
+            'addresses.*.address'   => 'required_with:addresses|string|max:255',
+            'addresses.*.address2'  => 'nullable|string|max:255',
+            'addresses.*.city'      => 'required_with:addresses|string|max:100',
+            'addresses.*.stateName' => 'required_with:addresses|string|max:100',
+            'addresses.*.district'  => 'nullable|string|max:100',
+            'addresses.*.country'   => 'required_with:addresses|string|max:100',
+            'addresses.*.pincode'   => 'required_with:addresses|string|max:10',
+            'gstNo' => 'nullable|string|max:15',
+            'panNo' => 'nullable|string|max:10',
+            'tanNo' => 'nullable|string|max:10',
         ]);
 
         $map = [
             'name' => 'Name', 'phone' => 'Phone', 'email' => 'Email', 'type' => 'Type',
             'district' => 'District', 'taluk' => 'Taluk', 'address' => 'Address',
-            'creditLimit' => 'CreditLimit', 'outstanding' => 'Outstanding',
+            'creditLimit' => 'CreditLimit', 'maxDiscountPct' => 'MaxDiscountPct', 'outstanding' => 'Outstanding',
             'status' => 'Status', 'notes' => 'Notes',
+            'businessType' => 'BusinessType', 'gstNo' => 'GSTNo', 'panNo' => 'PANNo', 'tanNo' => 'TANNo',
         ];
 
         $update = [];
@@ -220,6 +318,24 @@ class CustomerController extends Controller
             if (array_key_exists($reqKey, $validated)) {
                 $update[$column] = $validated[$reqKey];
             }
+        }
+
+        if (array_key_exists('emails', $validated)) {
+            $emails = array_values(array_filter($validated['emails'], fn ($e) => !empty($e)));
+            $update['Emails'] = !empty($emails) ? $emails : null;
+            if (!empty($emails)) $update['Email'] = $emails[0];
+        }
+        if (array_key_exists('phones', $validated)) {
+            $phones = array_values(array_filter($validated['phones'], fn ($p) => !empty($p)));
+            $update['Phones'] = !empty($phones) ? $phones : null;
+            if (!empty($phones)) $update['Phone'] = $phones[0];
+        }
+        if (array_key_exists('addresses', $validated)) {
+            $update['Addresses'] = !empty($validated['addresses']) ? $validated['addresses'] : null;
+            if (!empty($validated['addresses'])) $update['Address'] = $validated['addresses'][0]['address'];
+        }
+        if (array_key_exists('contactPersons', $validated)) {
+            $update['ContactPersons'] = !empty($validated['contactPersons']) ? $validated['contactPersons'] : null;
         }
 
         if (isset($update['Status']) && $update['Status'] === 'approved') {

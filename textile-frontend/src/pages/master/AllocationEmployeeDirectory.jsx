@@ -61,14 +61,14 @@ export default function AllocationEmployeeDirectory({ embedded = false }) {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
 
-  const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain };
-  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.04)" };
+  const td = { padding: "10px 12px", fontSize: 13, color: themeG.textMain };
+  const th = { textAlign: "left", fontSize: 10.5, color: themeG.textLabel, padding: "9px 12px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, background: "rgba(91,155,217,0.04)" };
 
   return (
     <Wrapper {...wrapperProps}>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-        {[ "All","pending", "approved", "inactive"].map((f) => (
+        {["pending", "approved", "inactive", "all"].map((f) => (
           <button key={f} onClick={() => setFilter(f)}
             style={{ padding: "8px 18px", borderRadius: 20, border: "1.5px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, textTransform: "capitalize", background: filter === f ? themeG.accent : themeG.card, color: filter === f ? themeG.card : themeG.textSub, borderColor: filter === f ? themeG.accent : themeG.border }}>
             {f}
@@ -83,31 +83,36 @@ export default function AllocationEmployeeDirectory({ embedded = false }) {
       )}
 
       <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.05)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", tableLayout: "auto", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {["Name", "Designation", "Districts", "Taluks", "Joined", "Status"].map((h) => (
+              {["Employee", "Districts", "Taluks", "Joined", "Status"].map((h) => (
                 <th key={h} style={th}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} style={{ ...td, textAlign: "center", padding: 30 }}>Loading…</td></tr>
+              <tr><td colSpan={5} style={{ ...td, textAlign: "center", padding: 30 }}>Loading…</td></tr>
             ) : employees.length === 0 ? (
-              <tr><td colSpan={6} style={{ ...td, textAlign: "center", padding: 30, color: themeG.textSub }}>No employees in this filter.</td></tr>
+              <tr><td colSpan={5} style={{ ...td, textAlign: "center", padding: 30, color: themeG.textSub }}>No employees in this filter.</td></tr>
             ) : employees.map((e) => (
               <tr key={e.Id} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
-                <td style={{ ...td, fontWeight: 600, color: themeG.accent, cursor: "pointer" }} onClick={() => setSelected(e)}>{e.Name}</td>
-                <td style={td}>{e.Designation}</td>
+                <td style={{ ...td, cursor: "pointer" }} onClick={() => setSelected(e)}>
+                  <div style={{ fontWeight: 700, color: themeG.accent }}>{e.Name}</div>
+                  <div style={{ fontSize: 11, color: themeG.textSub, marginTop: 2 }}>
+                    {e.Designation}{e.user?.email ? ` · ${e.user.email}` : ""}
+                  </div>
+                </td>
                 <td style={td}>
                   {toArr(e.District).length > 0
-                    ? <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>{toArr(e.District).map(d => <span key={d} style={areaPill}>{d}</span>)}</div>
+                    ? <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>{toArr(e.District).map(d => <span key={d} style={districtPillHighlighted}>{d}</span>)}</div>
                     : "—"}
                 </td>
                 <td style={td}>
                   {toArr(e.Taluk).length > 0
-                    ? <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>{toArr(e.Taluk).map(t => <span key={t} style={{ ...areaPill, background:"rgba(58,92,140,0.10)", color:"#3A5C8C", border:"1px solid rgba(58,92,140,0.22)" }}>{t}</span>)}</div>
+                    ? <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>{toArr(e.Taluk).map(t => <span key={t} style={talukPillHighlighted}>{t}</span>)}</div>
                     : (e.AssignedArea || e.user?.AssignedArea || "—")}
                 </td>
                 <td style={td}>{e.JoinedAt?.substring(0, 10)}</td>
@@ -116,6 +121,7 @@ export default function AllocationEmployeeDirectory({ embedded = false }) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <p style={{ marginTop: 14, fontSize: 13, color: themeG.textSub }}>
@@ -155,3 +161,15 @@ export default function AllocationEmployeeDirectory({ embedded = false }) {
 const overlay = { position: "fixed", inset: 0, background: "rgba(8,20,34,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 };
 const modal = { background: "#ffffff", borderRadius: 16, padding: 28, width: 380, boxShadow: "0 12px 40px rgba(0,0,0,0.18)" };
 const areaPill = { display: "inline-block", background: "rgba(46,122,114,0.12)", color: "#101B28", border: "1px solid rgba(46,122,114,0.25)", borderRadius: 12, padding: "2px 9px", fontSize: 11.5, fontWeight: 600 };
+// Highlighted variants — the assigned District/Taluk are the point of this
+// directory, so they get a stronger, unmistakable highlight.
+const districtPillHighlighted = {
+  display: "inline-block", background: "rgba(31,92,153,0.16)", color: "#0F3D66",
+  border: "1.5px solid #1F5C99", borderRadius: 12, padding: "2px 9px",
+  fontSize: 11.5, fontWeight: 700, boxShadow: "0 0 0 1px rgba(31,92,153,0.10)",
+};
+const talukPillHighlighted = {
+  display: "inline-block", background: "rgba(214,148,38,0.16)", color: "#8A5A0E",
+  border: "1.5px solid #D69426", borderRadius: 12, padding: "2px 9px",
+  fontSize: 11.5, fontWeight: 700, boxShadow: "0 0 0 1px rgba(214,148,38,0.10)",
+};

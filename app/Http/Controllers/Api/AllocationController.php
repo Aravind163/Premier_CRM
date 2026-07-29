@@ -7,6 +7,8 @@ use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductAllocation;
+use App\Models\StockBatch;
+use App\Models\AllocationBatchConsumption;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -90,7 +92,7 @@ class AllocationController extends Controller
 
         $ordered = Order::where('ProductId', $product->Id)
             ->whereIn('Status', ALLOCATION_ACTIVE_STATUSES)
-            ->select('CustomerId', DB::raw('SUM(Quantity) as OrderedQty'))
+            ->select('CustomerId', DB::raw('SUM(Quantity) as OrderedQty'), DB::raw('MAX(CreatedAt) as LastOrderedAt'))
             ->groupBy('CustomerId')
             ->get()
             ->keyBy('CustomerId');
@@ -125,6 +127,7 @@ class AllocationController extends Controller
                 'taluk'        => $customer->Taluk,
                 'orderedQty'   => (int) $row->OrderedQty,
                 'allocatedQty' => (int) ($allocations->get($customerId)->AllocatedQty ?? 0),
+                'inquiryDate'  => $row->LastOrderedAt ? substr($row->LastOrderedAt, 0, 10) : null,
             ];
         }
 
@@ -176,10 +179,11 @@ class AllocationController extends Controller
 
         DB::transaction(function () use ($validated, $request) {
             foreach ($validated['allocations'] as $item) {
-                ProductAllocation::updateOrCreate(
+                $allocation = ProductAllocation::updateOrCreate(
                     ['ProductId' => $validated['productId'], 'CustomerId' => $item['customerId']],
                     ['AllocatedQty' => $item['allocatedQty'], 'AllocatedBy' => $request->user()->id]
                 );
+                $this->consumeFifo($allocation);
             }
         });
 
@@ -392,14 +396,117 @@ class AllocationController extends Controller
 
         DB::transaction(function () use ($validated, $request) {
             foreach ($validated['allocations'] as $item) {
-                ProductAllocation::updateOrCreate(
+                $allocation = ProductAllocation::updateOrCreate(
                     ['ProductId' => $item['productId'], 'CustomerId' => $validated['customerId']],
                     ['AllocatedQty' => $item['allocatedQty'], 'AllocatedBy' => $request->user()->id]
                 );
+                $this->consumeFifo($allocation);
             }
         });
 
         return response()->json(['message' => 'Allocation saved.']);
+    }
+
+    /**
+     * GET /api/allocations/{id}/batches
+     *
+     * The FIFO breakdown for one saved allocation — "300 from BATCH-0004
+     * (received 12-May-2026, rack) + 200 from BATCH-0007 (18-May-2026,
+     * rack)". This is what turns "Goods allocation and movement on FIFO
+     * basis" (O2C Step 8) from a number into an auditable paper trail.
+     */
+    public function batchBreakdown(Request $request, $id)
+    {
+        $this->authorizeStaff($request);
+
+        $allocation = ProductAllocation::with(['consumptions.batch'])->find($id);
+        if (!$allocation) {
+            return response()->json(['message' => 'Allocation not found.'], 404);
+        }
+
+        return response()->json([
+            'allocationId' => $allocation->Id,
+            'allocatedQty' => $allocation->AllocatedQty,
+            'consumptions' => $allocation->consumptions->map(fn ($c) => [
+                'batchNo'     => $c->batch->BatchNo ?? '—',
+                'warehouse'   => $c->batch->Warehouse ?? '—',
+                'receivedAt'  => optional($c->batch->ReceivedAt ?? null)->toDateString(),
+                'consumedQty' => $c->ConsumedQty,
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * Draws AllocatedQty units from this product's batches, oldest
+     * ReceivedAt first (FIFO), and records the consumption trail. Re-runs
+     * cleanly if an allocation is edited: previously-consumed quantity is
+     * released back to its batches before redrawing, so editing an
+     * allocation up or down never leaves stale reservations behind.
+     */
+    private function consumeFifo(ProductAllocation $allocation): void
+    {
+        // Release whatever this allocation previously consumed.
+        $previous = AllocationBatchConsumption::where('ProductAllocationId', $allocation->Id)->get();
+        foreach ($previous as $c) {
+            StockBatch::where('Id', $c->BatchId)->increment('RemainingQty', $c->ConsumedQty);
+        }
+        AllocationBatchConsumption::where('ProductAllocationId', $allocation->Id)->delete();
+
+        $needed = (int) $allocation->AllocatedQty;
+        if ($needed <= 0) {
+            return;
+        }
+
+        $this->ensureOpeningBatch($allocation->ProductId);
+
+        $batches = StockBatch::where('ProductId', $allocation->ProductId)
+            ->where('RemainingQty', '>', 0)
+            ->orderBy('ReceivedAt')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($batches as $batch) {
+            if ($needed <= 0) break;
+            $take = min($needed, $batch->RemainingQty);
+            if ($take <= 0) continue;
+
+            $batch->decrement('RemainingQty', $take);
+            AllocationBatchConsumption::create([
+                'ProductAllocationId' => $allocation->Id,
+                'BatchId'             => $batch->Id,
+                'ConsumedQty'         => $take,
+            ]);
+            $needed -= $take;
+        }
+        // If $needed > 0 here, batch records haven't caught up with
+        // Products.Quantity (e.g. stock adjusted directly). The allocation
+        // itself is still saved — this only affects the FIFO paper trail.
+    }
+
+    /**
+     * Bridges legacy stock: a product created before batch tracking existed
+     * has a Quantity but zero StockBatch rows. The first time it's ever
+     * allocated against, open one batch for its current on-hand quantity
+     * (dated at the product's own creation) so FIFO has something to draw
+     * from without requiring a manual backfill for every product.
+     */
+    private function ensureOpeningBatch(int $productId): void
+    {
+        $hasBatches = StockBatch::where('ProductId', $productId)->exists();
+        if ($hasBatches) return;
+
+        $product = Product::find($productId);
+        if (!$product || (int) $product->Quantity <= 0) return;
+
+        StockBatch::create([
+            'BatchNo'      => 'BATCH-OPEN-' . $productId,
+            'ProductId'    => $productId,
+            'Warehouse'    => StockBatch::warehouseForCategory($product->Category),
+            'ReceivedQty'  => (int) $product->Quantity,
+            'RemainingQty' => (int) $product->Quantity,
+            'ReceivedAt'   => $product->CreatedAt ?? now(),
+            'Notes'        => 'Opening stock (auto-created on first allocation, pre-dates batch tracking).',
+        ]);
     }
 
     /** Only Admin / System Admin may view or set allocations; Super Admin can view but not save. */

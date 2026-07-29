@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppNotification;
 use App\Models\Complaint;
 use App\Models\Customer;
 use App\Models\Employee;
@@ -40,6 +41,73 @@ class ComplaintController extends Controller
         $complaints = $query->orderByDesc('CreatedAt')->get();
 
         return response()->json($complaints);
+    }
+
+    /**
+     * PATCH /api/complaints/{id}/resolve
+     * Body: { resolutionType: settlement|replacement|credit_note|rejected, resolution, creditNoteAmount? }
+     *
+     * Claim Process (O2C Step 14): Marketing/System Admin reviews a
+     * complaint and closes it out. Notifies the customer either way.
+     */
+    public function resolve(Request $request, $id)
+    {
+        $caller = $request->user();
+        if (!$caller || !in_array($caller->role, ['admin', 'system_admin', 'super_admin'], true)) {
+            return response()->json(['message' => 'Not permitted to resolve claims.'], 403);
+        }
+        if ($caller->role === 'super_admin') {
+            return response()->json(['message' => 'Super Admin is read-only.'], 403);
+        }
+
+        $complaint = Complaint::with('customer.user')->find($id);
+        if (!$complaint) {
+            return response()->json(['message' => 'Complaint not found.'], 404);
+        }
+
+        $validated = $request->validate([
+            'resolutionType'   => ['required', Rule::in(['settlement', 'replacement', 'credit_note', 'rejected'])],
+            'resolution'       => 'required|string|max:1000',
+            'creditNoteAmount' => 'nullable|numeric|min:0',
+        ]);
+
+        $complaint->update([
+            'Status'           => $validated['resolutionType'] === 'rejected' ? 'Rejected' : 'Resolved',
+            'ResolutionType'   => $validated['resolutionType'],
+            'Resolution'       => $validated['resolution'],
+            'CreditNoteAmount' => $validated['resolutionType'] === 'credit_note' ? ($validated['creditNoteAmount'] ?? 0) : null,
+            'ResolvedBy'       => $caller->id,
+            'ResolvedAt'       => now(),
+        ]);
+
+        // If a credit note was issued, reduce the customer's Outstanding
+        // balance by that amount — ties the claim back into the credit
+        // picture used by the compliance dashboard / dispatch hold check.
+        if ($validated['resolutionType'] === 'credit_note' && !empty($validated['creditNoteAmount'])) {
+            $customer = $complaint->customer;
+            if ($customer) {
+                $customer->decrement('Outstanding', (float) $validated['creditNoteAmount']);
+            }
+        }
+
+        $customerUserId = $complaint->customer->UserId ?? null;
+        if ($customerUserId) {
+            $labels = [
+                'settlement'  => 'settled',
+                'replacement' => 'approved for replacement',
+                'credit_note' => 'resolved with a credit note',
+                'rejected'    => 'reviewed and closed (not upheld)',
+            ];
+            AppNotification::send(
+                $customerUserId,
+                'complaint_resolved',
+                'Your complaint has been ' . $labels[$validated['resolutionType']],
+                $validated['resolution'],
+                $complaint->OrderId
+            );
+        }
+
+        return response()->json($complaint->fresh(['order', 'customer']));
     }
 
     /**

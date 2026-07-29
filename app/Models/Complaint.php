@@ -14,11 +14,12 @@ class Complaint extends Model
 
     protected $fillable = [
         'OrderId', 'CustomerId', 'Type', 'Description', 'Status',
-        'Resolution', 'ResolvedBy', 'ResolvedAt',
+        'Resolution', 'ResolutionType', 'CreditNoteAmount', 'ResolvedBy', 'ResolvedAt',
     ];
 
     protected $casts = [
         'ResolvedAt' => 'datetime',
+        'CreditNoteAmount' => 'decimal:2',
     ];
 
     public function order()

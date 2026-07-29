@@ -50,17 +50,21 @@ export default function MultiSelect({ value = [], options = [], onChange, placeh
         {filtered.length === 0 ? (
           <div style={{ padding: "10px 12px", fontSize: 12.5, color: "#8C96A3" }}>{emptyText}</div>
         ) : (
-          filtered.map((opt) => (
-            <label key={opt} style={optRow}>
-              <input
-                type="checkbox"
-                checked={value.includes(opt)}
-                onChange={() => toggle(opt)}
-                style={{ marginRight: 9, accentColor: "#1F5C99" }}
-              />
-              <span style={{ fontSize: 13 }}>{opt}</span>
-            </label>
-          ))
+          filtered.map((opt) => {
+            const isSelected = value.includes(opt);
+            return (
+              <label key={opt} style={isSelected ? optRowSelected : optRow}>
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => toggle(opt)}
+                  style={{ marginRight: 9, accentColor: "#1F5C99" }}
+                />
+                <span style={{ fontSize: 13, fontWeight: isSelected ? 700 : 400 }}>{opt}</span>
+                {isSelected && <span style={checkMark}>✓</span>}
+              </label>
+            );
+          })
         )}
       </div>
     </div>
@@ -91,4 +95,14 @@ const listBox = {
 const optRow = {
   display: "flex", alignItems: "center", padding: "8px 12px", cursor: "pointer",
   borderBottom: "1px solid rgba(46,122,114,0.06)", color: "#0F2138",
+};
+const optRowSelected = {
+  ...optRow,
+  background: "rgba(31,92,153,0.12)",
+  borderLeft: "3px solid #1F5C99",
+  paddingLeft: 9,
+  color: "#0F2138",
+};
+const checkMark = {
+  marginLeft: "auto", color: "#1F5C99", fontWeight: 800, fontSize: 13,
 };

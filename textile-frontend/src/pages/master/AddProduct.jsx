@@ -260,14 +260,17 @@ function saveCustomSubtype(category, key, config) {
 }
 
 // ─── Small components ───────────────────────────────────────────────
-const Field = ({ label, children }) => (
-  <div style={{ marginBottom: 18 }}>
-    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#101B28", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, fontFamily: FONT }}>
-      {label}
-    </label>
-    {children}
-  </div>
-);
+const Field = ({ label, children }) => {
+  const { isDark } = useTheme();
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: getG(isDark).textLabel, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, fontFamily: FONT }}>
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+};
 
 const Input = (props) => (
   <input {...props} style={{ width: "100%", padding: "9px 13px", borderRadius: 9, border: "1px solid rgba(15,33,56,0.18)", fontSize: 14, fontFamily: FONT, color: "#0F2138", background: "#ffffff", outline: "none", boxSizing: "border-box", ...props.style }} />

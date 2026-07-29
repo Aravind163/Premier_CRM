@@ -12,6 +12,8 @@ class Product extends Model
     const CREATED_AT = 'CreatedAt';
     const UPDATED_AT = 'UpdatedAt';
 
+    protected $appends = ['warehouse'];
+
     protected $fillable = [
         'Code', 'Name', 'Category', 'SubType', 'Color', 'Weight', 'Size',
         'Price', 'Quantity', 'Quality', 'Description', 'Status', 'CreatedBy',
@@ -38,5 +40,16 @@ class Product extends Model
     public function orders()
     {
         return $this->hasMany(Order::class, 'ProductId');
+    }
+
+    public function batches()
+    {
+        return $this->hasMany(StockBatch::class, 'ProductId');
+    }
+
+    /** Blouse -> Rack Stock, every other category -> EB4 Dispatch Warehouse Stock (scope doc's Stock Visibility Logic). */
+    public function getWarehouseAttribute(): string
+    {
+        return StockBatch::warehouseForCategory($this->Category);
     }
 }

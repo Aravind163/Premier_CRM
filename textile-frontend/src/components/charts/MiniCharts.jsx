@@ -34,15 +34,31 @@ function niceAxisTicks(maxVal) {
   return { ticks, top: top || 1 };
 }
 
+/**
+ * Left gutter width (in px) wide enough to fit the longest axis-tick
+ * label without it running past x=0 and getting clipped by the SVG's
+ * viewBox. Previously this was a fixed 26px, which worked for 1-2 digit
+ * ticks but silently clipped the leading digit(s) of anything larger
+ * (e.g. "4000" rendering as "000").
+ */
+function leftGutterFor(ticks) {
+  const maxChars = Math.max(1, ...ticks.map((tv) => String(tv).length));
+  return Math.max(26, 10 + maxChars * 7);
+}
+
 /** Floating tooltip, positioned against the hovered shape's own screen rect. */
 function ChartTooltip({ hover, textColor, subColor }) {
   if (!hover) return null;
+  // Clamp so the tooltip never renders above its container (which would
+  // otherwise let it float up over unrelated content sitting above the
+  // chart, e.g. the widget's title).
+  const top = Math.max(hover.y, 26);
   return (
     <div
       style={{
         position: "absolute",
         left: hover.x,
-        top: hover.y,
+        top,
         transform: "translate(-50%, -100%) translateY(-10px)",
         pointerEvents: "none",
         background: "#fff",
@@ -118,6 +134,14 @@ export function DonutChart({ data, size = 132, thickness = 16, centerLabel, text
     ].join(" ");
   };
 
+  // Center label: use the same formatter as everything else in the chart
+  // (arcs, tooltip, legend) so the middle number matches — e.g. shows
+  // "₹18.20L" instead of a raw unformatted "1819804".
+  const centerText = centerLabel ?? fmt(total);
+  // Shrink the font automatically for longer formatted strings (e.g.
+  // currency totals) so they don't overflow the donut's inner circle.
+  const centerFontSize = size * (String(centerText).length > 8 ? 0.115 : String(centerText).length > 5 ? 0.14 : 0.17);
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
       <div ref={containerRef} style={{ position: "relative", width: size, height: size }}>
@@ -140,13 +164,13 @@ export function DonutChart({ data, size = 132, thickness = 16, centerLabel, text
             ))
           )}
           {innerR > 6 && (
-            <text x={cx} y={cy - 3} textAnchor="middle" style={{ fontFamily: FONT, fontSize: size * 0.17, fontWeight: 700, fill: textColor, pointerEvents: "none" }}>
-              {centerLabel ?? total}
+            <text x={cx} y={cy - 3} textAnchor="middle" style={{ fontFamily: FONT, fontSize: centerFontSize, fontWeight: 700, fill: textColor, pointerEvents: "none" }}>
+              {centerText}
             </text>
           )}
-          {innerR > 6 && centerLabel !== undefined && (
+          {innerR > 6 && (
             <text x={cx} y={cy + size * 0.11} textAnchor="middle" style={{ fontFamily: FONT, fontSize: size * 0.075, fontWeight: 600, fill: subColor, textTransform: "uppercase", letterSpacing: "0.04em", pointerEvents: "none" }}>
-              Total {total}
+              Total
             </text>
           )}
         </svg>
@@ -173,14 +197,19 @@ export function BarChart({ data, height = 140, barWidth = 28, gap = 14, textColo
 
   if (!showAxis) {
     const width = data.length * (barWidth + gap) + gap;
-    const chartH = height - 28;
+    // Headroom above the tallest bar so its value label (drawn at
+    // y - 6 above the bar top) has somewhere to sit. Without this, the
+    // bar that hits `max` has bar-top y=0, so its label lands at y=-6 —
+    // outside the SVG viewBox — and silently disappears.
+    const padTop = 18;
+    const chartH = height - 28 - padTop;
     return (
       <div ref={containerRef} style={{ position: "relative", maxWidth: width, width: "100%" }}>
         <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMinYMid meet" style={{ maxWidth: width }}>
           {data.map((d, i) => {
             const h = max === 0 ? 0 : (d.value / max) * chartH;
             const x = gap + i * (barWidth + gap);
-            const y = chartH - h;
+            const y = padTop + chartH - h;
             return (
               <g key={i}>
                 <rect x={x} y={y} width={barWidth} height={Math.max(h, 2)} rx={5} fill={d.color} opacity={hover && hover.i !== i ? 0.6 : 0.95} {...barHandlers(i, d)} />
@@ -201,7 +230,7 @@ export function BarChart({ data, height = 140, barWidth = 28, gap = 14, textColo
 
   // ── Axis mode: Y-axis numbers + dashed gridlines, like a proper chart ──
   const { ticks, top } = niceAxisTicks(max);
-  const padLeft = 26, padBottom = 22, padTop = 10;
+  const padLeft = leftGutterFor(ticks), padBottom = 22, padTop = 10;
   const plotW = data.length * (barWidth + gap) + gap;
   const width = plotW + padLeft;
   const chartH = height - padBottom - padTop;
@@ -245,7 +274,7 @@ export function AreaChart({ data, height = 180, color = "#2E7A72", textColor = "
   const gid = gradientId || `areaGrad-${Math.random().toString(36).slice(2, 9)}`;
   const max = Math.max(1, ...data.map((d) => d.value || 0));
   const { ticks, top } = niceAxisTicks(max);
-  const padLeft = 26, padBottom = 22, padTop = 12, padRight = 10;
+  const padLeft = leftGutterFor(ticks), padBottom = 22, padTop = 12, padRight = 10;
   const width = 360;
   const plotW = width - padLeft - padRight;
   const chartH = height - padBottom - padTop;

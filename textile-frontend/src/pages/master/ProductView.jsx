@@ -359,14 +359,14 @@ export default function ProductView() {
                 <ReadRow label={product.Category==="yarn" ? "Weight" : "Size"} value={rawSpec || "—"} />
               )}
               <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0" }}>
-                <span style={{ fontSize:13, color:"#526073", fontFamily:FONT }}>Color</span>
+                <span style={{ fontSize:13, color:themeG.textSub, fontFamily:FONT }}>Color</span>
                 <div style={{ width:18, height:18, borderRadius:"50%", background:product.Color, border:"1.5px solid rgba(0,0,0,0.14)" }} />
-                <span style={{ fontSize:13, color:"#0F2138", fontFamily:FONT }}>{product.Color}</span>
+                <span style={{ fontSize:13, color:themeG.textMain, fontFamily:FONT }}>{product.Color}</span>
               </div>
               <ReadRow label="Created" value={product.CreatedAt?.substring(0,10)} />
               <div style={{ marginTop:10 }}>
-                <p style={{ fontSize:12, color:"#101B28", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6, fontFamily:FONT }}>Description</p>
-                <p style={{ fontSize:13, color:"#0F2138", margin:0, fontFamily:FONT }}>{product.Description || "—"}</p>
+                <p style={{ fontSize:12, color:themeG.textLabel, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6, fontFamily:FONT }}>Description</p>
+                <p style={{ fontSize:13, color:themeG.textMain, margin:0, fontFamily:FONT }}>{product.Description || "—"}</p>
               </div>
             </>
           )}

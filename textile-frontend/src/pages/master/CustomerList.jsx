@@ -11,6 +11,21 @@ import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { getG, statusColor } from "../../theme";
 import API from "../../services/api";
+import ExcelToolbar from "../../components/ExcelToolbar";
+
+// Columns shown in the Customer List table — the Excel download/upload
+// columns are always kept identical to this list.
+const CUSTOMER_EXCEL_COLUMNS = [
+  { key: "id",       header: "ID" },
+  { key: "name",     header: "Customer Name" },
+  { key: "phone",    header: "Phone" },
+  { key: "district", header: "District" },
+  { key: "taluk",    header: "Taluk" },
+  { key: "type",     header: "Type" },
+  { key: "orders",   header: "Orders" },
+  { key: "balance",  header: "Balance (₹)" },
+  { key: "status",   header: "Status" },
+];
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 const getThemeColors = () => getG(localStorage.getItem("premier_theme") === "dark");
@@ -39,7 +54,7 @@ const TypeBadge = ({ type }) => {
   );
 };
 
-const btnStyle = (color) => ({ padding: "5px 13px", borderRadius: 7, border: `1px solid ${color}40`, background: `${color}14`, color, cursor: "pointer", fontSize: 12, fontFamily: "inherit", fontWeight: 600 });
+const btnStyle = (color) => ({ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, borderRadius: 7, border: `1px solid ${color}40`, background: `${color}14`, color, cursor: "pointer", fontSize: 13, fontFamily: "inherit", fontWeight: 600, flexShrink: 0 });
 
 function FilterPills({ values, active, onSelect }) {
   const themeG = getThemeColors();
@@ -49,7 +64,7 @@ function FilterPills({ values, active, onSelect }) {
         <button
           key={v}
           onClick={() => onSelect(v)}
-          style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 500, transition: "all 0.12s", background: active === v ? "rgba(91,155,217,0.14)" : "transparent", color: active === v ? "#101B28" : "#526073", borderColor: active === v ? "rgba(91,155,217,0.40)" : "rgba(15,33,56,0.18)" }}
+          style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 500, transition: "all 0.12s", background: active === v ? "rgba(91,155,217,0.14)" : "transparent", color: active === v ? themeG.textLabel : themeG.textSub, borderColor: active === v ? "rgba(91,155,217,0.40)" : themeG.border }}
         >
           {v}
         </button>
@@ -103,31 +118,69 @@ function CustomerListTab({ themeG, navigate }) {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
 
-  useEffect(() => {
-    (async () => {
+  const load = async () => {
+    try {
+      const res = await API.get("/customers");
+      const mapped = res.data.map((c) => ({
+        id: c.Code,
+        dbId: c.Id,
+        name: c.Name,
+        phone: c.Phone,
+        district: c.District,
+        taluk: c.Taluk,
+        type: c.Type,
+        status: c.Status,
+        orders: c.orders_count ?? 0,
+        balance: parseFloat(c.Outstanding) || 0,
+      }));
+      setCustomers(mapped);
+    } catch (err) {
+      setError("Failed to load customers.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  const handleDelete = async (c) => {
+    if (!window.confirm(`Delete customer ${c.name} (${c.id})? This cannot be undone.`)) return;
+    setDeletingId(c.dbId);
+    setError("");
+    try {
+      await API.delete(`/customers/${c.dbId}`);
+      setCustomers((list) => list.filter((x) => x.dbId !== c.dbId));
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to delete customer.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // Bulk-add customers from an uploaded Excel file — one API call per
+  // row, required fields matching what Add Customer itself requires.
+  const handleImportRows = async (rows) => {
+    let created = 0, failed = 0;
+    for (const row of rows) {
+      if (!row.name || !row.phone || !row.district || !row.taluk) { failed++; continue; }
       try {
-        const res = await API.get("/customers");
-        const mapped = res.data.map((c) => ({
-          id: c.Code,
-          dbId: c.Id,
-          name: c.Name,
-          phone: c.Phone,
-          district: c.District,
-          taluk: c.Taluk,
-          type: c.Type,
-          status: c.Status,
-          orders: c.orders_count ?? 0,
-          balance: parseFloat(c.Outstanding) || 0,
-        }));
-        setCustomers(mapped);
-      } catch (err) {
-        setError("Failed to load customers.");
-      } finally {
-        setLoading(false);
+        await API.post("/customers", {
+          name: row.name,
+          phone: String(row.phone),
+          type: (row.type || "retail").toString().toLowerCase(),
+          district: row.district,
+          taluk: row.taluk,
+        });
+        created++;
+      } catch {
+        failed++;
       }
-    })();
-  }, []);
+    }
+    await load();
+    return { created, failed };
+  };
 
   const filtered = customers.filter((c) => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.id.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search);
@@ -155,20 +208,31 @@ function CustomerListTab({ themeG, navigate }) {
         />
         <FilterPills label="Type" values={["All", "Wholesale", "Retail"]} active={filterType} onSelect={setFilterType} />
         <FilterPills label="Status" values={["All", "Approved", "Pending", "Declined"]} active={filterStatus} onSelect={setFilterStatus} />
-        <button
-          onClick={() => navigate("/master/customers/add")}
-          style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, padding: "9px 20px", borderRadius: 9, background: themeG.accent, color: themeG.card, border: "none", fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 10px rgba(91,155,217,0.32)" }}
-        >
-          + Add Customer
-        </button>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <ExcelToolbar
+            themeG={themeG}
+            rows={filtered}
+            columns={CUSTOMER_EXCEL_COLUMNS}
+            filename="customers"
+            reportTitle="Customer Details"
+            onImportRows={handleImportRows}
+          />
+          <button
+            onClick={() => navigate("/master/customers/add")}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 20px", borderRadius: 9, background: themeG.accent, color: themeG.card, border: "none", fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 10px rgba(91,155,217,0.32)" }}
+          >
+            + Add Customer
+          </button>
+        </div>
       </div>
 
-      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.06)" }}>
+      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, boxShadow: "0 4px 16px rgba(46,122,114,0.06)" }}>
+        <div style={{ overflowX: "auto", borderRadius: "14px 14px 0 0" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${themeG.border}` }}>
               {["ID", "Customer Name", "Phone", "District", "Taluk", "Type", "Orders", "Balance (₹)", "Status", "Actions"].map((h) => (
-                <th key={h} style={{ textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 13px", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.04)" }}>
+                <th key={h} style={{ textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 12px", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, background: "rgba(91,155,217,0.04)", whiteSpace: "nowrap" }}>
                   {h}
                 </th>
               ))}
@@ -181,28 +245,36 @@ function CustomerListTab({ themeG, navigate }) {
               const rc = typeColors[c.type] || typeColors.retail;
               return (
                 <tr key={c.id} style={{ borderBottom: "1px solid rgba(46,122,114,0.06)", background: rc.bg }}>
-                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.accent, fontWeight: 600, borderLeft: `3px solid ${rc.dot}` }}>{c.id}</td>
-                  <td style={{ padding: "12px 13px", fontSize: 14, color: themeG.textMain, fontWeight: 500 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 30, height: 30, borderRadius: "50%", background: `${rc.dot}22`, border: `1.5px solid ${rc.dot}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: rc.dot, flexShrink: 0 }}>
+                  <td style={{ padding: "12px 12px", fontSize: 13, color: themeG.accent, fontWeight: 600, borderLeft: `3px solid ${rc.dot}`, whiteSpace: "nowrap" }}>{c.id}</td>
+                  <td style={{ padding: "12px 12px", fontSize: 14, color: themeG.textMain, fontWeight: 500 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, maxWidth: 220 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${rc.dot}22`, border: `1.5px solid ${rc.dot}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: rc.dot, flexShrink: 0 }}>
                         {c.name[0]}
                       </div>
-                      {c.name}
+                      <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={c.name}>{c.name}</span>
                     </div>
                   </td>
-                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textSub }}>{c.phone}</td>
-                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textMain }}>{c.district}</td>
-                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textSub }}>{c.taluk}</td>
-                  <td style={{ padding: "12px 13px" }}><TypeBadge type={c.type} /></td>
-                  <td style={{ padding: "12px 13px", fontSize: 13, fontWeight: 600, color: themeG.textMain }}>{c.orders}</td>
-                  <td style={{ padding: "12px 13px", fontSize: 13, fontWeight: 700, color: c.balance > 0 ? "#B23A3A" : themeG.textSub }}>
+                  <td style={{ padding: "12px 12px", fontSize: 13, color: themeG.textSub, whiteSpace: "nowrap" }}>{c.phone}</td>
+                  <td style={{ padding: "12px 12px", fontSize: 13, color: themeG.textMain, whiteSpace: "nowrap" }}>{c.district}</td>
+                  <td style={{ padding: "12px 12px", fontSize: 13, color: themeG.textSub, whiteSpace: "nowrap" }}>{c.taluk}</td>
+                  <td style={{ padding: "12px 12px", whiteSpace: "nowrap" }}><TypeBadge type={c.type} /></td>
+                  <td style={{ padding: "12px 12px", fontSize: 13, fontWeight: 600, color: themeG.textMain, whiteSpace: "nowrap" }}>{c.orders}</td>
+                  <td style={{ padding: "12px 12px", fontSize: 13, fontWeight: 700, color: c.balance > 0 ? "#B23A3A" : themeG.textSub, whiteSpace: "nowrap" }}>
                     {c.balance > 0 ? `₹${c.balance.toLocaleString()}` : "—"}
                   </td>
-                  <td style={{ padding: "12px 13px" }}><Badge text={c.status} /></td>
-                  <td style={{ padding: "12px 13px" }}>
-                    <div style={{ display: "flex", gap: 7 }}>
-                      <button style={btnStyle("#5B9BD9")} onClick={() => navigate(`/master/customers/${c.dbId}`)}>👁️</button>
-                      <button style={btnStyle(themeG.accent)} onClick={() => navigate(`/master/customers/${c.dbId}?edit=1`)}>✏️</button>
+                  <td style={{ padding: "12px 12px", whiteSpace: "nowrap" }}><Badge text={c.status} /></td>
+                  <td style={{ padding: "12px 12px" }}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button style={btnStyle("#5B9BD9")} onClick={() => navigate(`/master/customers/${c.dbId}`)} title="View">👁️</button>
+                      <button style={btnStyle(themeG.accent)} onClick={() => navigate(`/master/customers/${c.dbId}?edit=1`)} title="Edit">✏️</button>
+                      <button
+                        style={btnStyle("#B23A3A")}
+                        disabled={deletingId === c.dbId}
+                        onClick={() => handleDelete(c)}
+                        title="Delete customer"
+                      >
+                        {deletingId === c.dbId ? "…" : "🗑️"}
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -210,6 +282,7 @@ function CustomerListTab({ themeG, navigate }) {
             })}
           </tbody>
         </table>
+        </div>
         <div style={{ padding: "10px 13px", borderTop: `1px solid ${themeG.border}`, fontSize: 12, color: themeG.textSub }}>
           Showing {filtered.length} of {customers.length} customers
         </div>

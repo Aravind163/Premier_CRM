@@ -20,6 +20,7 @@ function stepIndex(status) {
   const i = TRACK_STEPS.findIndex((s) => s.key === (status || "").toLowerCase());
   return i === -1 ? 0 : i;
 }
+
 function Tracker({ order, themeG }) {
   const current = stepIndex(order.Status);
   return (
@@ -77,12 +78,14 @@ export default function TrackOrders() {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line
   }, []);
 
   const norm = (s) => (s || "").toLowerCase();
   const shipped = orders.filter(o => ["dispatched", "delivered"].includes(norm(o.Status)));
   const notYetShipped = orders.filter(o => ["pending", "approved", "processing"].includes(norm(o.Status)));
   const declined = orders.filter(o => ["declined", "rejected"].includes(norm(o.Status)));
+
   const S = {
     heading: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
     headingSub: { fontSize: 13, color: themeG.textSub, margin: "0 0 24px" },

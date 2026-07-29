@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppNotification;
 use App\Models\Customer;
 use App\Models\Employee;
 use App\Models\Order;
@@ -39,6 +40,13 @@ class OrderController extends Controller
 
         if ($category = $request->query('category')) {
             $query->where('Category', $category);
+        }
+
+        // Used by Add Order to check a specific customer's payment history
+        // (credit-limit warning) and by any screen that wants one
+        // customer's order book without pulling everything.
+        if ($customerId = $request->query('customerId')) {
+            $query->where('CustomerId', $customerId);
         }
 
         // End Users normally only see orders they personally created.
@@ -81,7 +89,7 @@ class OrderController extends Controller
     /** GET /api/orders/{id} */
     public function show($id)
     {
-        $order = Order::with(['customer', 'product'])->find($id);
+        $order = Order::with(['customer', 'product', 'invoice'])->find($id);
 
         if (!$order) {
             return response()->json(['message' => 'Order not found'], 404);
@@ -270,12 +278,40 @@ class OrderController extends Controller
             'qty'           => 'sometimes|required|integer|min:1',
             'pricePerUnit'  => 'sometimes|required|numeric|min:0',
             'discount'      => 'nullable|numeric|min:0|max:100',
-            'status'        => 'sometimes|required|in:approved,pending,processing,dispatched,delivered,declined',
+            'status'        => 'sometimes|required|in:approved,pending,assigned,processing,dispatched,delivered,declined',
             'paymentStatus' => 'sometimes|required|in:paid,unpaid,partial,refund',
             'deliveryDate'  => 'nullable|date',
             'notes'         => 'nullable|string',
             'orderDetails'  => 'nullable|array',   // ← product-specific fields
         ]);
+
+        $caller = $request->user();
+
+        // Same final-approval gate as updateStatus() — this generic PUT is
+        // also how Add Order finalizes a placed enquiry, so it needs the
+        // same Marketing Head (system_admin) restriction.
+        if (($validated['status'] ?? null) === 'approved' && (!$caller || $caller->role !== 'system_admin')) {
+            return response()->json([
+                'message' => 'Only the Marketing Head (System Admin) can give final approval on a sales order.',
+            ], 403);
+        }
+
+        // ERP hand-off (O2C Step 4, "Transfer to ERP") is a Marketing Head
+        // / System Admin-only action — Marketing can review and allocate,
+        // but pushing the approved Sales Order into ERP is reserved for
+        // System Admin, matching the Final Approval screen in the O2C scope.
+        if (isset($validated['orderDetails']['ErpSynced']) && $validated['orderDetails']['ErpSynced']) {
+            if (!$caller || $caller->role !== 'system_admin') {
+                return response()->json([
+                    'message' => 'Only the System Admin can transfer an approved order to ERP.',
+                ], 403);
+            }
+            if ($order->Status !== 'approved') {
+                return response()->json([
+                    'message' => 'Only an approved order can be transferred to ERP.',
+                ], 422);
+            }
+        }
 
         $qty          = $validated['qty']          ?? $order->Quantity;
         $pricePerUnit = $validated['pricePerUnit'] ?? $order->PricePerUnit;
@@ -296,7 +332,27 @@ class OrderController extends Controller
         }
 
         if (isset($validated['paymentStatus'])) {
+            $wasPaid = $order->PaymentStatus === 'paid';
+            $willBePaid = $validated['paymentStatus'] === 'paid';
+
             $update['PaymentStatus'] = $validated['paymentStatus'];
+
+            // Keep AmountPaid and the customer's Outstanding balance in
+            // sync with a manual status override, same as recordPayment()
+            // does for an incremental payment.
+            if ($willBePaid && !$wasPaid) {
+                $already = (float) ($order->AmountPaid ?? 0);
+                $remaining = round((float) $order->TotalAmount - $already, 2);
+                $update['AmountPaid'] = $order->TotalAmount;
+                if ($remaining > 0 && $order->customer) {
+                    $order->customer->decrement('Outstanding', $remaining);
+                }
+            } elseif (!$willBePaid && $wasPaid) {
+                $update['AmountPaid'] = 0;
+                if ($order->customer) {
+                    $order->customer->increment('Outstanding', (float) $order->TotalAmount);
+                }
+            }
         }
 
         if (array_key_exists('deliveryDate', $validated)) {
@@ -386,6 +442,19 @@ class OrderController extends Controller
             'status' => 'required|in:pending,assigned,approved,processing,dispatched,delivered,declined',
         ]);
 
+        // O2C Step 4 — "Inquiry approval and SO creation in ERP": Marketing
+        // (admin) reviews/allocates and places the enquiry, but the FINAL
+        // approval that turns it into a real Sales Order is reserved for
+        // the Marketing Head, modelled here as the 'system_admin' role.
+        // Until this gate, the enquiry sits in the Marketing Head's
+        // "Pending Final Approvals" queue (see OrderEnquiry.jsx).
+        $caller = $request->user();
+        if ($validated['status'] === 'approved' && (!$caller || $caller->role !== 'system_admin')) {
+            return response()->json([
+                'message' => 'Only the Marketing Head (System Admin) can give final approval on a sales order.',
+            ], 403);
+        }
+
         // Goods must actually be dispatched (LR number recorded via the
         // dedicated /dispatch endpoint) before they can be marked delivered.
         if ($validated['status'] === 'delivered' && $order->Status !== 'dispatched') {
@@ -395,10 +464,55 @@ class OrderController extends Controller
         $update = ['Status' => $validated['status']];
 
         if ($validated['status'] === 'approved') {
-            $update['ApprovedBy'] = $request->user()->id;
+            $update['ApprovedBy'] = $caller->id;
         }
 
         $order->update($update);
+
+        if ($validated['status'] === 'approved') {
+            $this->notifyCustomer($order, 'order_approved', 'Your order has been approved',
+                "Order {$order->Code} has been approved and will move to dispatch.");
+        }
+        if ($validated['status'] === 'declined') {
+            $this->notifyCustomer($order, 'order_declined', 'Your order was declined',
+                "Order {$order->Code} was declined." . ($order->RejectionReason ? " Reason: {$order->RejectionReason}" : ''));
+        }
+
+        return response()->json($order->load(['customer', 'product']));
+    }
+
+    /**
+     * PATCH /api/orders/{id}/reject
+     * Body: { reason }
+     *
+     * Explicit reject action (O2C Step 4/6 — "If PO Approve/Rejected an
+     * information triggered to customer") — separate from the generic
+     * updateStatus() so a reason is always required and the customer is
+     * always notified, matching the flow diagram.
+     */
+    public function reject(Request $request, $id)
+    {
+        $order = Order::find($id);
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        $caller = $request->user();
+        if (!$caller || !in_array($caller->role, ['admin', 'system_admin', 'end_user'], true)) {
+            return response()->json(['message' => 'Not permitted to reject enquiries.'], 403);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'required|string|max:255',
+        ]);
+
+        $order->update([
+            'Status'          => 'declined',
+            'RejectionReason' => $validated['reason'],
+        ]);
+
+        $this->notifyCustomer($order, 'order_declined', 'Your order was declined',
+            "Order {$order->Code} was declined. Reason: {$validated['reason']}");
 
         return response()->json($order->load(['customer', 'product']));
     }
@@ -426,6 +540,20 @@ class OrderController extends Controller
             return response()->json(['message' => 'Only an approved / processing order can be dispatched.'], 422);
         }
 
+        // Customer-wise Credit and Discount Validation (O2C Step 9) — must
+        // pass before goods can leave. If it fails, the order goes on hold
+        // instead of being dispatched; Marketing has to explicitly release
+        // the hold (see releaseHold()) to proceed, which is itself the
+        // audit trail of that review.
+        if ($holdReason = $this->creditHoldReason($order)) {
+            $order->update(['OnHold' => true, 'HoldReason' => $holdReason, 'HoldPlacedAt' => now()]);
+            return response()->json([
+                'message'    => 'Order held for credit/discount review, not dispatched.',
+                'holdReason' => $holdReason,
+                'order'      => $order->fresh(['customer', 'product']),
+            ], 422);
+        }
+
         $validated = $request->validate([
             'lrNumber'      => 'required|string|max:100',
             'transportName' => 'required|string|max:150',
@@ -436,18 +564,112 @@ class OrderController extends Controller
 
         $order->update([
             'Status'        => 'dispatched',
+            'OnHold'        => false,
             'LRNumber'      => $validated['lrNumber'],
             'TransportName' => $validated['transportName'],
             'DispatchedAt'  => $dispatchedAt,
             'DispatchedBy'  => $request->user()->id,
+            'WarehouseSource' => $order->product->warehouse ?? null,
             // Bill's payment clock starts at dispatch — default credit
             // term (15 days unless already customized) counts from here.
             // Never overwrite a due date someone has already manually set.
             'PaymentDueDate' => $order->PaymentDueDate
-                ?? \Carbon\Carbon::parse($dispatchedAt)->addDays($order->PaymentTermDays ?? 15)->toDateString(),
+                ?? \Carbon\Carbon::parse($dispatchedAt)->addDays((int) ($order->PaymentTermDays ?? 15))->toDateString(),
         ]);
 
+        // The bill is now actually owed — this is the moment it counts
+        // against the customer's credit limit (creditHoldReason() checks
+        // Outstanding + a *new* order's total, so Outstanding has to
+        // reflect bills that are already out the door).
+        if ($order->customer && $order->PaymentStatus !== 'paid') {
+            $order->customer->increment('Outstanding', (float) $order->TotalAmount);
+        }
+
+        $this->notifyCustomer($order, 'order_dispatched', 'Your order has been dispatched',
+            "Order {$order->Code} has been dispatched via {$validated['transportName']} (LR: {$validated['lrNumber']}).");
+
         return response()->json($order->load(['customer', 'product', 'dispatcher']));
+    }
+
+    /**
+     * PATCH /api/orders/{id}/release-hold
+     * Body: { note? }
+     *
+     * Marketing/System Admin explicitly clears a credit/discount hold
+     * (e.g. after the customer pays down their overdue balance, or a
+     * manager approves an exception) so the order can be dispatched.
+     */
+    public function releaseHold(Request $request, $id)
+    {
+        $order = Order::find($id);
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        $caller = $request->user();
+        if (!$caller || !in_array($caller->role, ['admin', 'system_admin'], true)) {
+            return response()->json(['message' => 'Not permitted to release a hold.'], 403);
+        }
+
+        $validated = $request->validate(['note' => 'nullable|string|max:255']);
+
+        $order->update([
+            'OnHold'     => false,
+            'HoldReason' => trim(($order->HoldReason ?? '') . ' — released' . (!empty($validated['note']) ? ": {$validated['note']}" : '')),
+        ]);
+
+        return response()->json($order->fresh(['customer', 'product']));
+    }
+
+    /**
+     * Returns a hold reason string if this order's customer fails credit
+     * limit, overdue-balance, or discount-policy checks — null if clear.
+     */
+    private function creditHoldReason(Order $order): ?string
+    {
+        $customer = $order->customer;
+        if (!$customer) return null;
+
+        $reasons = [];
+
+        if ($customer->CreditLimit !== null) {
+            $projected = (float) $customer->Outstanding + (float) $order->TotalAmount;
+            if ($projected > (float) $customer->CreditLimit) {
+                $reasons[] = sprintf(
+                    'Credit limit exceeded: outstanding %.2f + this order %.2f > limit %.2f',
+                    (float) $customer->Outstanding, (float) $order->TotalAmount, (float) $customer->CreditLimit
+                );
+            }
+        }
+
+        $hasOverdue = Order::where('CustomerId', $customer->Id)
+            ->where('Id', '!=', $order->Id)
+            ->whereNotNull('PaymentDueDate')
+            ->where('PaymentDueDate', '<', now()->toDateString())
+            ->where('PaymentStatus', '!=', 'paid')
+            ->exists();
+        if ($hasOverdue) {
+            $reasons[] = 'Customer has an overdue, unpaid bill on a previous order.';
+        }
+
+        if ($customer->MaxDiscountPct !== null && (float) $order->DiscountPct > (float) $customer->MaxDiscountPct) {
+            $reasons[] = sprintf(
+                'Discount %.2f%% exceeds this customer\'s approved policy of %.2f%%',
+                (float) $order->DiscountPct, (float) $customer->MaxDiscountPct
+            );
+        }
+
+        return empty($reasons) ? null : implode(' | ', $reasons);
+    }
+
+    /** Fire-and-forget in-app notification to the customer who owns this order. */
+    private function notifyCustomer(Order $order, string $type, string $title, string $message): void
+    {
+        $customer = $order->customer ?? $order->load('customer')->customer;
+        $userId = $customer->UserId ?? null;
+        if ($userId) {
+            AppNotification::send($userId, $type, $title, $message, $order->Id);
+        }
     }
 
     /**
@@ -492,7 +714,7 @@ class OrderController extends Controller
         if (!empty($validated['paymentTermDays'])) {
             $update['PaymentTermDays'] = $validated['paymentTermDays'];
             $from = $order->DispatchedAt ?? now();
-            $update['PaymentDueDate'] = \Carbon\Carbon::parse($from)->addDays($validated['paymentTermDays'])->toDateString();
+            $update['PaymentDueDate'] = \Carbon\Carbon::parse($from)->addDays((int) $validated['paymentTermDays'])->toDateString();
         }
 
         if (!empty($validated['paymentDueDate'])) {
@@ -502,6 +724,56 @@ class OrderController extends Controller
         $order->update($update);
 
         return response()->json($order->load(['customer', 'product', 'dueDateSetter']));
+    }
+
+    /**
+     * PATCH /api/orders/{id}/record-payment
+     * Body: { amount, note? }
+     *
+     * Credit Limit feature — records a (possibly partial) payment against
+     * a billed order. A ₹1,00,000 order paid down by ₹50,000 becomes
+     * PaymentStatus 'partial' with a ₹50,000 balance still due against
+     * the same PaymentDueDate; the customer's Outstanding balance drops
+     * by the amount paid so the credit-limit check on their next order
+     * reflects it.
+     */
+    public function recordPayment(Request $request, $id)
+    {
+        $order = Order::find($id);
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        $caller = $request->user();
+        if (!$caller || !in_array($caller->role, ['admin', 'system_admin'], true)) {
+            return response()->json(['message' => 'Not permitted to record a payment.'], 403);
+        }
+
+        if (!in_array($order->Status, ['dispatched', 'delivered'], true)) {
+            return response()->json(['message' => 'Only a dispatched/delivered (billed) order can take a payment.'], 422);
+        }
+
+        $balanceDue = round((float) $order->TotalAmount - (float) ($order->AmountPaid ?? 0), 2);
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01', 'max:' . max($balanceDue, 0.01)],
+            'note'   => 'nullable|string|max:255',
+        ]);
+
+        $amount = round((float) $validated['amount'], 2);
+        $newAmountPaid = round((float) ($order->AmountPaid ?? 0) + $amount, 2);
+        $newStatus = $newAmountPaid >= (float) $order->TotalAmount ? 'paid' : 'partial';
+
+        $order->update([
+            'AmountPaid'    => $newAmountPaid,
+            'PaymentStatus' => $newStatus,
+        ]);
+
+        if ($order->customer) {
+            $order->customer->decrement('Outstanding', $amount);
+        }
+
+        return response()->json($order->fresh(['customer', 'product']));
     }
 
     private function generateOrderCode(): string
