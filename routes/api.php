@@ -44,6 +44,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/allocations',          [AllocationController::class, 'index']);
     Route::post('/allocations',         [AllocationController::class, 'store']);
     Route::get('/allocations/{id}/batches', [AllocationController::class, 'batchBreakdown']);
+    Route::get('/allocations/board', [AllocationController::class, 'board']);
+
+    // Marketing Review -> Final Approval workflow (System Admin only) and
+    // the flat list feeding the Sales Order page's four drill-down views.
+    Route::get('/allocations/list',              [AllocationController::class, 'list']);
+    Route::patch('/allocations/{id}/decision',    [AllocationController::class, 'decision']);
+    Route::post('/allocations/bulk-decision',     [AllocationController::class, 'bulkDecision']);
+    Route::post('/allocations/{id}/erp-transfer', [AllocationController::class, 'erpTransfer']);
+    Route::post('/allocations/bulk-erp-transfer', [AllocationController::class, 'bulkErpTransfer']);
 
     // Stock batches (FIFO lots) — Rack (Blouse) vs EB4 Dispatch Warehouse.
     Route::get('/batches',  [BatchController::class, 'index']);
@@ -81,4 +90,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // assignment (System Admin → Admin) and Taluk assignment (Admin → End User)
     Route::get('/locations/districts', [LocationController::class, 'districts']);
     Route::get('/locations/taluks',    [LocationController::class, 'taluks']);
+    Route::get('/locations/taluks/all', [LocationController::class, 'allTaluks']);
+    
+
 });

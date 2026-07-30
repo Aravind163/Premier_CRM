@@ -8,6 +8,23 @@ import { useTheme } from "../ThemeContext";
 const getActiveCat = () => localStorage.getItem("premier_category") || null;
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+// District/Taluk may be stored as a plain array, a JSON-encoded array
+// string, or (due to a past double-encoding bug) a JSON string whose
+// content is itself another JSON array. Keep decoding until it resolves
+// to an array or a non-JSON plain value.
+function parseAreaList(raw) {
+  let value = raw;
+  for (let i = 0; i < 3 && typeof value === "string" && value !== ""; i++) {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      break;
+    }
+  }
+  if (Array.isArray(value)) return value.filter(Boolean).map(String);
+  if (value) return [String(value)];
+  return [];
+}
 
 /**
  * Role hierarchy (4 logins):
@@ -24,8 +41,8 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
   const { colors, isDark } = useTheme();
   const role = localStorage.getItem("role") || "super_admin";
   const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const district = (Array.isArray(user.District) ? user.District.join(", ") : "") || localStorage.getItem("District") || "";
-  const taluk = (Array.isArray(user.Taluk) ? user.Taluk.join(", ") : "") || localStorage.getItem("Taluk") || "";
+  const district = parseAreaList(user.District || localStorage.getItem("District") || "").join(", ");
+  const taluk = parseAreaList(user.Taluk || localStorage.getItem("Taluk") || "").join(", ");
   const assignedArea = user.AssignedArea || localStorage.getItem("assignedArea") || district || taluk || "";
   const activeCat = getActiveCat();
 
@@ -54,7 +71,10 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
   const [ordersOpen, setOrdersOpen] = useState(() => location.pathname.startsWith("/master/orders") || location.pathname.startsWith("/master/enquiry"));
   const [customersOpen, setCustomersOpen] = useState(() => location.pathname.startsWith("/master/customers"));
   const [statusOpen, setStatusOpen] = useState(() => location.pathname.startsWith("/status"));
-  const [reportsOpen, setReportsOpen] = useState(false);
+  // Reports — now a collapsible group of 6 separate report pages (like
+  // Master), so it opens whenever you're on any /reports/* route instead
+  // of defaulting closed regardless of where you are.
+  const [reportsOpen, setReportsOpen] = useState(() => location.pathname.startsWith("/reports"));
 
   const isActive = (path) => location.pathname === path;
   const isPrefix = (path) => location.pathname.startsWith(path);
@@ -211,7 +231,7 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
                 <Link to="/master/sales-order" style={{ textDecoration: "none" }}>
                   <div style={{ ...S.navItem, ...(isPrefix("/master/sales-order") ? S.navItemActive : {}) }}>
                     <span style={S.navIcon}><BoxIcon /></span>
-                    <span>Sales Order</span>
+                    <span>Order Details</span>
                   </div>
                 </Link>
                 <Link to="/master/credit-limit" style={{ textDecoration: "none" }}>
@@ -239,15 +259,31 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
 
 
 
-            {/* Reports — one page now, three in-page tabs (Enquiry Order
-                Report / Overdue Report / Data Report). Hidden for end_user. */}
+            {/* Reports — six separate report pages behind one collapsible
+                group, same pattern as Master:
+                  Enquiry Order Report, Overdue Report, Data Report,
+                  Product Wise Report, Ageing Report, Sales Loss Report.
+                Hidden for end_user. */}
             {!isEndUser && (
-              <Link to="/reports" style={{ textDecoration: "none" }}>
-                <div style={{ ...S.navItem, ...(isPrefix("/reports") ? S.navItemActive : {}) }}>
+              <div style={S.navGroup}>
+                <div style={S.navGroupHeader} onClick={() => setReportsOpen(!reportsOpen)}>
                   <span style={S.navIcon}><ChartIcon /></span>
-                  <span>Reports</span>
+                  <span style={S.navGroupLabel}>Reports</span>
+                  <span style={{ ...S.chevron, transform: reportsOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon /></span>
                 </div>
-              </Link>
+                {reportsOpen && (
+                  <div style={S.navGroupBody}>
+                    <div style={S.navLeafGroup}>
+                      <NavLeaf to="/reports/enquiry" label="Enquiry Order Report" active={isActive("/reports/enquiry")} S={S} />
+                      <NavLeaf to="/reports/overdue" label="Overdue Report" active={isActive("/reports/overdue")} S={S} />
+                      <NavLeaf to="/reports/data" label="Data Report" active={isActive("/reports/data")} S={S} />
+                      <NavLeaf to="/reports/product-wise" label="Product Wise Report" active={isActive("/reports/product-wise")} S={S} />
+                      <NavLeaf to="/reports/ageing" label="Ageing Report" active={isActive("/reports/ageing")} S={S} />
+                      <NavLeaf to="/reports/sales-loss" label="Sales Loss Report" active={isActive("/reports/sales-loss")} S={S} />
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </nav>
         </div>

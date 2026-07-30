@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
 base: '/Premier_crm/public/',
 build: {
-    chunkSizeWarningLimit: 1800,
+    chunkSizeWarningLimit: 2400,
     outDir: '../public',
     assetsDir: 'assets',
     emptyOutDir: false,

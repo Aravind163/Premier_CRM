@@ -222,9 +222,9 @@ export default function OrderEnquiry() {
     // Cart footer now only shows the running total — no action buttons
     // here anymore, so there's nothing to click before reaching
     // Additional Details below.
-    footer: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", background: themeG.bg },
-    totalLabel: { fontSize: 13, color: themeG.textSub },
-    totalValue: { fontSize: 20, fontWeight: 700, color: themeG.textMain },
+    footer: { display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "18px 22px", background: themeG.bg },
+    totalLabel: { fontSize: 13, color: themeG.textSub, textAlign: "right" },
+    totalValue: { fontSize: 20, fontWeight: 700, color: "#1E9E5A", textAlign: "right" },
 
     detailsCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 20, marginTop: 20, boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
     detailsTitle: { fontSize: 14, fontWeight: 700, color: themeG.textMain, margin: "0 0 16px" },

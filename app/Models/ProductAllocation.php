@@ -14,10 +14,13 @@ class ProductAllocation extends Model
 
     protected $fillable = [
         'ProductId', 'CustomerId', 'AllocatedQty', 'AllocatedBy',
+        'Status', 'Remarks', 'ErpStatus', 'DecidedBy', 'DecidedAt', 'ErpTransferredAt',
     ];
 
     protected $casts = [
         'AllocatedQty' => 'integer',
+        'DecidedAt' => 'datetime',
+        'ErpTransferredAt' => 'datetime',
     ];
 
     public function product()
@@ -33,6 +36,11 @@ class ProductAllocation extends Model
     public function allocator()
     {
         return $this->belongsTo(User::class, 'AllocatedBy');
+    }
+
+    public function decider()
+    {
+        return $this->belongsTo(User::class, 'DecidedBy');
     }
 
     public function consumptions()

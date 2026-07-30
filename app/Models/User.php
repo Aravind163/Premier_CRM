@@ -11,31 +11,31 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name', 'email', 'password', 'role',
-        'District', 'Taluk', 'Lcode', 'Ccode', 'Status',
+        'district', 'taluk', 'lcode', 'ccode', 'status',
         'phone', 'dob',
-        // Added for end-user / area-assignment support
-        'Designation', 'Taluk', 'AssignedArea', 'ApprovalNote',
+        'designation', 'assigned_area', 'approval_note',
     ];
 
     protected $hidden = ['password', 'remember_token'];
 
-    protected static function booted(): void
-    {
-        static::creating(function (User $user) {
-            $user->Lcode = $user->Lcode ?? 'PRE-1';
-            $user->Ccode = $user->Ccode ?? 'PRE';
-        });
-    }
-
-    // No hashed cast — passwords stored plain for admin/end_user, bcrypt for super/system admin
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
-            // District/Taluk now support multiple areas — stored as JSON,
-            // always handled as a PHP array on the model.
-            'District' => 'array',
-            'Taluk'    => 'array',
+            'district' => 'array',
+            'taluk'    => 'array',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (User $user) {
+            $user->lcode = $user->lcode ?? 'PRE-1';
+            $user->ccode = $user->ccode ?? 'PRE';
+
+            if ($user->isDirty('password')) {
+                $user->password = bcrypt($user->password);
+            }
+        });
     }
 }

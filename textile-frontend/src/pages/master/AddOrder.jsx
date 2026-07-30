@@ -366,6 +366,10 @@ const defaultDetails = {
   others:   { productName:"", fabricPurpose:"", colorRequirement:"", widthPreference:"", referenceSampleAvailable:"", specialFinish:"", qualityExpectations:"", additionalNotes:"" },
 };
 
+// Meta keys tucked into OrderDetails alongside the real spec fields —
+// stripped out before treating the rest as the subtype's spec answers.
+const META_DETAIL_KEYS = ["GroupRef", "EnquiryOrderNo", "EnquiryOrderDate"];
+
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function AddOrder() {
   const { isDark } = useTheme();
@@ -380,6 +384,12 @@ export default function AddOrder() {
   const fromEnquiry = searchParams.get("fromEnquiry");
   const prefillCustomerId = searchParams.get("customerId");
   const prefillProductId = searchParams.get("productId");
+  // Editing (or viewing) an existing order via OrderList's 👁️/✏️ buttons.
+  const editId = searchParams.get("editId");
+  // 👁️ appends &mode=view — same data-loading path as ✏️, but every
+  // Edit affordance (box toggles, item Edit/Remove, bottom action bar)
+  // is hidden and the page can never leave read-only mode.
+  const viewOnly = !!(editId && searchParams.get("mode") === "view");
 
   const getStoredCat = () => localStorage.getItem("premier_category") || "cloth";
   const [tab,     setTab]     = useState(getStoredCat);
@@ -405,6 +415,19 @@ export default function AddOrder() {
   // everything already added; the fields above (productId/qty/price/
   // itemDiscount/details) are always the "next product" being drafted.
   const [items, setItems] = useState([]);
+  // When editing (editId), items pulled in from the backend carry a
+  // `dbId` — the real Order row id — so Submit can PUT them instead of
+  // creating duplicates. New items added via "+ Add" have no dbId.
+  // removedItemIds tracks existing rows the user removed from the list,
+  // so Submit can actually delete them instead of silently keeping them.
+  const [removedItemIds, setRemovedItemIds] = useState([]);
+  // If the order being edited already belongs to a group (multi-product
+  // order), keep using that same GroupRef instead of minting a new one.
+  const [existingGroupRef, setExistingGroupRef] = useState(null);
+  // When editing a single existing item back into the draft (via
+  // handleEditItem), its dbId is held here so re-adding it via "+ Add"
+  // still PUTs the same row instead of creating a new one.
+  const [draftDbId, setDraftDbId] = useState(null);
 
   const [customers, setCustomers] = useState([]);
   const [products,  setProducts]  = useState([]);
@@ -412,13 +435,23 @@ export default function AddOrder() {
   const [saving,    setSaving]    = useState(false);
   const [error,     setError]     = useState("");
   // Order Details and Payment & Delivery arrive pre-filled from the
-  // approved enquiry, so both start locked (read-only) — staff click
-  // "Edit" on the box they actually need to change, instead of every
-  // field being wide open by default.
-  const [editDetails, setEditDetails] = useState(!fromEnquiry);
-  const [editPayment, setEditPayment] = useState(!fromEnquiry);
+  // approved enquiry (or an order being edited/viewed), so both start
+  // locked (read-only) — staff click "Edit" on the box they actually
+  // need to change, instead of every field being wide open by default.
+  // View mode (viewOnly) always stays locked — see the effect below.
+  const [editDetails, setEditDetails] = useState(!fromEnquiry && !editId);
+  const [editPayment, setEditPayment] = useState(!fromEnquiry && !editId);
   const defaultSubtype        = tab === "yarn" ? "Bundle" : "Dhoti";
 
+  // View mode can never unlock, even if something else calls the
+  // setters below — pin both boxes closed whenever viewOnly is true.
+  useEffect(() => {
+    if (viewOnly) {
+      setEditDetails(false);
+      setEditPayment(false);
+    }
+    // eslint-disable-next-line
+  }, [viewOnly]);
 
   useEffect(() => {
     (async () => {
@@ -427,10 +460,70 @@ export default function AddOrder() {
         setCustomers(custRes.data);
         setProducts(prodRes.data);
 
-        // Coming from an approved Order Enquiry — pre-fill customer,
-        // product, category/sub-type and starting price so staff only
-        // has to confirm/adjust before placing the formal order.
-        if (fromEnquiry && prefillProductId) {
+        if (editId) {
+          // ── Editing or viewing an existing order (from OrderList) ──
+          // Fetch the order itself, then — if it's part of a grouped
+          // multi-product order — fetch every sibling row sharing the
+          // same GroupRef, so the whole order (not just this one row)
+          // shows up in the "Products in this Order" table below.
+          try {
+            const orderRes = await API.get(`/orders/${editId}`);
+            const orderData = orderRes.data;
+            const groupRef = orderData.OrderDetails?.GroupRef || null;
+            setExistingGroupRef(groupRef);
+
+            let groupRows = [orderData];
+            if (groupRef) {
+              const allRes = await API.get("/orders");
+              const siblings = (allRes.data || []).filter((o) => o.OrderDetails?.GroupRef === groupRef);
+              if (siblings.length > 0) groupRows = siblings;
+            }
+
+            const builtItems = groupRows.map((o) => {
+              const productId = o.ProductId ?? o.product?.Id ?? o.Product ?? "";
+              const product = o.product || prodRes.data.find((p) => String(p.Id) === String(productId));
+              const rawDetails = { ...(o.OrderDetails || {}) };
+              META_DETAIL_KEYS.forEach((k) => delete rawDetails[k]);
+              return {
+                tempId: `existing-${o.Id}`,
+                dbId: o.Id,
+                category: o.Category,
+                subType: o.SubType,
+                productId,
+                productLabel: product ? `${product.Name} (${product.Code})` : `Product #${productId}`,
+                qty: o.Quantity,
+                pricePerUnit: o.PricePerUnit,
+                discount: o.DiscountPct || 0,
+                details: Object.keys(rawDetails).length ? rawDetails : null,
+              };
+            });
+            setItems(builtItems);
+
+            const first = groupRows[0];
+            localStorage.setItem("premier_category", first.Category);
+            setTab(first.Category);
+            setSubType(first.SubType);
+            setDetails(first.Category === "cloth" && defaultDetails[first.SubType] ? { ...defaultDetails[first.SubType] } : null);
+
+            setForm((f) => ({
+              ...f,
+              customerId: first.CustomerId ?? first.customer?.Id ?? "",
+              productId: "",
+              qty: "",
+              pricePerUnit: "",
+              itemDiscount: "",
+              deliveryDate: first.DeliveryDate ? first.DeliveryDate.substring(0, 10) : "",
+              notes: first.Notes || "",
+              enquiryOrderNo: first.OrderDetails?.EnquiryOrderNo || first.Code || "",
+              enquiryOrderDate: first.OrderDetails?.EnquiryOrderDate || (first.CreatedAt ? first.CreatedAt.substring(0, 10) : ""),
+            }));
+          } catch {
+            setError("Failed to load this order.");
+          }
+        } else if (fromEnquiry && prefillProductId) {
+          // Coming from an approved Order Enquiry — pre-fill customer,
+          // product, category/sub-type and starting price so staff only
+          // has to confirm/adjust before placing the formal order.
           const p = prodRes.data.find((pr) => String(pr.Id) === String(prefillProductId));
 
           // Pull the source enquiry's own order number, quantity, price,
@@ -484,10 +577,10 @@ export default function AddOrder() {
             enquiryOrderDate: today,
           }));
         } else {
-          // No source enquiry — this is a manual "+ Add Enquiry" entry.
-          // Still auto-generate an order number and default the date to
-          // today, same as the enquiry-conversion path, so both flows
-          // present consistently.
+          // No source enquiry, not editing/viewing — this is a manual
+          // "+ Add Enquiry" entry. Still auto-generate an order number
+          // and default the date to today, same as the enquiry-
+          // conversion path, so both flows present consistently.
           const today = new Date().toISOString().substring(0, 10);
           setForm((f) => ({
             ...f,
@@ -550,7 +643,8 @@ export default function AddOrder() {
     if (!form.productId || !form.qty || !form.pricePerUnit) return null;
     const product = products.find((pr) => String(pr.Id) === String(form.productId));
     return {
-      tempId: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      tempId: draftDbId ? `existing-${draftDbId}` : `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      dbId: draftDbId || undefined,
       category: tab,
       subType,
       productId: form.productId,
@@ -565,6 +659,7 @@ export default function AddOrder() {
   const resetDraftAfterAdd = () => {
     setForm((f) => ({ ...f, productId: "", qty: "", pricePerUnit: "", itemDiscount: "" }));
     setDetails(tab === "cloth" && ["dhoti", "blouse", "pant", "shirt", "leggings", "uniform", "others"].includes(subType) ? { ...defaultDetails[subType] } : null);
+    setDraftDbId(null);
   };
 
   // The one field per sub-type marked "required" (*) in its spec box —
@@ -594,17 +689,23 @@ export default function AddOrder() {
   };
 
   const handleRemoveItem = (tempId) => {
-    setItems((prev) => prev.filter((i) => i.tempId !== tempId));
+    setItems((prev) => {
+      const target = prev.find((i) => i.tempId === tempId);
+      if (target?.dbId) setRemovedItemIds((r) => [...r, target.dbId]);
+      return prev.filter((i) => i.tempId !== tempId);
+    });
   };
 
   // Edit a product already added: pull it back into the draft fields
   // (and its spec box) so it can be changed, then re-added via the
   // same "+ Add" button — removes it from the list meanwhile so it
-  // isn't double-counted.
+  // isn't double-counted. Its dbId (if any) is preserved through
+  // draftDbId, so re-adding it PUTs the same row instead of duplicating.
   const handleEditItem = (item) => {
     setForm((f) => ({ ...f, productId: item.productId, qty: item.qty, pricePerUnit: item.pricePerUnit, itemDiscount: item.discount || "" }));
     setSubType(item.subType);
     setDetails(item.details ? { ...item.details } : (defaultDetails[item.subType] ? { ...defaultDetails[item.subType] } : null));
+    setDraftDbId(item.dbId || null);
     setItems((prev) => prev.filter((i) => i.tempId !== item.tempId));
     setError("");
   };
@@ -618,6 +719,7 @@ export default function AddOrder() {
   };
 
   const handleSubmit = async () => {
+    if (viewOnly) return;
     setError("");
     if (!form.customerId) {
       setError("Please select a customer.");
@@ -637,42 +739,25 @@ export default function AddOrder() {
 
     setSaving(true);
     try {
-      // Multiple products in one order are still separate Order rows
-      // under the hood, tagged with a shared GroupRef so they display,
-      // edit and delete together as one order everywhere in the app.
-      const groupRef = finalItems.length > 1 ? `GRP-${Date.now()}` : null;
+      if (editId) {
+        // ── Editing an existing order ──
+        // Existing rows (item.dbId set) are updated in place with PUT;
+        // anything newly added via "+ Add" (no dbId) is created fresh
+        // with POST; anything the user removed from the list is
+        // actually deleted so it doesn't linger on the backend.
+        const groupRef = existingGroupRef || (finalItems.length > 1 ? `GRP-${Date.now()}` : null);
 
-      // Coming from an approved enquiry: that enquiry IS this order —
-      // update its own row in place with the confirmed qty/price/specs
-      // rather than creating a brand new row and leaving the original
-      // enquiry stranded behind it. Only the first item does this; any
-      // further "+ Add" items are still new rows sharing the GroupRef,
-      // same as a normal multi-product order.
-      let first = true;
-      for (const item of finalItems) {
-        const orderDetails = { ...(item.details || {}) };
-        if (groupRef) orderDetails.GroupRef = groupRef;
-        if (form.enquiryOrderNo) orderDetails.EnquiryOrderNo = form.enquiryOrderNo;
-        if (form.enquiryOrderDate) orderDetails.EnquiryOrderDate = form.enquiryOrderDate;
+        for (const id of removedItemIds) {
+          await API.delete(`/orders/${id}`);
+        }
 
-        if (fromEnquiry && first) {
-          // O2C Step 4 — Marketing (admin/end_user) places the order but
-          // the Marketing Head (system_admin) gives the real, final
-          // approval. So this submit only sets status="approved" when the
-          // Marketing Head themselves is the one placing/finalizing it;
-          // otherwise it stays "assigned" (placed, priced, dated — just
-          // waiting in the Final Approval queue).
-          await API.put(`/orders/${fromEnquiry}`, {
-            qty:          item.qty,
-            pricePerUnit: item.pricePerUnit,
-            discount:     item.discount || 0,
-            deliveryDate: form.deliveryDate || null,
-            notes:        form.notes || null,
-            status:       role === "system_admin" ? "approved" : "assigned",
-            orderDetails: Object.keys(orderDetails).length ? orderDetails : null,
-          });
-        } else {
-          await API.post("/orders", {
+        for (const item of finalItems) {
+          const orderDetails = { ...(item.details || {}) };
+          if (groupRef) orderDetails.GroupRef = groupRef;
+          if (form.enquiryOrderNo) orderDetails.EnquiryOrderNo = form.enquiryOrderNo;
+          if (form.enquiryOrderDate) orderDetails.EnquiryOrderDate = form.enquiryOrderDate;
+
+          const payload = {
             customerId:   form.customerId,
             productId:    item.productId,
             qty:          item.qty,
@@ -681,14 +766,69 @@ export default function AddOrder() {
             deliveryDate: form.deliveryDate || null,
             notes:        form.notes || null,
             orderDetails: Object.keys(orderDetails).length ? orderDetails : null,
-          });
+          };
+
+          if (item.dbId) {
+            await API.put(`/orders/${item.dbId}`, payload);
+          } else {
+            await API.post("/orders", payload);
+          }
         }
-        first = false;
+      } else {
+        // ── Placing a new order (manual entry or converting an enquiry) ──
+        // Multiple products in one order are still separate Order rows
+        // under the hood, tagged with a shared GroupRef so they display,
+        // edit and delete together as one order everywhere in the app.
+        const groupRef = finalItems.length > 1 ? `GRP-${Date.now()}` : null;
+
+        // Coming from an approved enquiry: that enquiry IS this order —
+        // update its own row in place with the confirmed qty/price/specs
+        // rather than creating a brand new row and leaving the original
+        // enquiry stranded behind it. Only the first item does this; any
+        // further "+ Add" items are still new rows sharing the GroupRef,
+        // same as a normal multi-product order.
+        let first = true;
+        for (const item of finalItems) {
+          const orderDetails = { ...(item.details || {}) };
+          if (groupRef) orderDetails.GroupRef = groupRef;
+          if (form.enquiryOrderNo) orderDetails.EnquiryOrderNo = form.enquiryOrderNo;
+          if (form.enquiryOrderDate) orderDetails.EnquiryOrderDate = form.enquiryOrderDate;
+
+          if (fromEnquiry && first) {
+            // O2C Step 4 — Marketing (admin/end_user) places the order but
+            // the Marketing Head (system_admin) gives the real, final
+            // approval. So this submit only sets status="approved" when the
+            // Marketing Head themselves is the one placing/finalizing it;
+            // otherwise it stays "assigned" (placed, priced, dated — just
+            // waiting in the Final Approval queue).
+            await API.put(`/orders/${fromEnquiry}`, {
+              qty:          item.qty,
+              pricePerUnit: item.pricePerUnit,
+              discount:     item.discount || 0,
+              deliveryDate: form.deliveryDate || null,
+              notes:        form.notes || null,
+              status:       role === "system_admin" ? "approved" : "assigned",
+              orderDetails: Object.keys(orderDetails).length ? orderDetails : null,
+            });
+          } else {
+            await API.post("/orders", {
+              customerId:   form.customerId,
+              productId:    item.productId,
+              qty:          item.qty,
+              pricePerUnit: item.pricePerUnit,
+              discount:     item.discount || 0,
+              deliveryDate: form.deliveryDate || null,
+              notes:        form.notes || null,
+              orderDetails: Object.keys(orderDetails).length ? orderDetails : null,
+            });
+          }
+          first = false;
+        }
       }
 
-      navigate("/master/enquiry");
+      navigate("/master/orders");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to place order.");
+      setError(err.response?.data?.message || "Failed to save order.");
     } finally {
       setSaving(false);
     }
@@ -696,22 +836,23 @@ export default function AddOrder() {
 
   if (loading) {
     return (
-      <Layout pageTitle="Add Order">
+      <Layout pageTitle={viewOnly ? "View Order" : editId ? "Edit Order" : "Add Order"}>
         <p style={{ color: themeG.textSub }}>Loading customers and products…</p>
       </Layout>
     );
   }
 
-  // Coming in via "+ Add Enquiry" (no source enquiry) opens this page
-  // fully unlocked and blank, ready for a manual entry — everything
-  // below defaults to edit mode in that case (see editDetails/editPayment
-  // above). Coming in from Order Enquiry pre-fills and locks things down
-  // instead.
+  // Coming in via "+ Add Enquiry" (no source enquiry, no editId) opens
+  // this page fully unlocked and blank, ready for a manual entry —
+  // everything below defaults to edit mode in that case (see
+  // editDetails/editPayment above). Coming in from Order Enquiry or an
+  // existing order (editId) pre-fills and locks things down instead.
+  // View mode (viewOnly) additionally hides every Edit control outright.
 
   const showDetailsCard = tab === "cloth" && ["dhoti","blouse","pant","shirt","leggings","uniform","others"].includes(subType);
 
   return (
-    <Layout pageTitle="Add Order">
+    <Layout pageTitle={viewOnly ? "View Order" : editId ? "Edit Order" : "Add Order"}>
 
       {/* ── Category locked badge ── */}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12, flexWrap: "wrap" }}>
@@ -719,15 +860,25 @@ export default function AddOrder() {
           <span style={{ fontSize:18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily:"inherit", fontSize:14, fontWeight:700, color:themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"}</span>
         </div>
-        <span style={{ fontSize:12, color:themeG.textSub }}>
-          Category locked — <span style={{ color:themeG.accent, cursor:"pointer", textDecoration:"underline" }}
-            onClick={() => navigate("/select-category")}>Switch category</span>
-        </span>
+        {!viewOnly && (
+          <span style={{ fontSize:12, color:themeG.textSub }}>
+            Category locked — <span style={{ color:themeG.accent, cursor:"pointer", textDecoration:"underline" }}
+              onClick={() => navigate("/select-category")}>Switch category</span>
+          </span>
+        )}
       </div>
 
-      {fromEnquiry && (
+      {fromEnquiry && !editId && (
         <div style={{ marginBottom: 20, background: "rgba(58,37,96,0.08)", border: "1px solid rgba(58,37,96,0.25)", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: "#3A2560", fontWeight: 600 }}>
           Converting enquiry #{fromEnquiry} — customer and product are pre-filled below. Confirm price, discount, delivery date and specs, then Approve or Place Order.
+        </div>
+      )}
+
+      {editId && (
+        <div style={{ marginBottom: 20, background: "rgba(91,155,217,0.08)", border: "1px solid rgba(91,155,217,0.25)", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: "#1F5C99", fontWeight: 600 }}>
+          {viewOnly
+            ? `Viewing order ${form.enquiryOrderNo || `#${editId}`} — read-only.`
+            : `Editing order ${form.enquiryOrderNo || `#${editId}`} — everything below is pre-filled from the existing order. Click "Edit" on any box to change it, then Update Order.`}
         </div>
       )}
 
@@ -740,11 +891,12 @@ export default function AddOrder() {
         )}
 
         {/* ── 1. Order Details — compact, landscape. Locked by default
-              (it's pre-filled from the enquiry); "Edit" unlocks it.
-              Enquiry Order No / Date come first, then Customer /
-              Product. Quantity and Price per Unit live in the product
-              spec box below, right alongside the product they belong to.
-              Edit/Done button now sits at the bottom of the card. ── */}
+              (it's pre-filled from the enquiry or existing order);
+              "Edit" unlocks it — unless viewOnly, which hides the
+              Edit button entirely and stays locked. Enquiry Order No /
+              Date come first, then Customer / Product. Quantity and
+              Price per Unit live in the product spec box below, right
+              alongside the product they belong to. ── */}
         <div style={card}>
           <h3 style={{ ...cardTitle }}>Order Details</h3>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(0,1fr))", gap:"4px 20px", alignItems:"start" }}>
@@ -793,24 +945,27 @@ export default function AddOrder() {
               </>
             )}
           </div>
-          <div style={{ display:"flex", justifyContent:"flex-end", marginTop:16 }}>
-            <button type="button" onClick={() => setEditDetails(v => !v)}
-              style={{ padding:"9px 24px", borderRadius:9, border:"none", cursor:"pointer",
-                fontFamily:"inherit", fontSize:13, fontWeight:700, color:"#fff",
-                background: editDetails ? "#6D28D9" : "#8B5CF6",
-                boxShadow:"0 4px 12px rgba(109,40,217,0.35)" }}>
-              {editDetails ? "Done" : "Edit"}
-            </button>
-          </div>
+          {!viewOnly && (
+            <div style={{ display:"flex", justifyContent:"flex-end", marginTop:16 }}>
+              <button type="button" onClick={() => setEditDetails(v => !v)}
+                style={{ padding:"9px 24px", borderRadius:9, border:"none", cursor:"pointer",
+                  fontFamily:"inherit", fontSize:13, fontWeight:700, color:"#fff",
+                  background: editDetails ? "#6D28D9" : "#8B5CF6",
+                  boxShadow:"0 4px 12px rgba(109,40,217,0.35)" }}>
+                {editDetails ? "Done" : "Edit"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── 2. Sub-type specific details — landscape. Only appears once
               a Product has actually been selected in box 1. Quantity,
               Price per Unit and Discount are the last three numbered
               points in each subtype's field list (numbering varies by
-              subtype since they have different field counts). The
-              "+ Add" button now sits at the bottom of the card. ── */}
-        {form.productId && (
+              subtype since they have different field counts). Hidden
+              entirely in view mode — the product spec already shows up
+              read-only inside the "Products in this Order" row below. ── */}
+        {!viewOnly && form.productId && (
           showDetailsCard && details ? (
             <div style={card}>
               <h3 style={{ ...cardTitle }}>
@@ -868,14 +1023,20 @@ export default function AddOrder() {
 
         {/* ── 3. Products in this order — full width, easy to scan. Only
               appears once at least one product has actually been added
-              via "+ Add" in box 2. ── */}
+              via "+ Add" in box 2, or — when editing/viewing — was
+              already on the order being loaded. Edit/Remove and the qty
+              stepper are hidden in view mode; qty just shows as plain
+              text instead. ── */}
         {items.length > 0 && (
           <div style={card}>
             <h3 style={cardTitle}>Products in this Order ({items.length})</h3>
             <table style={{ width:"100%", borderCollapse:"collapse" }}>
               <thead>
                 <tr>
-                  {["#","Product","Sub-type","Qty","Price/Unit","Discount","Amount",""].map(h => (
+                  {(viewOnly
+                    ? ["#","Product","Sub-type","Qty","Price/Unit","Discount","Amount"]
+                    : ["#","Product","Sub-type","Qty","Price/Unit","Discount","Amount",""]
+                  ).map(h => (
                     <th key={h} style={{ textAlign:"left", fontSize:11, color:themeG.textLabel, padding:"10px 12px", borderBottom:`2px solid ${themeG.border}`, textTransform:"uppercase", letterSpacing:"0.06em", fontWeight:700 }}>{h}</th>
                   ))}
                 </tr>
@@ -887,33 +1048,39 @@ export default function AddOrder() {
                     <td style={{ padding:"11px 12px", fontSize:13, color:themeG.textMain, borderBottom:`1px solid ${themeG.border}` }}>{i.productLabel}</td>
                     <td style={{ padding:"11px 12px", fontSize:13, color:themeG.textSub, borderBottom:`1px solid ${themeG.border}`, textTransform:"capitalize" }}>{i.subType}</td>
                     <td style={{ padding:"11px 12px", fontSize:13, borderBottom:`1px solid ${themeG.border}` }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                        <button type="button" onClick={() => handleUpdateQty(i.tempId, -1)}
-                          style={{ width:24, height:24, borderRadius:6, border:`1px solid ${themeG.border}`, background:themeG.card, color:themeG.textMain, cursor:"pointer", fontSize:14, fontWeight:700, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                          −
-                        </button>
-                        <span style={{ minWidth:24, textAlign:"center", fontWeight:600 }}>{i.qty}</span>
-                        <button type="button" onClick={() => handleUpdateQty(i.tempId, 1)}
-                          style={{ width:24, height:24, borderRadius:6, border:`1px solid ${themeG.border}`, background:themeG.card, color:themeG.textMain, cursor:"pointer", fontSize:14, fontWeight:700, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                          +
-                        </button>
-                      </div>
+                      {viewOnly ? (
+                        <span style={{ fontWeight:600 }}>{i.qty}</span>
+                      ) : (
+                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                          <button type="button" onClick={() => handleUpdateQty(i.tempId, -1)}
+                            style={{ width:24, height:24, borderRadius:6, border:`1px solid ${themeG.border}`, background:themeG.card, color:themeG.textMain, cursor:"pointer", fontSize:14, fontWeight:700, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                            −
+                          </button>
+                          <span style={{ minWidth:24, textAlign:"center", fontWeight:600 }}>{i.qty}</span>
+                          <button type="button" onClick={() => handleUpdateQty(i.tempId, 1)}
+                            style={{ width:24, height:24, borderRadius:6, border:`1px solid ${themeG.border}`, background:themeG.card, color:themeG.textMain, cursor:"pointer", fontSize:14, fontWeight:700, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                            +
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding:"11px 12px", fontSize:13, borderBottom:`1px solid ${themeG.border}` }}>₹{parseFloat(i.pricePerUnit).toLocaleString()}</td>
                     <td style={{ padding:"11px 12px", fontSize:13, borderBottom:`1px solid ${themeG.border}` }}>{i.discount ? `${i.discount}%` : "0%"}</td>
                     <td style={{ padding:"11px 12px", fontSize:13, fontWeight:700, borderBottom:`1px solid ${themeG.border}` }}>₹{itemAmount(i).toLocaleString()}</td>
-                    <td style={{ padding:"11px 12px", borderBottom:`1px solid ${themeG.border}` }}>
-                      <div style={{ display:"flex", gap:6 }}>
-                        <button onClick={() => handleEditItem(i)}
-                          style={{ padding:"5px 12px", borderRadius:7, border:`1px solid ${themeG.accent}55`, background:`${themeG.accent}14`, color:themeG.accent, cursor:"pointer", fontSize:12, fontWeight:600 }}>
-                          Edit
-                        </button>
-                        <button onClick={() => handleRemoveItem(i.tempId)}
-                          style={{ padding:"5px 12px", borderRadius:7, border:"1px solid rgba(178,58,58,0.30)", background:"rgba(178,58,58,0.06)", color:"#B23A3A", cursor:"pointer", fontSize:12, fontWeight:600 }}>
-                          Remove
-                        </button>
-                      </div>
-                    </td>
+                    {!viewOnly && (
+                      <td style={{ padding:"11px 12px", borderBottom:`1px solid ${themeG.border}` }}>
+                        <div style={{ display:"flex", gap:6 }}>
+                          <button onClick={() => handleEditItem(i)}
+                            style={{ padding:"5px 12px", borderRadius:7, border:`1px solid ${themeG.accent}55`, background:`${themeG.accent}14`, color:themeG.accent, cursor:"pointer", fontSize:12, fontWeight:600 }}>
+                            Edit
+                          </button>
+                          <button onClick={() => handleRemoveItem(i.tempId)}
+                            style={{ padding:"5px 12px", borderRadius:7, border:"1px solid rgba(178,58,58,0.30)", background:"rgba(178,58,58,0.06)", color:"#B23A3A", cursor:"pointer", fontSize:12, fontWeight:600 }}>
+                            Remove
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -922,8 +1089,9 @@ export default function AddOrder() {
         )}
 
         {/* ── 4. Payment & Delivery — Total Value, Overall Discount,
-              Expected Delivery Date, Remarks. Locked until Edit.
-              Edit/Done button now sits at the bottom of the card. ── */}
+              Expected Delivery Date, Remarks. Locked until Edit — and
+              in view mode, the Edit button is hidden entirely so it
+              stays permanently read-only. ── */}
         <div style={card}>
           <h3 style={{ ...cardTitle }}>Payment & Delivery</h3>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(0,1fr))", gap:"4px 20px", alignItems:"start" }}>
@@ -954,35 +1122,50 @@ export default function AddOrder() {
               <ReadField label="Remarks" value={form.notes || "—"} />
             )}
           </div>
-          <div style={{ display:"flex", justifyContent:"flex-end", marginTop:16 }}>
-            <button type="button" onClick={() => setEditPayment(v => !v)}
-              style={{ padding:"9px 24px", borderRadius:9, border:"none", cursor:"pointer",
-                fontFamily:"inherit", fontSize:13, fontWeight:700, color:"#fff",
-                background: editPayment ? "#D97706" : "#F59E0B",
-                boxShadow:"0 4px 12px rgba(217,119,6,0.35)" }}>
-              {editPayment ? "Done" : "Edit"}
-            </button>
-          </div>
+          {!viewOnly && (
+            <div style={{ display:"flex", justifyContent:"flex-end", marginTop:16 }}>
+              <button type="button" onClick={() => setEditPayment(v => !v)}
+                style={{ padding:"9px 24px", borderRadius:9, border:"none", cursor:"pointer",
+                  fontFamily:"inherit", fontSize:13, fontWeight:700, color:"#fff",
+                  background: editPayment ? "#D97706" : "#F59E0B",
+                  boxShadow:"0 4px 12px rgba(217,119,6,0.35)" }}>
+                {editPayment ? "Done" : "Edit"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       <div style={{ display:"flex", gap:12, marginTop:28, justifyContent:"flex-end" }}>
         <button onClick={() => navigate("/master/orders")}
           style={{ padding:"10px 24px", borderRadius:9, border:`1px solid ${themeG.border}`, background:themeG.card, color:themeG.textSub, cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:500 }}>
-          Cancel
+          {viewOnly ? "Close" : "Cancel"}
         </button>
-        <button onClick={() => { setEditDetails(true); setEditPayment(true); }}
-          style={{ padding:"10px 24px", borderRadius:9, border:"1.5px solid #1F5C99", background:"transparent", color:"#1F5C99", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:700 }}>
-          Edit
-        </button>
-        <button onClick={handleSubmit} disabled={saving}
-          style={{ padding:"10px 24px", borderRadius:9, border:`1.5px solid ${themeG.accent}`, background:"transparent", color:themeG.accent, cursor:saving ? "not-allowed" : "pointer", fontFamily:"inherit", fontSize:14, fontWeight:700, opacity:saving ? 0.6 : 1 }}>
-          {saving ? "…" : "Approve"}
-        </button>
-        <button onClick={handleSubmit} disabled={saving}
-          style={{ padding:"10px 28px", borderRadius:9, border:"none", background:themeG.accent, color:themeG.card, cursor:saving ? "not-allowed" : "pointer", fontFamily:"inherit", fontSize:14, fontWeight:700, boxShadow:"0 2px 10px rgba(91,155,217,0.32)", opacity:saving ? 0.6 : 1 }}>
-          {saving ? "Placing…" : `Place Order${(items.length + (form.productId ? 1 : 0)) > 1 ? ` (${items.length + (form.productId ? 1 : 0)} products)` : ""}`}
-        </button>
+
+        {!viewOnly && (
+          <button onClick={() => { setEditDetails(true); setEditPayment(true); }}
+            style={{ padding:"10px 24px", borderRadius:9, border:"1.5px solid #1F5C99", background:"transparent", color:"#1F5C99", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:700 }}>
+            Edit
+          </button>
+        )}
+
+        {!viewOnly && !editId && (
+          <button onClick={handleSubmit} disabled={saving}
+            style={{ padding:"10px 24px", borderRadius:9, border:`1.5px solid ${themeG.accent}`, background:"transparent", color:themeG.accent, cursor:saving ? "not-allowed" : "pointer", fontFamily:"inherit", fontSize:14, fontWeight:700, opacity:saving ? 0.6 : 1 }}>
+            {saving ? "…" : "Approve"}
+          </button>
+        )}
+
+        {!viewOnly && (
+          <button onClick={handleSubmit} disabled={saving}
+            style={{ padding:"10px 28px", borderRadius:9, border:"none", background:themeG.accent, color:themeG.card, cursor:saving ? "not-allowed" : "pointer", fontFamily:"inherit", fontSize:14, fontWeight:700, boxShadow:"0 2px 10px rgba(91,155,217,0.32)", opacity:saving ? 0.6 : 1 }}>
+            {saving
+              ? (editId ? "Updating…" : "Placing…")
+              : editId
+                ? "Update Order"
+                : `Place Order${(items.length + (form.productId ? 1 : 0)) > 1 ? ` (${items.length + (form.productId ? 1 : 0)} products)` : ""}`}
+          </button>
+        )}
       </div>
     </Layout>
   );

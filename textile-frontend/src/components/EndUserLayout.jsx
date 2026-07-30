@@ -132,7 +132,6 @@ export default function EndUserLayout({ children }) {
               </div>
               {enquiryOpen && (
                 <div style={S.navGroupBody}>
-                  <NavLeaf to="/master/enquiry" label="Order Enquired" active={isEnquiry} S={S} />
                   <NavLeaf to="/end-user/drafts" label="Drafts" active={isDrafts} S={S} />
                   <NavLeaf to="/master/orders" label="My Orders" active={isMyOrders} S={S} />
                   <NavLeaf to="/master/orders?tab=customer" label="Customer Orders" active={isCustomerOrders} S={S} />
@@ -168,17 +167,26 @@ export default function EndUserLayout({ children }) {
 
 // Taluk is stored as a JSON array (or a plain string, for older records).
 // Normalise either shape into a clean string array for display.
+// Taluk may be stored as a JSON array, a JSON-encoded string containing
+// another JSON array (double-encoded), or a plain legacy string. Keep
+// decoding until it resolves to an array or a non-JSON plain value.
 function readTaluks() {
   const raw = localStorage.getItem("Taluk") || localStorage.getItem("assignedArea") || "";
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.filter(Boolean);
-    if (parsed) return [String(parsed)];
-  } catch {
-    // not JSON — plain string
+  return parseAreaList(raw);
+}
+
+function parseAreaList(raw) {
+  let value = raw;
+  for (let i = 0; i < 3 && typeof value === "string" && value !== ""; i++) {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      break; // not (further) JSON — stop, treat current value as final
+    }
   }
-  return [raw];
+  if (Array.isArray(value)) return value.filter(Boolean).map(String);
+  if (value) return [String(value)];
+  return [];
 }
 
 function buildStyles(colors, isDark) {

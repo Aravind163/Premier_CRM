@@ -21,6 +21,16 @@ class LocationController extends Controller
      * Returns the full list of TN districts (used by System Admin when
      * assigning a District to an Admin).
      */
+    public function allTaluks()
+    {
+        $data = $this->data();
+
+        $taluks = array_values(array_unique(array_merge(...array_values($data))));
+        sort($taluks);
+
+        return response()->json($taluks);
+    }
+
     public function districts()
     {
         $districts = array_keys($this->data());
@@ -46,7 +56,7 @@ class LocationController extends Controller
         foreach ($districts as $district) {
             // Case-insensitive match in case the stored District value differs in casing
             $key = collect(array_keys($data))->first(
-                fn ($d) => strcasecmp($d, $district) === 0
+                fn($d) => strcasecmp($d, $district) === 0
             );
             if ($key) {
                 $taluks = array_merge($taluks, $data[$key]);

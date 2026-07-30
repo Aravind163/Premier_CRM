@@ -137,6 +137,26 @@ input:focus {
 .btn-ghost:hover:not(:disabled) { background: #EAEFF5; border-color: #C6D3E2; }
 .btn-sm { padding: .35rem .7rem; font-size: .7rem; border-radius: .45rem; }
 
+/* Marketing Review action bar — each button gets its own color so the row
+   of five reads at a glance instead of blurring into one gray block. */
+.btn-draft {
+  background: #fff; border: 1px solid #8C96A3; color: #45607F;
+}
+.btn-draft:hover:not(:disabled) { background: #EEF3F9; border-color: #526073; }
+.btn-reset {
+  background: #fff; border: 1px solid #D69426; color: #A8701F;
+}
+.btn-reset:hover:not(:disabled) { background: #FBF2E1; border-color: #A8701F; }
+.btn-excel {
+  background: linear-gradient(155deg, #2E9A62, #1C6B41); color: #fff; border: none;
+  box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 4px 12px -4px rgba(28,107,65,.5);
+}
+.btn-excel:hover:not(:disabled) { background: linear-gradient(155deg, #257E50, #164F30); transform: translateY(-1px); }
+.btn-print {
+  background: #fff; border: 1px solid #5B4B8C; color: #5B4B8C;
+}
+.btn-print:hover:not(:disabled) { background: #F1EDFB; border-color: #4A2E7A; color: #4A2E7A; }
+
 /* ---- Cards ---- */
 .card {
   background: #fff;
@@ -323,6 +343,72 @@ table.data-dark tfoot td { padding: .65rem .7rem; font-weight: 700; background: 
 /* Legend dot */
 .legend-dot { width: .55rem; height: .55rem; border-radius: 50%; display: inline-block; }
 
+/* Marketing Review table viewport — the table scrolls INSIDE this box
+   (both directions) instead of the whole page, so the Save/Reset bar
+   below it never has to chase a moving scroll position. Both axes live
+   on this one element (it also carries .mr-overflow-x-auto) so sticky
+   positioning below has a single, unambiguous scrolling ancestor. */
+.mr-table-viewport {
+  max-height: 56vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #9FB2C6 #EAEFF5;
+}
+.mr-table-viewport::-webkit-scrollbar { height: 10px; width: 10px; }
+.mr-table-viewport::-webkit-scrollbar-track { background: #EAEFF5; border-radius: 6px; }
+.mr-table-viewport::-webkit-scrollbar-thumb { background: #9FB2C6; border-radius: 6px; border: 2px solid #EAEFF5; }
+.mr-table-viewport::-webkit-scrollbar-thumb:hover { background: #7C93AC; }
+
+/* Two-level sticky header for Product Wise View: the outer column-title
+   row (Product Code / Name / Sort No / Shade No) sticks at the very top;
+   each expanded product's own field-label sub-header sticks directly
+   underneath it. Only the real data rows (the product rows themselves,
+   and the customer detail rows below an expanded product) scroll past
+   underneath both — the labels never move. Both need an opaque
+   background so scrolling content doesn't show through. */
+table.data-dark thead th { position: sticky; top: 0; z-index: 3; }
+.mr-subhead-row td { position: sticky; top: 2.4rem; z-index: 2; }
+
+/* Save & Submit / Reset action bar under the Marketing Review table —
+   sits directly below the table viewport, always visible without any
+   extra scrolling of its own, and never blocks the page's normal
+   vertical scroll. */
+.mr-sticky-actions {
+  background: #fff;
+  padding-top: .75rem;
+  margin-top: .5rem;
+  border-top: 1px solid #EEF2F6;
+}
+
+/* Product Wise View — collapsed product header row + its expand toggle */
+.mr-product-group-row { cursor: pointer; }
+.mr-product-group-row td {
+  background: #F3F7FB;
+  border-bottom: 1px solid #DBE3EC !important;
+}
+.mr-product-group-row:hover td { background: #EAF1F8; }
+.mr-product-chevron {
+  width: 1.4rem; height: 1.4rem; border-radius: 6px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #DCEAF7; color: #1E5B95;
+}
+
+
+/* Detail-column sub-header — only rendered once a product row is expanded,
+   directly above that product's per-customer rows. */
+.mr-subhead-row td {
+  background: #EEF3F9;
+  color: #45607F;
+  font-size: .64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  padding: .5rem .7rem;
+  border-bottom: 1px solid #DBE3EC;
+  white-space: nowrap;
+}
+
 /* ---- Minimal utility classes used by the Marketing Review page ----
    (Premier's frontend has no Tailwind; these hand-written utilities
    cover just what that page needs, namespaced so they can't collide
@@ -333,6 +419,7 @@ table.data-dark tfoot td { padding: .65rem .7rem; font-weight: 700; background: 
 .mr-items-end { align-items: flex-end; }
 .mr-justify-between { justify-content: space-between; }
 .mr-justify-end { justify-content: flex-end; }
+.mr-justify-center { justify-content: center; }
 .mr-flex-wrap { flex-wrap: wrap; }
 .mr-flex-1 { flex: 1; }
 .mr-gap-1 { gap: .25rem; }
@@ -388,7 +475,7 @@ table.data-dark tfoot td { padding: .65rem .7rem; font-weight: 700; background: 
 @media (max-width: 640px) {
   .mr-grid-2, .mr-grid-3, .mr-grid-4, .mr-grid-5, .mr-grid-6 { grid-template-columns: repeat(1, 1fr); }
 }
-.mr-lg-grid-main { display: grid; grid-template-columns: 3fr 1fr; gap: 1.25rem; align-items: start; }
+.mr-lg-grid-main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
 @media (max-width: 1024px) {
   .mr-lg-grid-main { grid-template-columns: 1fr; }
 }

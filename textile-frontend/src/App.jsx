@@ -29,7 +29,6 @@ import OrderView from "./pages/master/OrderView";
 import AllocationEmployeeDirectory from "./pages/master/AllocationEmployeeDirectory";
 import AllocationSystemAdmin from "./pages/master/AllocationSystemAdmin";
 import AllocationAdminEndUsers from "./pages/master/AllocationAdminEndUsers";
-import ReportsPage from "./pages/reports/Reports";
 import SalesOrder from "./pages/master/SalesOrder";
 import CreditLimit from "./pages/master/CreditLimit";
 import EndUserAddCustomer from "./pages/end-user/AddCustomer";
@@ -37,6 +36,12 @@ import EndUserCustomerList from "./pages/end-user/CustomerList";
 import EndUserProductSelection from "./pages/end-user/ProductSelection";
 import Drafts from "./pages/end-user/Drafts";
 import CartCheckout from "./pages/end-user/CartCheckout";
+import EnquiryOrderReportPage from "./pages/reports/EnquiryOrderReportPage";
+import OverdueReportPage from "./pages/reports/OverdueReportPage";
+import DataReportPage from "./pages/reports/DataReportPage";
+import ProductWiseReportPage from "./pages/reports/ProductWiseReportPage";
+import AgeingReportPage from "./pages/reports/AgeingReportPage";
+import SalesLossReportPage from "./pages/reports/SalesLossReportPage";
 
 function App() {
   return (
@@ -127,10 +132,13 @@ function App() {
           {/* Reports — Enquiry Order Report / Overdue Report / Data Report
               (Products, Orders, Employees) now live together on one page
               behind in-page tabs, instead of three separate sidebar links. */}
-          <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/reports/orders" element={<Navigate to="/reports" replace />} />
-          <Route path="/reports/products" element={<Navigate to="/reports" replace />} />
-          <Route path="/reports/employees" element={<Navigate to="/reports" replace />} />
+          <Route path="/reports" element={<Navigate to="/reports/enquiry" replace />} />
+          <Route path="/reports/enquiry" element={<EnquiryOrderReportPage />} />
+          <Route path="/reports/overdue" element={<OverdueReportPage />} />
+          <Route path="/reports/data" element={<DataReportPage />} />
+          <Route path="/reports/product-wise" element={<ProductWiseReportPage />} />
+          <Route path="/reports/ageing" element={<AgeingReportPage />} />
+          <Route path="/reports/sales-loss" element={<SalesLossReportPage />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

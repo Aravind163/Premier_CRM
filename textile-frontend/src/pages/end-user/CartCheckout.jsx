@@ -2,30 +2,12 @@
 //
 // Field Officer's "View Cart & Submit" page — the end-user counterpart
 // of the customer's /customer/enquiry cart page. Lives at its own route,
-// /end-user/order-cart, deliberately NOT called "OrderEnquiry" or put at
-// /end-user/enquiry — that name/route is already taken by the shared
-// Assign -> Approve -> Reject pipeline queue at src/pages/master/
-// OrderEnquiry.jsx (rendered for end_user too, at /master/enquiry). This
-// page is a different thing entirely: a shopping-cart review + submit
-// step, not a claims/approval worklist.
+// /end-user/order-cart.
 //
-// ProductSelection.jsx never submits anything itself; it only builds up
-// the persistent, per-customer cart (utils/endUserCart.js) and sends the
-// officer here to review qty, add Requested Date / Ref No / Remarks, and
-// either submit the enquiry or save everything as a draft to come back
-// to later (utils/endUserDrafts.js — see the Drafts page). On successful
-// submit this navigates to /master/orders (the existing, already-role-
-// scoped Order List/Status page) rather than a page of its own, since
-// that page already exists and already filters to this officer's own
-// orders (scope=own) for the end_user role.
-//
-// Submission logic (one POST /orders per cart line, since there's no
-// staff-side bulk endpoint — see OrderController::storeBulk note) is
-// unchanged from before.
-//
-// If this page was reached by resuming a saved draft (?draftId=...,
-// set by the Drafts page), "Save as Draft" updates that same draft in
-// place instead of creating a new one, and submitting deletes it.
+// Cart table columns match ProductCatalog parity (Sort No | Shade No |
+// Product Description | Type | UOM | Colour | Quantity | Actions).
+// Quantity is read-only until the row's Edit is pressed; Remove deletes
+// the line. Total sits under the Quantity column on the right.
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import EndUserLayout from "../../components/EndUserLayout";
@@ -36,6 +18,29 @@ import { getCart, updateCartQty, removeFromCart, clearCart, subscribeToCart } fr
 import { saveDraft, updateDraft, deleteDraft, getDraft } from "../../utils/endUserDrafts";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
+const DUMMY_SWATCHES = ["#8FD9A8", "#7FD1E0", "#E893C9", "#9A9AA5", "#F0A15C", "#B7A6E0"];
+const DUMMY_TYPES = ["BLD & DYED", "Bld/Dyed", "R.Blue/G.Blue", "Fiber Dyed", "YD Dyed", "YD Slub", "3.7 & 7.4", "8*137 (Box)", "Spl Maroon"];
+const DUMMY_SHADE_NOS = ["101", "102", "103", "104", "105", "106"];
+
+function dummyUom(subType) {
+  const u = (subType || "").toLowerCase();
+  if (u.includes("shirting") || u.includes("suiting") || u.includes("blouse")) return "m";
+  return "pcs";
+}
+
+function dummyType(product, i) {
+  return product.Type || DUMMY_TYPES[i % DUMMY_TYPES.length];
+}
+
+function dummyShadeNo(product, i) {
+  const num = product.ShadeNo || DUMMY_SHADE_NOS[i % DUMMY_SHADE_NOS.length];
+  return `SHADE ${num}`;
+}
+
+function dummyDescription(product, i) {
+  return `SHADING FABRIC ${dummyShadeNo(product, i)}`;
+}
 
 function formatDate(d) {
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
@@ -62,6 +67,9 @@ export default function CartCheckout() {
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
 
+  // Which cart line key is currently in "edit qty" mode (null = none)
+  const [editingKey, setEditingKey] = useState(null);
+
   useEffect(() => {
     const role = localStorage.getItem("role");
     if (role !== "end_user") { navigate("/login"); return; }
@@ -86,10 +94,6 @@ export default function CartCheckout() {
     return unsub;
   }, [customerId]);
 
-  // Pre-fill Requested Date / Ref No / Remarks when this cart was opened
-  // by resuming a saved draft — the cart items themselves are already
-  // sitting there (Drafts page loads them via replaceCart before it
-  // navigates here), this just restores the rest of the form.
   useEffect(() => {
     if (!draftId) return;
     const d = getDraft(draftId);
@@ -103,8 +107,12 @@ export default function CartCheckout() {
 
   const setQty = (line, qty) => {
     const clamped = Math.max(0, Math.min(qty, line.product.Quantity ?? qty));
-    if (clamped <= 0) removeFromCart(customerId, line.key);
-    else updateCartQty(customerId, line.key, clamped);
+    if (clamped <= 0) {
+      removeFromCart(customerId, line.key);
+      setEditingKey(null);
+    } else {
+      updateCartQty(customerId, line.key, clamped);
+    }
   };
 
   const buildNotes = () => {
@@ -149,11 +157,6 @@ export default function CartCheckout() {
     setSubmitting(true);
     setError("");
     try {
-      // No staff-side "bulk" endpoint exists (that's customer-cart-only,
-      // see OrderController::storeBulk) — so each cart line becomes its
-      // own POST /orders call, fired together. Every line still lands
-      // as a normal 'pending' enquiry through the same Marketing Review
-      // -> Final Approval pipeline as anything else.
       const notes = buildNotes();
       await Promise.all(cart.map((l) => API.post("/orders", {
         customerId,
@@ -165,7 +168,7 @@ export default function CartCheckout() {
         notes,
       })));
       clearCart(customerId);
-      if (draftId) deleteDraft(draftId); // submitted — no longer a pending draft
+      if (draftId) deleteDraft(draftId);
       navigate("/master/orders", {
         state: { notice: `${cart.length} item(s) submitted as an enquiry for ${customer?.Name || "the customer"}.` },
       });
@@ -184,14 +187,23 @@ export default function CartCheckout() {
     infoValue: { fontSize: 14, fontWeight: 700, color: themeG.textMain, margin: 0 },
 
     tableCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)", marginBottom: 20 },
-    table: { width: "100%", borderCollapse: "collapse" },
-    th: { textAlign: "left", padding: "12px 16px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: themeG.textLabel, background: themeG.bg, borderBottom: `1px solid ${themeG.border}` },
-    td: { padding: "12px 16px", fontSize: 13.5, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` },
+    tableScroll: { overflowX: "auto" },
+    table: { width: "100%", minWidth: 960, borderCollapse: "collapse" },
+    th: { textAlign: "left", padding: "12px 16px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: themeG.textLabel, background: themeG.bg, borderBottom: `1px solid ${themeG.border}`, whiteSpace: "nowrap" },
+    td: { padding: "12px 16px", fontSize: 13.5, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}`, whiteSpace: "nowrap" },
+    tdWrap: { padding: "12px 16px", fontSize: 13, color: themeG.textSub, borderBottom: `1px solid ${themeG.border}`, whiteSpace: "normal", maxWidth: 220 },
+    swatch: (c) => ({ width: 20, height: 20, borderRadius: "50%", background: c, border: "1.5px solid rgba(0,0,0,0.14)", display: "inline-block", verticalAlign: "middle" }),
+    shadeNo: { fontSize: 13, fontWeight: 600, color: themeG.textMain },
 
     qtyBox: { display: "flex", alignItems: "center", gap: 8 },
     qtyBtn: { width: 26, height: 26, borderRadius: 7, border: `1px solid ${themeG.border}`, background: themeG.bg, color: themeG.textMain, fontSize: 15, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
     qtyInput: { width: 56, textAlign: "center", padding: "5px 4px", borderRadius: 7, border: `1px solid ${themeG.border}`, fontSize: 13, fontFamily: FONT, color: themeG.textMain, background: themeG.card, outline: "none" },
-    removeBtn: { border: "none", background: "transparent", color: "#B23A3A", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT },
+    qtyReadOnly: { fontSize: 14, fontWeight: 700, color: themeG.textMain, minWidth: 28, textAlign: "center" },
+
+    actionsCell: { display: "flex", alignItems: "center", gap: 12 },
+    editBtn: { border: "none", background: "transparent", color: themeG.accent, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT, padding: 0 },
+    doneBtn: { border: "none", background: "transparent", color: "#16A34A", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT, padding: 0 },
+    removeBtn: { border: "none", background: "transparent", color: "#B23A3A", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT, padding: 0 },
 
     detailsCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 20, marginBottom: 20, boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
     detailsTitle: { fontSize: 14, fontWeight: 700, color: themeG.textMain, margin: "0 0 16px" },
@@ -248,47 +260,112 @@ export default function CartCheckout() {
             Your cart is empty. Go back to the catalog to add products.
           </div>
         ) : (
-          <table style={S.table}>
-            <thead>
-              <tr>
-                <th style={S.th}>Product</th>
-                <th style={S.th}>Code</th>
-                <th style={S.th}>Quantity</th>
-                <th style={S.th}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {cart.map((l) => (
-                <tr key={l.key}>
-                  <td style={S.td}>{l.product.Name}</td>
-                  <td style={S.td}>{l.product.Code || "—"}</td>
-                  <td style={S.td}>
-                    <div style={S.qtyBox}>
-                      <button style={S.qtyBtn} onClick={() => setQty(l, l.qty - 1)}>−</button>
-                      <input
-                        style={S.qtyInput}
-                        type="number"
-                        min={0}
-                        max={l.product.Quantity ?? undefined}
-                        value={l.qty}
-                        onChange={(e) => setQty(l, parseInt(e.target.value, 10) || 0)}
-                      />
-                      <button style={S.qtyBtn} onClick={() => setQty(l, l.qty + 1)} disabled={l.product.Quantity != null && l.qty >= l.product.Quantity}>+</button>
-                    </div>
-                  </td>
-                  <td style={S.td}>
-                    <button style={S.removeBtn} onClick={() => removeFromCart(customerId, l.key)}>Remove</button>
-                  </td>
+          <div style={S.tableScroll}>
+            <table style={S.table}>
+              <thead>
+                <tr>
+                  <th style={S.th}>Sort No</th>
+                  <th style={S.th}>Shade No</th>
+                  <th style={S.th}>Product Description</th>
+                  <th style={S.th}>Type</th>
+                  <th style={S.th}>UOM</th>
+                  <th style={S.th}>Colour</th>
+                  <th style={S.th}>Quantity</th>
+                  <th style={S.th}>Actions</th>
                 </tr>
-              ))}
-              <tr>
-                <td style={{ ...S.td, fontWeight: 700, borderBottom: "none" }}>Total</td>
-                <td style={{ ...S.td, borderBottom: "none" }} />
-                <td style={{ ...S.td, fontWeight: 700, borderBottom: "none" }}>{totalQty.toLocaleString()}</td>
-                <td style={{ ...S.td, borderBottom: "none" }} />
-              </tr>
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {cart.map((l, i) => {
+                  const p = l.product;
+                  const swatch = p.Color || DUMMY_SWATCHES[i % DUMMY_SWATCHES.length];
+                  const isEditing = editingKey === l.key;
+                  return (
+                    <tr key={l.key}>
+                      <td style={S.td}>{p.Code || "—"}</td>
+                      <td style={S.td}><span style={S.shadeNo}>{dummyShadeNo(p, i)}</span></td>
+                      <td style={S.tdWrap}>{dummyDescription(p, i)}</td>
+                      <td style={S.td}>{dummyType(p, i)}</td>
+                      <td style={S.td}>{dummyUom(p.SubType)}</td>
+                      <td style={S.td}><div style={S.swatch(swatch)} /></td>
+                      <td style={S.td}>
+                        {isEditing ? (
+                          <div style={S.qtyBox}>
+                            <button style={S.qtyBtn} onClick={() => setQty(l, l.qty - 1)}>−</button>
+                            <input
+                              style={S.qtyInput}
+                              type="number"
+                              min={0}
+                              max={p.Quantity ?? undefined}
+                              value={l.qty}
+                              onChange={(e) => setQty(l, parseInt(e.target.value, 10) || 0)}
+                            />
+                            <button
+                              style={S.qtyBtn}
+                              onClick={() => setQty(l, l.qty + 1)}
+                              disabled={p.Quantity != null && l.qty >= p.Quantity}
+                            >
+                              +
+                            </button>
+                          </div>
+                        ) : (
+                          <span style={S.qtyReadOnly}>{l.qty}</span>
+                        )}
+                      </td>
+                      <td style={S.td}>
+                        <div style={S.actionsCell}>
+                          {isEditing ? (
+                            <button style={S.doneBtn} onClick={() => setEditingKey(null)}>
+                              Done
+                            </button>
+                          ) : (
+                            <button style={S.editBtn} onClick={() => setEditingKey(l.key)}>
+                              Edit
+                            </button>
+                          )}
+                          <button
+                            style={S.removeBtn}
+                            onClick={() => {
+                              removeFromCart(customerId, l.key);
+                              if (editingKey === l.key) setEditingKey(null);
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr>
+                  <td
+                    colSpan={6}
+                    style={{
+                      ...S.td,
+                      borderBottom: "none",
+                      textAlign: "right",
+                      fontWeight: 700,
+                      color: themeG.textSub,
+                      
+                    }}
+                  >
+                    Total quantity
+                  </td>
+                  <td
+                    style={{
+                      ...S.td,
+                      borderBottom: "none",
+                      fontWeight: 700,
+                      fontSize: 15,
+                      color: "green",
+                    }}
+                  >
+                    {totalQty.toLocaleString()}
+                  </td>
+                  <td style={{ ...S.td, borderBottom: "none" }} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

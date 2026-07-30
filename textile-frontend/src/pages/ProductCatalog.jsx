@@ -44,13 +44,13 @@ import { getCart, addToCart, subscribeToCart, clearCart } from "../utils/custome
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
 const TAB_COLORS = ["#1F5C99", "#2E7D32", "#6A3FA0", "#C9740B", "#0E7C86", "#B23A3A"];
-const TAB_ICONS  = { blouse: "👚", dhoti: "📜", uniform: "🎽", "uniform shirting": "🎽", "uniform suiting": "🧥", "premier shirting": "👔", pant: "👖", shirt: "👔", leggings: "🩳", bundle: "🧶", hank: "🧵", cone: "🧵", others: "📦" };
+const TAB_ICONS = { blouse: "👚", dhoti: "📜", uniform: "🎽", "uniform shirting": "🎽", "uniform suiting": "🧥", "premier shirting": "👔", pant: "👖", shirt: "👔", leggings: "🩳", bundle: "🧶", hank: "🧵", cone: "🧵", others: "📦" };
 
 const TYPE_GROUPS = {
-  "Blouse":           ["Blouse"],
-  "Dhoti":            ["Dhoti", "Cotton Dhoti Grey", "Cotton Dhoti Fabric"],
+  "Blouse": ["Blouse"],
+  "Dhoti": ["Dhoti", "Cotton Dhoti Grey", "Cotton Dhoti Fabric"],
   "Uniform Shirting": ["Uniform Shirting"],
-  "Uniform Suiting":  ["Uniform Suiting"],
+  "Uniform Suiting": ["Uniform Suiting"],
   "Premier Shirting": ["Premier Shirting"],
 };
 
@@ -368,189 +368,195 @@ export default function ProductCatalog() {
           fix, this just guarantees nothing else can do the same thing. */}
       <div style={{ maxWidth: "100%", overflowX: "hidden", boxSizing: "border-box" }}>
 
-      <div style={S.infoCard}>
-        <p style={S.infoTitle}>👤 Customer Information</p>
-        <div style={S.infoGrid}>
-          <div><p style={S.infoLabel}>Customer Name</p><p style={S.infoValue}>{customer?.Name || user.name || "—"}</p></div>
-          <div><p style={S.infoLabel}>Customer Code</p><p style={S.infoValue}>{customer?.Code || "—"}</p></div>
-          <div><p style={S.infoLabel}>Mobile Number</p><p style={S.infoValue}>{customer?.Phone || "—"}</p></div>
-          <div><p style={S.infoLabel}>Area / Region</p><p style={S.infoValue}>{customer?.Taluk ? `${customer.Taluk} — ${customer.District || ""}` : "—"}</p></div>
-          <div><p style={S.infoLabel}>Contact Person</p><p style={S.infoValue}>{customer?.ContactPersons?.[0]?.contactName || "—"}</p></div>
-          <div><p style={S.infoLabel}>Date</p><p style={S.infoValue}>{formatDate(new Date())}</p></div>
-        </div>
-      </div>
-
-      {error && <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>{error}</div>}
-      {notice && <div style={{ marginBottom: 16, background: "rgba(15,33,56,0.08)", border: "1px solid rgba(15,33,56,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: themeG.accent }}>{notice}</div>}
-
-      {typeKeys.length > 0 && (
-        <div style={S.tabRow}>
-          {typeKeys.map((t, i) => (
-            <button key={t} onClick={() => setActiveType(t)} style={S.tab(activeType === t, TAB_COLORS[i % TAB_COLORS.length])}>
-              <span>{TAB_ICONS[t.toLowerCase()] || "🧷"}</span> {t}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {subTypesForActiveType.length > 1 && (
-        <div style={S.subTabRow}>
-          {subTypesForActiveType.map((s) => (
-            <button key={s} onClick={() => setActiveSubType(s)} style={S.subTab(activeSubType === s)}>{s}</button>
-          ))}
-        </div>
-      )}
-
-      <div style={S.layout}>
-        {/* ── Combined search/dropdown + scrollable table ── */}
-        <div>
-          <div style={S.comboWrap} ref={nameBoxRef}>
-            <label style={S.label}>Product Name</label>
-            <input
-              style={S.comboInput}
-              placeholder={`Search or choose a ${activeSubType || activeType} product…`}
-              value={nameQuery}
-              onFocus={() => setNameMenuOpen(true)}
-              onChange={(e) => { setNameQuery(e.target.value); setNameMenuOpen(true); }}
-            />
-            {nameMenuOpen && (
-              <div style={S.comboMenu}>
-                {suggestionNames.length === 0 ? (
-                  <div style={S.comboEmpty}>No product name matches "{nameQuery}".</div>
-                ) : (
-                  suggestionNames.map((n) => (
-                    <div
-                      key={n}
-                      style={S.comboItem}
-                      onMouseDown={() => { setNameQuery(n); setNameMenuOpen(false); }}
-                    >
-                      {n}
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+        <div style={S.infoCard}>
+          <p style={S.infoTitle}>👤 Customer Information</p>
+          <div style={S.infoGrid}>
+            <div><p style={S.infoLabel}>Customer Name</p><p style={S.infoValue}>{customer?.Name || user.name || "—"}</p></div>
+            <div><p style={S.infoLabel}>Customer Code</p><p style={S.infoValue}>{customer?.Code || "—"}</p></div>
+            <div><p style={S.infoLabel}>Mobile Number</p><p style={S.infoValue}>{customer?.Phone || "—"}</p></div>
+            <div><p style={S.infoLabel}>Area / Region</p><p style={S.infoValue}>{customer?.Taluk ? `${customer.Taluk} — ${customer.District || ""}` : "—"}</p></div>
+            <div><p style={S.infoLabel}>Contact Person</p><p style={S.infoValue}>{customer?.ContactPersons?.[0]?.contactName || "—"}</p></div>
+            <div><p style={S.infoLabel}>Date</p><p style={S.infoValue}>{formatDate(new Date())}</p></div>
           </div>
+        </div>
 
-          {/* ── Secondary filters: Sort No / Description search + UOM dropdown ── */}
-          <div style={S.filterRow}>
-            <div style={S.filterCol}>
-              <label style={S.filterLabel}>Search Sort No / Description</label>
+        {error && <div style={{ marginBottom: 16, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" }}>{error}</div>}
+        {notice && <div style={{ marginBottom: 16, background: "rgba(15,33,56,0.08)", border: "1px solid rgba(15,33,56,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: themeG.accent }}>{notice}</div>}
+
+        {typeKeys.length > 0 && (
+          <div style={S.tabRow}>
+            {typeKeys.map((t, i) => (
+              <button key={t} onClick={() => setActiveType(t)} style={S.tab(activeType === t, TAB_COLORS[i % TAB_COLORS.length])}>
+                <span>{TAB_ICONS[t.toLowerCase()] || "🧷"}</span> {t}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {subTypesForActiveType.length > 1 && (
+          <div style={S.subTabRow}>
+            {subTypesForActiveType.map((s) => (
+              <button key={s} onClick={() => setActiveSubType(s)} style={S.subTab(activeSubType === s)}>{s}</button>
+            ))}
+          </div>
+        )}
+
+        <div style={S.layout}>
+          {/* ── Combined search/dropdown + scrollable table ── */}
+          <div>
+            <div style={S.comboWrap} ref={nameBoxRef}>
+              <label style={S.label}>Product Name</label>
               <input
-                style={S.filterInput}
-                placeholder="e.g. 1481 or “colourfast dyeing”…"
-                value={secondaryQuery}
-                onChange={(e) => setSecondaryQuery(e.target.value)}
+                style={S.comboInput}
+                placeholder={`Search or choose a ${activeSubType || activeType} product…`}
+                value={nameQuery}
+                onFocus={() => setNameMenuOpen(true)}
+                onChange={(e) => { setNameQuery(e.target.value); setNameMenuOpen(true); }}
               />
+              {nameMenuOpen && (
+                <div style={S.comboMenu}>
+                  {suggestionNames.length === 0 ? (
+                    <div style={S.comboEmpty}>No product name matches "{nameQuery}".</div>
+                  ) : (
+                    suggestionNames.map((n) => (
+                      <div
+                        key={n}
+                        style={S.comboItem}
+                        onMouseDown={() => { setNameQuery(n); setNameMenuOpen(false); }}
+                      >
+                        {n}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
-            <div style={S.filterColNarrow}>
-              <label style={S.filterLabel}>UOM</label>
-              <select style={S.filterSelect} value={uomFilter} onChange={(e) => setUomFilter(e.target.value)}>
-                {UOM_OPTIONS.map((u) => (
-                  <option key={u} value={u}>{u}</option>
-                ))}
-              </select>
-            </div>
-          </div>
 
-          <div style={S.tableCard}>
-            {tableProducts.length === 0 ? (
-              <div style={{ padding: 30, textAlign: "center", color: themeG.textSub, fontSize: 13 }}>
-                {activeSubType ? `No ${activeSubType} products match the current filters.` : "No products available."}
+            {/* ── Secondary filters: Sort No / Description search + UOM dropdown ── */}
+            <div style={S.filterRow}>
+              <div style={S.filterCol}>
+                <label style={S.filterLabel}>Search Sort No / Description</label>
+                <input
+                  style={S.filterInput}
+                  placeholder="e.g. 1481 or “colourfast dyeing”…"
+                  value={secondaryQuery}
+                  onChange={(e) => setSecondaryQuery(e.target.value)}
+                />
               </div>
-            ) : (
-              <div style={S.tableScroll}>
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      <th style={S.th}>Sort No</th>
-                      <th style={S.th}>Shade No</th>
-                      <th style={S.th}>Product Description</th>
-                      <th style={S.th}>Type</th>
-                      <th style={S.th}>UOM</th>
-                      <th style={S.th}>Quantity</th>
-                      <th style={S.th}>Colour</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tableProducts.map((p, i) => {
-                      const qty = getRowQty(p.Id);
-                      const swatch = p.Color || DUMMY_SWATCHES[i % DUMMY_SWATCHES.length];
-                      const already = inCartQty(p.Id);
-                      return (
-                        <tr key={p.Id}>
-                          <td style={S.td}>{p.Code || "—"}</td>
-                          <td style={S.td}><span style={S.shadeNo}>{dummyShadeNo(p, i)}</span></td>
-                          <td style={S.tdWrap}>{dummyDescription(p, i)}</td>
-                          <td style={S.td}>{dummyType(p, i)}</td>
-                          <td style={S.td}>{dummyUom(p.SubType)}</td>
-                          <td style={S.td}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <div style={S.qtyBox}>
-                                <button style={S.qtyBtn} onClick={() => setRowQtyFor(p, qty - 1)}>−</button>
-                                <input
-                                  style={S.qtyInput}
-                                  type="number"
-                                  min={0}
-                                  max={p.Quantity ?? undefined}
-                                  value={qty}
-                                  onChange={(e) => setRowQtyFor(p, parseInt(e.target.value, 10) || 0)}
-                                />
-                                <button style={S.qtyBtn} onClick={() => setRowQtyFor(p, qty + 1)}>+</button>
+              <div style={S.filterColNarrow}>
+                <label style={S.filterLabel}>UOM</label>
+                <select style={S.filterSelect} value={uomFilter} onChange={(e) => setUomFilter(e.target.value)}>
+                  {UOM_OPTIONS.map((u) => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div style={S.tableCard}>
+              {tableProducts.length === 0 ? (
+                <div style={{ padding: 30, textAlign: "center", color: themeG.textSub, fontSize: 13 }}>
+                  {activeSubType ? `No ${activeSubType} products match the current filters.` : "No products available."}
+                </div>
+              ) : (
+                <div style={S.tableScroll}>
+                  <table style={S.table}>
+                    <thead>
+                      <tr>
+                        <th style={S.th}>Sort No</th>
+                        <th style={S.th}>Shade No</th>
+                        <th style={S.th}>Product Description</th>
+                        <th style={S.th}>Type</th>
+                        <th style={S.th}>UOM</th>
+                        <th style={S.th}>Colour</th>
+                        <th style={S.th}>Quantity</th>
+                        
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tableProducts.map((p, i) => {
+                        const qty = getRowQty(p.Id);
+                        const swatch = p.Color || DUMMY_SWATCHES[i % DUMMY_SWATCHES.length];
+                        const already = inCartQty(p.Id);
+                        return (
+                          <tr key={p.Id}>
+                            <td style={S.td}>{p.Code || "—"}</td>
+                            <td style={S.td}><span style={S.shadeNo}>{dummyShadeNo(p, i)}</span></td>
+                            <td style={S.tdWrap}>{dummyDescription(p, i)}</td>
+                            <td style={S.td}>{dummyType(p, i)}</td>
+                            <td style={S.td}>{dummyUom(p.SubType)}</td>
+                            <td style={S.td}>
+                              <div style={S.swatch(swatch)} />
+                            </td>
+
+                            <td style={S.td}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <div style={S.qtyBox}>
+                                  <button style={S.qtyBtn} onClick={() => setRowQtyFor(p, qty - 1)}>−</button>
+                                  <input
+                                    style={S.qtyInput}
+                                    type="number"
+                                    min={0}
+                                    max={p.Quantity ?? undefined}
+                                    value={qty}
+                                    onChange={(e) => setRowQtyFor(p, parseInt(e.target.value, 10) || 0)}
+                                  />
+                                  <button style={S.qtyBtn} onClick={() => setRowQtyFor(p, qty + 1)}>+</button>
+                                </div>
+
+                                <button
+                                  style={justAddedId === p.Id ? S.addedBtn : S.addBtn}
+                                  onClick={() => addRowToCart(p)}
+                                >
+                                  {justAddedId === p.Id ? "✓ Added" : "+ Add"}
+                                </button>
                               </div>
-                              <button
-                                style={justAddedId === p.Id ? S.addedBtn : S.addBtn}
-                                onClick={() => addRowToCart(p)}
-                              >
-                                {justAddedId === p.Id ? "✓ Added" : "+ Add"}
-                              </button>
-                            </div>
-                            {already > 0 && <p style={S.inCartNote}>Already in cart: {already}</p>}
-                          </td>
-                          <td style={S.td}><div style={S.swatch(swatch)} /></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+
+                              {already > 0 && <p style={S.inCartNote}>Already in cart: {already}</p>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Cart Summary ── */}
+          <div style={S.sidebar}>
+            <div style={S.sidebarTitleRow}>
+              <p style={S.sidebarTitle}>🛒 Cart Summary</p>
+              <button style={S.clearCartLink} onClick={handleClearCart} disabled={cart.length === 0}>
+                🗑 Clear Cart
+              </button>
+            </div>
+
+            <p style={S.statLabel}>Selected Products</p>
+            <p style={S.statValue}>{cartCount}</p>
+
+            <p style={{ ...S.statLabel, marginTop: 10 }}>Total Quantity</p>
+            <p style={S.statValue}>{cartQty}</p>
+
+            <div style={S.divider} />
+
+            <p style={{ ...S.statLabel, marginBottom: 8 }}>Selected Items</p>
+            {cart.length === 0 ? (
+              <p style={S.emptyNote}>No items selected</p>
+            ) : (
+              cart.map((i) => (
+                <div key={i.key} style={S.lineItem}>
+                  <span>{i.product.Name} <span style={S.lineItemSub}>({i.product.Code})</span></span>
+                  <span>{i.qty}</span>
+                </div>
+              ))
             )}
+
+            <button style={S.viewCartBtn} onClick={() => navigate("/customer/enquiry")}>View Cart & Submit →</button>
+            <button style={S.draftsBtn} onClick={() => navigate("/customer/drafts")}>📑 My Drafts</button>
           </div>
         </div>
-
-        {/* ── Cart Summary ── */}
-        <div style={S.sidebar}>
-          <div style={S.sidebarTitleRow}>
-            <p style={S.sidebarTitle}>🛒 Cart Summary</p>
-            <button style={S.clearCartLink} onClick={handleClearCart} disabled={cart.length === 0}>
-              🗑 Clear Cart
-            </button>
-          </div>
-
-          <p style={S.statLabel}>Selected Products</p>
-          <p style={S.statValue}>{cartCount}</p>
-
-          <p style={{ ...S.statLabel, marginTop: 10 }}>Total Quantity</p>
-          <p style={S.statValue}>{cartQty}</p>
-
-          <div style={S.divider} />
-
-          <p style={{ ...S.statLabel, marginBottom: 8 }}>Selected Items</p>
-          {cart.length === 0 ? (
-            <p style={S.emptyNote}>No items selected</p>
-          ) : (
-            cart.map((i) => (
-              <div key={i.key} style={S.lineItem}>
-                <span>{i.product.Name} <span style={S.lineItemSub}>({i.product.Code})</span></span>
-                <span>{i.qty}</span>
-              </div>
-            ))
-          )}
-
-          <button style={S.viewCartBtn} onClick={() => navigate("/customer/enquiry")}>View Cart & Submit →</button>
-          <button style={S.draftsBtn} onClick={() => navigate("/customer/drafts")}>📑 My Drafts</button>
-        </div>
-      </div>
       </div>
     </CustomerLayout>
   );

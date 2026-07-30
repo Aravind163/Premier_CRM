@@ -26,6 +26,10 @@
 //                                                    their own customers
 //                                                    directly
 //
+// End-user status pills (both My Orders + Customer Orders):
+//   All | Pending | Approved | Rejected
+//   ("Rejected" is the UI label for backend status "declined".)
+//
 // Order List visibility by role (backend scope, unchanged):
 //   - system_admin : sees every order, regardless of who it's assigned to
 //   - admin        : sees their own orders + orders assigned to end users
@@ -50,6 +54,16 @@
 // neither is present in the response yet (backend hasn't added the
 // eager load), it returns "unknown" and "Customer Orders" shows an
 // explanatory empty state instead of guessing.
+//
+// FIX (placement misclassification): the role check against
+// o.creator.role was a strict `=== "customer"` comparison. If the
+// backend sends the role in any other casing/shape (e.g. "Customer",
+// "CUSTOMER", or with stray whitespace), every order silently fell
+// through to "mine" — which is exactly the "everything lands in My
+// Orders" symptom. Now normalized (trimmed + lowercased) before
+// comparing, and matched against a small set of known "customer-ish"
+// values instead of a single exact string, so backend inconsistencies
+// don't misroute orders.
 import { useTheme } from "../../ThemeContext";
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
@@ -60,22 +74,37 @@ import ExcelToolbar from "../../components/ExcelToolbar";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-// Columns shown in the Order List table — Excel download/upload columns
-// are always kept identical to this list. Status is left out: it's not
-// something that should be edited via a re-uploaded spreadsheet, and
-// having it round-trip through Excel was a source of confusion (see
-// CUSTOMER_EXCEL_COLUMNS in CustomerList.jsx for the same reasoning).
 const ORDER_EXCEL_COLUMNS = [
-  { key: "id",           header: "Order ID" },
-  { key: "customer",     header: "Customer" },
+  { key: "id", header: "Order ID" },
+  { key: "customer", header: "Customer" },
   { key: "followPerson", header: "Follow Person" },
-  { key: "qty",          header: "Qty" },
-  { key: "date",         header: "Date" },
+  { key: "qty", header: "Qty" },
+  { key: "date", header: "Date" },
   { key: "deliveryDate", header: "Expected Delivery Date" },
 ];
 
+// End-user lists: only these 4. "Rejected" is UI-only; backend status is "declined".
+const STATUS_FILTERS_END_USER = ["All", "Pending", "Approved", "Rejected"];
+const STATUS_FILTERS_ADMIN = ["All", "Approved", "Pending", "Processing", "Delivered", "Declined"];
+
+/** Map UI filter label → backend status string(s) to match. */
+function statusMatchesFilter(orderStatus, filterStatus) {
+  if (filterStatus === "All") return true;
+  const s = (orderStatus || "").toLowerCase();
+  const f = filterStatus.toLowerCase();
+  if (f === "rejected" || f === "declined") return s === "declined" || s === "rejected";
+  return s === f;
+}
+
+/** Display label for a raw status (end-user prefers Rejected over Declined). */
+function displayStatus(status, preferRejected) {
+  const s = (status || "").toLowerCase();
+  if (preferRejected && (s === "declined" || s === "rejected")) return "rejected";
+  return status || "";
+}
+
 const categoryColors = {
-  yarn:  { bg: "rgba(247,232,203,0.22)", dot: "#D69426", border: "rgba(214,148,38,0.22)" },
+  yarn: { bg: "rgba(247,232,203,0.22)", dot: "#D69426", border: "rgba(214,148,38,0.22)" },
   cloth: { bg: "rgba(216,230,243,0.22)", dot: "#5B9BD9", border: "rgba(91,155,217,0.20)" },
 };
 
@@ -105,15 +134,11 @@ export default function OrderList() {
   const isEndUser = role === "end_user";
   const notice = location.state?.notice || "";
 
-  // Declared unconditionally (rules of hooks) even though only the
-  // admin/system_admin branch below actually reads/sets it.
   const [tab, setTab] = useState("list");
 
   // ── end_user: no in-page toggle ──
-  // Which list renders is decided entirely by the `tab` query param the
-  // sidebar sends (EndUserLayout.jsx): absent/"mine" -> My Orders,
-  // "customer" -> Customer Orders. Each is its own page now, not a
-  // button switch living on top of one shared page.
+  // My Orders      -> /master/orders            (placed by this FO)
+  // Customer Orders -> /master/orders?tab=customer (placed by their customers)
   if (isEndUser) {
     const placementFilter = searchParams.get("tab") === "customer" ? "customer" : "mine";
     const pageTitle = placementFilter === "customer" ? "Customer Orders" : "My Orders";
@@ -125,7 +150,13 @@ export default function OrderList() {
             {notice}
           </div>
         )}
-        <OrderListTab themeG={themeG} navigate={navigate} placementFilter={placementFilter} />
+        <OrderListTab
+          themeG={themeG}
+          navigate={navigate}
+          placementFilter={placementFilter}
+          statusFilters={STATUS_FILTERS_END_USER}
+          preferRejectedLabel
+        />
       </Layout>
     );
   }
@@ -163,7 +194,14 @@ export default function OrderList() {
         {tabsConfig.map((t) => tabBtn(t.key, t.label))}
       </div>
 
-      {tab === "list" && <OrderListTab themeG={themeG} navigate={navigate} placementFilter="all" />}
+      {tab === "list" && (
+        <OrderListTab
+          themeG={themeG}
+          navigate={navigate}
+          placementFilter="all"
+          statusFilters={STATUS_FILTERS_ADMIN}
+        />
+      )}
       {tab === "status" && <OrderStatusTab themeG={themeG} navigate={navigate} />}
     </Layout>
   );
@@ -171,19 +209,16 @@ export default function OrderList() {
 
 /* ────────────────────────── Tab: Order List / My Orders / Customer Orders ──────────────────────────── */
 
-// Figures out who placed a given order, using the backend's CreatedBy /
-// creator relation (Orders.CreatedBy is already set on every order by
-// OrderController@store and @storeBulk — GET /orders and GET
-// /orders/{id} just need to eager-load 'creator' for o.creator.role to
-// be present). Returns:
-//   "mine"     — placed by the current end user (CreatedBy === them)
-//   "customer" — placed by a customer directly (creator.role === "customer",
-//                 or CreatedBy belongs to someone else)
-//   "unknown"  — CreatedBy wasn't included in this response yet (e.g.
-//                backend hasn't added 'creator' to the eager load yet)
+const CUSTOMER_ROLE_VALUES = new Set(["customer", "cust", "client"]);
+
 const detectPlacement = (o, currentUserId) => {
-  if (o.creator?.role) {
-    return o.creator.role === "customer" ? "customer" : "mine";
+  const rawRole = o.creator?.role;
+  if (rawRole !== undefined && rawRole !== null && String(rawRole).trim() !== "") {
+    const normalizedRole = String(rawRole).trim().toLowerCase();
+    return CUSTOMER_ROLE_VALUES.has(normalizedRole) ? "customer" : "mine";
+  }
+  if ((currentUserId === undefined || currentUserId === null || currentUserId === "") && (o.CreatedBy !== undefined && o.CreatedBy !== null)) {
+    return "unknown";
   }
   if (o.CreatedBy !== undefined && o.CreatedBy !== null) {
     return String(o.CreatedBy) === String(currentUserId) ? "mine" : "customer";
@@ -192,10 +227,18 @@ const detectPlacement = (o, currentUserId) => {
 };
 
 // placementFilter: "all" | "mine" | "customer"
-function OrderListTab({ themeG, navigate, placementFilter = "all" }) {
+// statusFilters: pill labels (end-user uses All/Pending/Approved/Rejected)
+function OrderListTab({
+  themeG,
+  navigate,
+  placementFilter = "all",
+  statusFilters = STATUS_FILTERS_ADMIN,
+  preferRejectedLabel = false,
+}) {
   const tab = localStorage.getItem("premier_category") || "cloth";
   const role = localStorage.getItem("role") || "";
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentUserId = user.Id ?? user.id ?? user.ID ?? user.userId ?? null;
 
   const [filterStatus, setFilterStatus] = useState("All");
   const [search, setSearch] = useState("");
@@ -209,14 +252,13 @@ function OrderListTab({ themeG, navigate, placementFilter = "all" }) {
 
   const load = async () => {
     try {
-      // Role-based scope — system_admin sees everything; admin sees
-      // their own orders plus orders assigned to end users under them;
-      // end_user sees only their own. Backend is expected to honor
-      // this `scope` param the same way OrderEnquiry.jsx's does.
+      // end_user: scope=own → only this FO's territory / assigned customers
+      // (backend already scopes region / AssignedTo). We then split on
+      // placement: mine = FO submitted (CartCheckout), customer = customer
+      // cart checkout under those same customers.
       const params = {};
       if (role === "end_user") params.scope = "own";
       else if (role === "admin") params.scope = "own_and_team";
-      // system_admin -> no scope param, backend returns everything
 
       const [ordRes, custRes, prodRes, usersRes] = await Promise.all([
         API.get("/orders", { params }),
@@ -228,13 +270,6 @@ function OrderListTab({ themeG, navigate, placementFilter = "all" }) {
       setFollowPeople(people);
 
       const mapped = ordRes.data.map((o) => {
-        // Try every shape the assigned-user relation might come back as
-        // from the API first (most reliable, since it's already attached
-        // to the order), then fall back to matching against the
-        // separately-fetched /users list. If there's an AssignedToId but
-        // still no name anywhere, show it plainly instead of silently
-        // leaving the cell blank — that's a data-mapping gap worth seeing
-        // rather than hiding.
         const followName =
           o.assignedUser?.Name ||
           o.AssignedUser?.Name ||
@@ -254,7 +289,7 @@ function OrderListTab({ themeG, navigate, placementFilter = "all" }) {
           status: o.Status,
           deliveryDate: o.DeliveryDate ? o.DeliveryDate.substring(0, 10) : null,
           groupRef: o.OrderDetails?.GroupRef ?? null,
-          placement: detectPlacement(o, user.Id),
+          placement: detectPlacement(o, currentUserId),
         };
       });
       setOrders(mapped);
@@ -269,8 +304,11 @@ function OrderListTab({ themeG, navigate, placementFilter = "all" }) {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
-  // Orders placed together (multi-product orders) share a GroupRef —
-  // fold those into a single display row.
+  // Reset status filter when switching My Orders ↔ Customer Orders
+  useEffect(() => {
+    setFilterStatus("All");
+  }, [placementFilter]);
+
   const groupOrders = (list) => {
     const groups = new Map();
     const singles = [];
@@ -294,23 +332,20 @@ function OrderListTab({ themeG, navigate, placementFilter = "all" }) {
 
   const displayOrders = groupOrders(orders);
 
-  // Whether the backend has actually sent us anything to classify
-  // placement with yet. If not, "mine"/"customer" filters can't be
-  // trusted, so we show an explanatory empty state instead of guessing.
   const placementFieldAvailable = orders.some((o) => o.placement !== "unknown");
 
   const filtered = displayOrders.filter((o) => {
     const matchTab = o.category === tab;
-    const matchStatus = filterStatus === "All" || o.status === filterStatus.toLowerCase();
+    const matchStatus = statusMatchesFilter(o.status, filterStatus);
     const matchSearch = o.id.toLowerCase().includes(search.toLowerCase())
       || o.customer.toLowerCase().includes(search.toLowerCase())
       || o.followPerson.toLowerCase().includes(search.toLowerCase());
     const matchPlacement =
       placementFilter === "all" ? true :
-      !placementFieldAvailable ? false : // can't classify yet — see note above
-      placementFilter === "mine" ? o.placement === "mine" :
-      placementFilter === "customer" ? o.placement === "customer" :
-      true;
+        !placementFieldAvailable ? false :
+          placementFilter === "mine" ? o.placement === "mine" :
+            placementFilter === "customer" ? o.placement === "customer" :
+              true;
     return matchTab && matchStatus && matchSearch && matchPlacement;
   });
 
@@ -330,22 +365,9 @@ function OrderListTab({ themeG, navigate, placementFilter = "all" }) {
     }
   };
 
-  // Bulk-add orders from an uploaded Excel file — Customer is matched by
-  // name or code against what's currently in the system.
-  //
-  // People generally re-download the current list, tweak a few cells,
-  // and re-upload it — so most rows in that file already exist. Skip
-  // any row whose "Order ID" column (that order's own Code, carried
-  // over from a previous download) matches an order already in the
-  // system, instead of inserting it again.
-  //
-  // NOTE: this endpoint currently only sends customerId/qty/deliveryDate,
-  // but /orders also requires productId + pricePerUnit — so a row that
-  // isn't a duplicate will still fail validation and count under
-  // "failed" until a Product column is added here too.
   const handleImportRows = async (rows) => {
     let created = 0, failed = 0, duplicates = 0;
-    const existingCodes = new Set(orders.map((o) => o.id)); // o.id = Order Code
+    const existingCodes = new Set(orders.map((o) => o.id));
 
     for (const row of rows) {
       const customer = customers.find((c) => c.Name === row.customer || c.Code === row.customer);
@@ -372,7 +394,14 @@ function OrderListTab({ themeG, navigate, placementFilter = "all" }) {
 
   const excelFilenameSuffix =
     placementFilter === "mine" ? "-mine" :
-    placementFilter === "customer" ? "-customer" : "";
+      placementFilter === "customer" ? "-customer" : "";
+
+  const pendingCount = filtered.filter((o) => (o.status || "").toLowerCase() === "pending").length;
+  const approvedCount = filtered.filter((o) => (o.status || "").toLowerCase() === "approved").length;
+  const rejectedCount = filtered.filter((o) => {
+    const s = (o.status || "").toLowerCase();
+    return s === "declined" || s === "rejected";
+  }).length;
 
   return (
     <>
@@ -411,12 +440,14 @@ function OrderListTab({ themeG, navigate, placementFilter = "all" }) {
         />
 
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {["All", "Approved", "Pending", "Processing", "Delivered", "Declined"].map((s) => (
+          {statusFilters.map((s) => (
             <button key={s} onClick={() => setFilterStatus(s)}
-              style={{ padding: "6px 13px", borderRadius: 20, border: "1px solid", cursor: "pointer", fontFamily: FONT, fontSize: 12, fontWeight: 500, transition: "all 0.12s",
+              style={{
+                padding: "6px 13px", borderRadius: 20, border: "1px solid", cursor: "pointer", fontFamily: FONT, fontSize: 12, fontWeight: 500, transition: "all 0.12s",
                 background: filterStatus === s ? "rgba(91,155,217,0.14)" : "transparent",
                 color: filterStatus === s ? themeG.accent : themeG.textSub,
-                borderColor: filterStatus === s ? "rgba(91,155,217,0.40)" : themeG.border }}>
+                borderColor: filterStatus === s ? "rgba(91,155,217,0.40)" : themeG.border
+              }}>
               {s}
             </button>
           ))}
@@ -434,11 +465,19 @@ function OrderListTab({ themeG, navigate, placementFilter = "all" }) {
       </div>
 
       <div style={{ display: "flex", gap: 16, marginBottom: 18 }}>
-        {[
-          { label: "Total Orders", value: filtered.length, color: themeG.accent },
-          { label: "Pending", value: filtered.filter((o) => o.status === "pending").length, color: "#D69426" },
-          { label: "Delivered", value: filtered.filter((o) => o.status === "delivered").length, color: "#1F5C99" },
-        ].map((s) => (
+        {(preferRejectedLabel
+          ? [
+            { label: "Total Orders", value: filtered.length, color: themeG.accent },
+            { label: "Pending", value: pendingCount, color: "#D69426" },
+            { label: "Approved", value: approvedCount, color: "#1F5C99" },
+            { label: "Rejected", value: rejectedCount, color: "#B23A3A" },
+          ]
+          : [
+            { label: "Total Orders", value: filtered.length, color: themeG.accent },
+            { label: "Pending", value: filtered.filter((o) => o.status === "pending").length, color: "#D69426" },
+            { label: "Delivered", value: filtered.filter((o) => o.status === "delivered").length, color: "#1F5C99" },
+          ]
+        ).map((s) => (
           <div key={s.label} style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 10, padding: "12px 20px", boxShadow: "0 2px 8px rgba(46,122,114,0.05)", flex: 1 }}>
             <p style={{ margin: "0 0 4px", fontSize: 11, color: themeG.textLabel, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: FONT }}>{s.label}</p>
             <p style={{ margin: 0, fontSize: 22, fontWeight: 700, color: s.color, fontFamily: "'Space Grotesk', " + FONT }}>{s.value}</p>
@@ -446,12 +485,12 @@ function OrderListTab({ themeG, navigate, placementFilter = "all" }) {
         ))}
       </div>
 
-      <div style={{ background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.06)" }}>
+      <div style={{ background: "#EAF3FC", border: "1px solid rgba(91,155,217,0.35)", borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.06)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${themeG.border}` }}>
               {["Order ID", "Customer", "Follow Person", "Qty", "Date", "Status", "Expected Delivery Date", "Actions"].map((h) => (
-                <th key={h} style={{ textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 13px", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.04)", fontFamily: FONT }}>
+                <th key={h} style={{ textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 13px", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.16)", fontFamily: FONT }}>
                   {h}
                 </th>
               ))}
@@ -459,9 +498,18 @@ function OrderListTab({ themeG, navigate, placementFilter = "all" }) {
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={8} style={{ textAlign: "center", padding: 40, color: themeG.textSub, fontSize: 14, fontFamily: FONT }}>No orders found.</td></tr>
+              <tr>
+                <td colSpan={8} style={{ textAlign: "center", padding: 40, color: themeG.textSub, fontSize: 14, fontFamily: FONT }}>
+                  {placementFilter === "customer"
+                    ? "No customer-placed enquiries yet. Orders you submit for a customer appear under My Orders."
+                    : placementFilter === "mine"
+                      ? "No orders placed by you yet."
+                      : "No orders found."}
+                </td>
+              </tr>
             ) : filtered.map((o) => {
               const cc = categoryColors[o.category] || categoryColors.cloth;
+              const statusLabel = displayStatus(o.status, preferRejectedLabel);
               return (
                 <tr key={o.id} style={{ borderBottom: "1px solid rgba(46,122,114,0.06)", background: cc.bg }}>
                   <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.accent, fontWeight: 700, borderLeft: `3px solid ${cc.dot}`, fontFamily: FONT }}>
@@ -476,15 +524,14 @@ function OrderListTab({ themeG, navigate, placementFilter = "all" }) {
                   <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textSub, fontFamily: FONT }}>{o.followPerson}</td>
                   <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textMain, fontFamily: FONT }}>{o.qty}</td>
                   <td style={{ padding: "12px 13px", fontSize: 12, color: themeG.textSub, fontFamily: FONT }}>{o.date}</td>
-                  <td style={{ padding: "12px 13px" }}><Badge text={o.status} colorFn={statusColor} /></td>
+                  <td style={{ padding: "12px 13px" }}><Badge text={statusLabel} colorFn={statusColor} /></td>
                   <td style={{ padding: "12px 13px", fontSize: 12, fontFamily: FONT, whiteSpace: "nowrap" }}>
                     {o.deliveryDate || "—"}
                   </td>
                   <td style={{ padding: "12px 13px", whiteSpace: "nowrap" }}>
                     <div style={{ display: "flex", gap: 7 }}>
-                      <button style={btnStyle("#5B9BD9")} onClick={() => navigate(`/master/orders/add?editId=${o.dbId}`)}>👁️</button>
-                      <button style={btnStyle(themeG.accent)} onClick={() => navigate(`/master/orders/add?editId=${o.dbId}`)}>✏️</button>
-                      <button style={btnStyle("#B23A3A")} disabled={deletingId === o.dbId} onClick={() => handleDelete(o)}>
+                      <button style={btnStyle("#5B9BD9")} onClick={() => navigate(`/master/orders/add?editId=${o.dbId}&mode=view`)}>👁️</button>
+                      <button style={btnStyle(themeG.accent)} onClick={() => navigate(`/master/orders/add?editId=${o.dbId}`)}>✏️</button>                      <button style={btnStyle("#B23A3A")} disabled={deletingId === o.dbId} onClick={() => handleDelete(o)}>
                         {deletingId === o.dbId ? "…" : "🗑️"}
                       </button>
                     </div>
@@ -513,7 +560,6 @@ function OrderStatusTab({ themeG, navigate }) {
   const [error, setError] = useState("");
   const [actingId, setActingId] = useState(null);
 
-  // Dispatch modal (LR Number + Transport Name)
   const [dispatchTarget, setDispatchTarget] = useState(null);
   const [lrNumber, setLrNumber] = useState("");
   const [transportName, setTransportName] = useState("");
