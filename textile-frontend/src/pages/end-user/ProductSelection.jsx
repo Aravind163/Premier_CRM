@@ -460,10 +460,7 @@ export default function ProductSelection() {
                 ))}
               </div>
             )}
-
-            {/* ── SubType sub-tabs — only when the active Type groups more
-              than one real SubType (e.g. Dhoti -> Cotton Dhoti Grey /
-              Fabric nest here). ── */}
+            
             {subTypesForActiveType.length > 1 && (
               <div style={S.subTabRow}>
                 {subTypesForActiveType.map((s) => (
