@@ -76,20 +76,19 @@
 // same rotating placeholder list used there when the backend hasn't set
 // one.
 //
-// The four stat cards at the top are now: Pending Final Approval, Approved
-// Orders Today, Total Order Value, ERP Transfer Pending — each with a
-// "View Details" link that opens the Sales Order page pre-filtered to that
-// exact slice (`/master/sales-order?view=...`).
-//
-// Export Excel and Print Summary sit above the table, next to the View By
-// switch (CSV download / print-formatted version of whatever's currently
-// visible). Below the table: "Approval" (renamed from "Save & Submit
-// Allocation" — saves the in-progress qty/remarks edits and submits every
-// touched row for System Admin review), Reset Allocation, System Admin's
-// separate "Transfer to ERP" button right beside it (pushes every already-
-// Approved, not-yet-transferred row to ERP in one batch), and Save Draft
-// last (stores the in-progress qty/remarks edits to localStorage so a
-// refresh doesn't lose them).
+// The four stat cards at the top are ROLE-SPECIFIC (see the two mockups):
+//   - System Admin: Pending Final Approval / Approved Orders Today /
+//     Total Order Value / ERP Transfer Pending — reflecting the final
+//     approval + ERP handoff work that's theirs alone.
+//   - Admin: Today's Inquiries / Pending Allocation / Available Stock /
+//     Awaiting Approval — reflecting the allocation work that's theirs:
+//     how much fresh demand came in, how much of it still needs stock
+//     allocated, how much stock is left to allocate with, and how much
+//     of what they've already submitted is still sitting with the System
+//     Admin. Each card still has a "View Details" link that opens the
+//     Sales Order page (`/master/sales-order?view=...`), but Admin's four
+//     cards point at a *different* set of view ids than System Admin's —
+//     see SalesOrder.jsx, which now branches its tabs/columns by role too.
 import { useEffect, useMemo, useState, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -192,7 +191,8 @@ const DUMMY_SHADE_NOS = ["SH-101", "SH-102", "SH-103", "SH-104", "SH-105", "SH-1
 const sortNoFallback = (product) => product?.Code || "—";
 const shadeNoFor = (product, seed) => product?.ShadeNo || DUMMY_SHADE_NOS[seed % DUMMY_SHADE_NOS.length];
 
-// Today's date as YYYY-MM-DD, for the "Approved Orders Today" stat.
+// Today's date as YYYY-MM-DD, for the "Approved Orders Today" /
+// "Today's Inquiries" stats.
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 // ── Stock-position read (Admin's "Allocation Status") ───────────────────
@@ -576,7 +576,9 @@ export default function Batches() {
   }, [visibleRows, liveAvailableByProduct]);
   const totalStockScope = Array.from(distinctProductsAvailable.values()).reduce((a, v) => a + v, 0);
 
-  // ---- Four headline stats (page-wide, not just the active tab) ----------
+  // ---- System Admin's four headline stats (page-wide, not just the
+  // active tab) — Pending Final Approval / Approved Orders Today / Total
+  // Order Value / ERP Transfer Pending. -------------------------------
   const pendingFinalApprovalCount = useMemo(() => rows.filter((r) => r.status === "pending").length, [rows]);
   const approvedTodayCount = useMemo(
     () => rows.filter((r) => r.status === "approved" && (r.decidedAt || "").slice(0, 10) === todayStr()).length,
@@ -587,6 +589,36 @@ export default function Batches() {
     () => rows.filter((r) => r.status === "approved" && r.erpStatus !== "erp_so_created").length,
     [rows]
   );
+
+  // ---- Admin's four headline stats (page-wide, not just the active tab)
+  // — Today's Inquiries / Pending Allocation / Available Stock / Awaiting
+  // Approval. Distinct from System Admin's set above: these describe the
+  // allocation work still on Admin's own plate, not the final-approval /
+  // ERP-handoff work that belongs to System Admin.
+  //   - Today's Inquiries: every active Order line currently on this
+  //     board (the day's live demand Admin needs to work through).
+  //   - Pending Allocation: lines where the allocated qty hasn't yet
+  //     caught up to the requested qty (still needs stock assigned).
+  //   - Available Stock: total unallocated stock left across every
+  //     product currently on the board (the pool Admin is allocating
+  //     from), not scoped to the active category tab or search.
+  //   - Awaiting Approval: lines Admin has already submitted ("Approval")
+  //     that are still sitting with System Admin as Status = Pending —
+  //     same underlying figure as pendingFinalApprovalCount above, just
+  //     framed from Admin's side of the workflow.
+  const todayInquiriesCount = rows.length;
+  const pendingAllocationCount = useMemo(
+    () => rows.filter((r) => allocFor(r) < r.requested).length,
+    [rows, allocInputs]
+  );
+  const totalAvailableStockAll = useMemo(() => {
+    const map = new Map();
+    rows.forEach((r) => {
+      if (!map.has(r.productId)) map.set(r.productId, liveAvailableByProduct.get(r.productId) ?? r.poolAvailable);
+    });
+    return Array.from(map.values()).reduce((a, v) => a + v, 0);
+  }, [rows, liveAvailableByProduct]);
+  const awaitingApprovalCount = pendingFinalApprovalCount;
 
   const goToSalesOrder = (view) => navigate(`/master/sales-order?view=${view}`);
 
@@ -724,14 +756,29 @@ export default function Batches() {
     <Layout pageTitle="Marketing Review">
       <div className="font-body">
         <div className="mr-grid mr-grid-4 mr-mb-5">
-          <StatCardV2 icon={Hourglass} label="Pending Final Approval" value={pendingFinalApprovalCount} accent="#D69426"
-            onViewDetails={() => goToSalesOrder("pending_final_approval")} />
-          <StatCardV2 icon={ClipboardList} label="Approved Orders Today" value={approvedTodayCount} accent="#2E6B9E"
-            onViewDetails={() => goToSalesOrder("approved_today")} />
-          <StatCardV2 icon={PackageCheck} label="Total Order Value" value={`₹${totalOrderValue.toLocaleString()}`} accent="#2E7A72"
-            onViewDetails={() => goToSalesOrder("total_order_value")} />
-          <StatCardV2 icon={Truck} label="ERP Transfer Pending" value={erpTransferPendingCount} accent="#B23A3A"
-            onViewDetails={() => goToSalesOrder("erp_transfer_pending")} />
+          {isSystemAdminRole ? (
+            <>
+              <StatCardV2 icon={Hourglass} label="Pending Final Approval" value={pendingFinalApprovalCount} accent="#D69426"
+                onViewDetails={() => goToSalesOrder("pending_final_approval")} />
+              <StatCardV2 icon={ClipboardList} label="Approved Orders Today" value={approvedTodayCount} accent="#2E6B9E"
+                onViewDetails={() => goToSalesOrder("approved_today")} />
+              <StatCardV2 icon={PackageCheck} label="Total Order Value" value={`₹${totalOrderValue.toLocaleString()}`} accent="#2E7A72"
+                onViewDetails={() => goToSalesOrder("total_order_value")} />
+              <StatCardV2 icon={Truck} label="ERP Transfer Pending" value={erpTransferPendingCount} accent="#B23A3A"
+                onViewDetails={() => goToSalesOrder("erp_transfer_pending")} />
+            </>
+          ) : (
+            <>
+              <StatCardV2 icon={ClipboardList} label="Today's Inquiries" value={todayInquiriesCount} accent="#2E6B9E"
+                onViewDetails={() => goToSalesOrder("today_inquiries")} />
+              <StatCardV2 icon={Hourglass} label="Pending Allocation" value={pendingAllocationCount} accent="#D69426"
+                onViewDetails={() => goToSalesOrder("pending_allocation")} />
+              <StatCardV2 icon={PackageCheck} label="Available Stock" value={`${totalAvailableStockAll.toLocaleString()} Pcs`} accent="#2E7A72"
+                onViewDetails={() => goToSalesOrder("available_stock")} />
+              <StatCardV2 icon={Hourglass} label="Awaiting Approval" value={awaitingApprovalCount} accent="#B23A3A"
+                onViewDetails={() => goToSalesOrder("awaiting_approval")} />
+            </>
+          )}
         </div>
 
         {error && <div className="tag tag-hold mr-mb-4" style={{ display: "block", padding: "10px 14px" }}>{error}</div>}
@@ -835,12 +882,12 @@ export default function Batches() {
         </div>
         {activeCatLabel && (
           <div className="mr-mb-3">
-            <span className="tag" style={{ background: CATEGORY_GROUPS.find((g) => g.id === activeCat)?.tagBg, color: CATEGORY_GROUPS.find((g) => g.id === activeCat)?.tagText }}>
+            {/* <span className="tag" style={{ background: CATEGORY_GROUPS.find((g) => g.id === activeCat)?.tagBg, color: CATEGORY_GROUPS.find((g) => g.id === activeCat)?.tagText }}>
               Showing {activeCatLabel} items only — other categories are hidden
-            </span>
+            </span> */}
           </div>
         )}
-
+{/* 
         {showSelection && someRowsSelected && (
           <div
             className="card mr-p-2 mr-mb-3 mr-flex mr-items-center mr-gap-3 mr-flex-wrap"
@@ -864,7 +911,7 @@ export default function Batches() {
             </button>
             <button className="btn btn-ghost btn-sm" onClick={() => setSelectedRows(new Set())}>Clear selection</button>
           </div>
-        )}
+        )} */}
 
         <div className="mr-lg-grid-main">
           <div className="card mr-p-3" style={{ minWidth: 0 }}>

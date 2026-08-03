@@ -22,11 +22,24 @@ import API from "../../services/api";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-const VIEWS = [
+// System Admin's four drill-downs — same as before, tied to the final
+// approval + ERP handoff work that's theirs.
+const SYSADMIN_VIEWS = [
   { id: "pending_final_approval", label: "Pending Final Approval" },
   { id: "approved_today",         label: "Approved Orders Today" },
   { id: "total_order_value",      label: "Total Order Value" },
   { id: "erp_transfer_pending",   label: "ERP Transfer Pending" },
+];
+
+// Admin's four drill-downs — match Admin's own stat cards on Marketing
+// Review (Today's Inquiries / Pending Allocation / Available Stock /
+// Awaiting Approval), which describe the allocation work still on
+// Admin's plate rather than System Admin's final-approval workflow.
+const ADMIN_VIEWS = [
+  { id: "today_inquiries",   label: "Today's Inquiries" },
+  { id: "pending_allocation", label: "Pending Allocation" },
+  { id: "available_stock",   label: "Available Stock" },
+  { id: "awaiting_approval", label: "Awaiting Approval" },
 ];
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -36,10 +49,15 @@ export default function SalesOrder() {
   const themeG = getG(isDark);
   const S = buildStyles(themeG);
 
+  const role = localStorage.getItem("role") || "";
+  const isSystemAdminRole = role === "system_admin";
+  const VIEWS = isSystemAdminRole ? SYSADMIN_VIEWS : ADMIN_VIEWS;
+  const defaultViewId = VIEWS[0].id;
+
   const [searchParams, setSearchParams] = useSearchParams();
   const view = VIEWS.some((v) => v.id === searchParams.get("view"))
     ? searchParams.get("view")
-    : "pending_final_approval";
+    : defaultViewId;
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,11 +70,27 @@ export default function SalesOrder() {
     setLoading(true); setError("");
     try {
       const params = {};
-      if (view === "pending_final_approval") params.status = "pending";
-      if (view === "approved_today") { params.status = "approved"; params.date = todayStr(); }
-      if (view === "erp_transfer_pending") { params.status = "approved"; params.erp_status = "not_transferred"; }
-      // "total_order_value" intentionally has no status/erp filter — it's
-      // the full picture, sorted by value.
+      if (isSystemAdminRole) {
+        if (view === "pending_final_approval") params.status = "pending";
+        if (view === "approved_today") { params.status = "approved"; params.date = todayStr(); }
+        if (view === "erp_transfer_pending") { params.status = "approved"; params.erp_status = "not_transferred"; }
+        // "total_order_value" intentionally has no status/erp filter — it's
+        // the full picture, sorted by value.
+      } else {
+        // Admin's four views. "pending_allocation" and "available_stock"
+        // are computed/sorted client-side below (see `visible`) rather
+        // than via a status param, since they're a function of
+        // requested/available/allocated qty, not the approval status
+        // field. Backend param names here mirror the pattern already
+        // used above (date/status/erp_status) — if /allocations/list
+        // doesn't yet support `date` as a same-day inquiry filter, this
+        // just falls back to the unfiltered list, matching what
+        // Marketing Review's own inquiryDate filter already assumes.
+        if (view === "today_inquiries") params.date = todayStr();
+        if (view === "awaiting_approval") params.status = "pending";
+        // "pending_allocation" / "available_stock" intentionally have no
+        // server-side filter — the full picture, filtered/sorted below.
+      }
       const res = await API.get("/allocations/list", { params });
       setRows(res.data || []);
     } catch (err) {
@@ -68,7 +102,7 @@ export default function SalesOrder() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [view]);
 
-  const setView = (id) => setSearchParams(id === "pending_final_approval" ? {} : { view: id });
+  const setView = (id) => setSearchParams(id === defaultViewId ? {} : { view: id });
 
   // Reject — same PATCH /allocations/{id}/decision endpoint Marketing
   // Review's tick/cross actions use, so a rejection made here shows up
@@ -129,10 +163,25 @@ export default function SalesOrder() {
   const visible = useMemo(() => {
     let list = filterBySearch(rows);
     if (view === "total_order_value") list = [...list].sort((a, b) => b.totalValue - a.totalValue);
+    // Admin's "Pending Allocation" — lines where the allocated qty hasn't
+    // caught up to what was requested yet (mirrors Marketing Review's own
+    // allocFor(row) < row.requested check, just against the server's
+    // saved allocatedQty here since there's no local draft on this page).
+    if (view === "pending_allocation") list = list.filter((r) => (r.allocatedQty || 0) < (r.requestedQty || 0));
+    // Admin's "Available Stock" — same full list, ranked by what's left
+    // to allocate rather than by value.
+    if (view === "available_stock") list = [...list].sort((a, b) => (b.availableQty || 0) - (a.availableQty || 0));
     return list;
   }, [rows, search, view]);
 
   const totalValueSum = useMemo(() => rows.reduce((a, r) => a + (r.totalValue || 0), 0), [rows]);
+  const totalAvailableSum = useMemo(() => {
+    // Sum available stock once per product, not once per row — several
+    // rows (customers/orders) can share the same product's stock pool.
+    const seen = new Map();
+    rows.forEach((r) => { if (!seen.has(r.productCode)) seen.set(r.productCode, r.availableQty || 0); });
+    return Array.from(seen.values()).reduce((a, v) => a + v, 0);
+  }, [rows]);
 
   const fmtAmt = (a) => `₹${(parseFloat(a) || 0).toLocaleString()}`;
   const statusBadge = (status) => {
@@ -145,12 +194,36 @@ export default function SalesOrder() {
     return <span style={{ background: st.bg, color: st.color, border: `1px solid ${st.color}33`, padding: "3px 12px", borderRadius: 20, fontSize: 11.5, fontWeight: 700 }}>{st.label}</span>;
   };
 
+  // Admin's read on a row — the same stock-position badge Marketing
+  // Review shows Admin (Fully/Partial Allocated, Stock Shortage), not the
+  // approval-state badge above. Mirrors stockStatus()/stockColor() in
+  // Batches.jsx so the two pages agree.
+  const stockPositionBadge = (row) => {
+    const requested = row.requestedQty || 0;
+    const available = row.availableQty || 0;
+    const allocated = row.allocatedQty || 0;
+    let label, color, bg;
+    if (available <= 0 && allocated <= 0) { label = "Stock Shortage"; color = "#B23A3A"; bg = "rgba(178,58,58,0.12)"; }
+    else if (allocated >= requested) { label = "Fully Allocated"; color = "#1C7A4B"; bg = "rgba(28,122,75,0.12)"; }
+    else { label = "Partial Allocated"; color = "#8A5A0E"; bg = "rgba(138,90,14,0.12)"; }
+    return <span style={{ background: bg, color, border: `1px solid ${color}33`, padding: "3px 12px", borderRadius: 20, fontSize: 11.5, fontWeight: 700 }}>{label}</span>;
+  };
+  // "Awaiting Approval" is the one Admin view that still reflects the
+  // real approval state (what's sitting with System Admin), not stock
+  // position — so it uses statusBadge() like System Admin's views do.
+  const rowStatusBadge = (row) =>
+    (isSystemAdminRole || view === "awaiting_approval") ? statusBadge(row.status) : stockPositionBadge(row);
+
   return (
     <Layout pageTitle="Sales Order">
       <h1 style={S.heading}>Order details</h1>
       <p style={S.headingSub}>
-        {VIEWS.find((v) => v.id === view)?.label} — fed by Marketing Review's Final Approval workflow.
+        {VIEWS.find((v) => v.id === view)?.label} — {isSystemAdminRole ? "fed by Marketing Review's Final Approval workflow." : "fed by Marketing Review's allocation board."}
         {view === "total_order_value" && ` Total: ${fmtAmt(totalValueSum)} across ${rows.length} line(s).`}
+        {view === "today_inquiries" && ` Total: ${rows.length} order line(s).`}
+        {view === "pending_allocation" && ` Total: ${visible.length} line(s) still awaiting full allocation.`}
+        {view === "available_stock" && ` Total available: ${totalAvailableSum.toLocaleString()} Pcs.`}
+        {view === "awaiting_approval" && ` Total: ${rows.length} line(s) awaiting System Admin's decision.`}
       </p>
 
       <div style={S.tabRow}>
@@ -191,7 +264,10 @@ export default function SalesOrder() {
                   <th style={S.th}>S.No</th>
                   <th style={S.th}>Customer</th><th style={S.th}>Customer Code</th>
                   <th style={S.th}>Product</th><th style={S.th}>Product Code</th>
-                  <th style={S.th}>Qty</th><th style={S.th}>Status</th>
+                  {!isSystemAdminRole && <th style={S.th}>Requested Qty</th>}
+                  {!isSystemAdminRole && <th style={S.th}>Available Stock</th>}
+                  <th style={S.th}>{isSystemAdminRole ? "Qty" : "Allocated Qty"}</th>
+                  <th style={S.th}>Status</th>
                   {view === "pending_final_approval" && <th style={S.th}>Actions</th>}
                 </tr>
               </thead>
@@ -206,8 +282,10 @@ export default function SalesOrder() {
                       <td style={S.td}>{r.customerCode}</td>
                       <td style={S.td}>{r.productName}</td>
                       <td style={S.td}>{r.productCode}</td>
+                      {!isSystemAdminRole && <td style={S.td}>{r.requestedQty ?? "—"}</td>}
+                      {!isSystemAdminRole && <td style={S.td}>{r.availableQty ?? "—"}</td>}
                       <td style={S.td}>{r.allocatedQty}</td>
-                      <td style={S.td}>{statusBadge(r.status)}</td>
+                      <td style={S.td}>{rowStatusBadge(r)}</td>
                       {view === "pending_final_approval" && (
                         <td style={S.td}>
                           <div style={{ display: "flex", gap: 6 }}>
