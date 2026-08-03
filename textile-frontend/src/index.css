@@ -156,6 +156,11 @@ input:focus {
   background: #fff; border: 1px solid #5B4B8C; color: #5B4B8C;
 }
 .btn-print:hover:not(:disabled) { background: #F1EDFB; border-color: #4A2E7A; color: #4A2E7A; }
+.btn-erp {
+  background: linear-gradient(155deg, #2E8FBF, #164F72); color: #fff; border: none;
+  box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 4px 12px -4px rgba(22,79,114,.5);
+}
+.btn-erp:hover:not(:disabled) { background: linear-gradient(155deg, #23708F, #0F3D57); transform: translateY(-1px); }
 
 /* ---- Cards ---- */
 .card {
@@ -204,6 +209,7 @@ label.field-label {
 .tag-hold { background: #F7DCDC; color: #B23A3A; }
 .tag-info { background: #DCE9E7; color: #1E4A45; }
 .tag-neutral { background: #E7ECF1; color: #526073; }
+.tag-success { background: #DCF3E6; color: #1C7A4B; }
 
 /* ---- Table ---- */
 table.data { border-collapse: collapse; width: 100%; }
@@ -361,7 +367,7 @@ table.data-dark tfoot td { padding: .65rem .7rem; font-weight: 700; background: 
 .mr-table-viewport::-webkit-scrollbar-thumb:hover { background: #7C93AC; }
 
 /* Two-level sticky header for Product Wise View: the outer column-title
-   row (Product Code / Name / Sort No / Shade No) sticks at the very top;
+   row (Product Code / Sort No / Shade No / Name) sticks at the very top;
    each expanded product's own field-label sub-header sticks directly
    underneath it. Only the real data rows (the product rows themselves,
    and the customer detail rows below an expanded product) scroll past

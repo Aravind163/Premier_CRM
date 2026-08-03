@@ -9,16 +9,29 @@ import { exportRowsToExcel, importRowsFromExcel } from "../utils/excelIO";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
+// Upload Excel — solid-fill look matching Marketing Review's real
+// "Export Excel" button (Batches.jsx's .btn-excel: solid green, white
+// text, small rounded pill), so the action reads as "the Excel button"
+// wherever it shows up. Download Excel mirrors the exact same shape/
+// weight/padding, just recolored blue per the latest request.
+const excelBtnStyle = {
+  display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8,
+  border: "1px solid #1C7A4B", background: "#1C7A4B", color: "#ffffff",
+  cursor: "pointer", fontFamily: FONT, fontSize: 12.5, fontWeight: 700,
+  boxShadow: "0 1px 3px rgba(28,122,75,0.25)",
+};
+
+const downloadBtnStyle = {
+  display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8,
+  border: "1px solid #2E6B9E", background: "#2E6B9E", color: "#ffffff",
+  cursor: "pointer", fontFamily: FONT, fontSize: 12.5, fontWeight: 700,
+  boxShadow: "0 1px 3px rgba(46,107,158,0.25)",
+};
+
 export default function ExcelToolbar({ themeG, rows, columns, filename, reportTitle, onImportRows }) {
   const fileInputRef = useRef(null);
   const [importing, setImporting] = useState(false);
   const [notice, setNotice] = useState(null); // { type: 'success'|'error', text }
-
-  const btnStyle = {
-    display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 9,
-    border: `1px solid ${themeG.border}`, background: themeG.card, color: themeG.textMain,
-    cursor: "pointer", fontFamily: FONT, fontSize: 13, fontWeight: 600,
-  };
 
   const handleDownload = () => {
     exportRowsToExcel(rows, columns, filename, reportTitle);
@@ -57,10 +70,10 @@ export default function ExcelToolbar({ themeG, rows, columns, filename, reportTi
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ display: "flex", gap: 8 }}>
-        <button type="button" style={btnStyle} onClick={handleDownload} title="Download the current list as an Excel file">
+        <button type="button" style={downloadBtnStyle} onClick={handleDownload} title="Download the current list as an Excel file">
           ⬇ Download Excel
         </button>
-        <button type="button" style={{ ...btnStyle, opacity: importing ? 0.6 : 1 }} onClick={handleUploadClick} disabled={importing} title="Upload an Excel file to bulk-add rows">
+        <button type="button" style={{ ...excelBtnStyle, opacity: importing ? 0.6 : 1 }} onClick={handleUploadClick} disabled={importing} title="Upload an Excel file to bulk-add rows">
           {importing ? "Uploading…" : "⬆ Upload Excel"}
         </button>
         <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFileChange} />

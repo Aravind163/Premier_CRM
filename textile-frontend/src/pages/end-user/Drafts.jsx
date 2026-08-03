@@ -2,17 +2,26 @@
 //
 // Field Officer's "My Drafts" page — lists every saved draft across all
 // customers (see utils/endUserDrafts.js). A draft is a frozen snapshot
-// of a customer's cart, taken from the Cart Checkout page with "💾 Save
-// as Draft" instead of submitting. An officer can hold several drafts
-// at once (same or different customers) and come back to any of them.
+// of a customer's cart, taken from either the Product Selection page or
+// the Cart Checkout page with "💾 Save as Draft" instead of submitting.
+// Saving from either page empties that customer's live cart and lands
+// here, so both pages start empty by default the next time they're
+// opened fresh (i.e. without a draftId in the URL).
+//
+// An officer can hold several drafts at once (same or different
+// customers) and come back to any of them.
 //
 // "Resume" restores that draft's items back into the live cart for its
-// customer (utils/endUserCart.js::replaceCart) and opens Cart Checkout
-// pre-filled with the draft's Requested Date / Ref No / Remarks too —
-// editing from there and saving again updates the same draft in place;
-// submitting removes it from the list.
+// customer (utils/endUserCart.js::replaceCart) and opens Product
+// Selection pre-filled with the draft's customer + items, carrying the
+// draftId along in the URL. From Product Selection the officer can keep
+// adding/adjusting products, then either continue on to Cart Checkout
+// (View Cart & Submit — which also carries the draftId so Requested
+// Date / Ref No / Remarks come back too) or save again with "💾 Save as
+// Draft", which updates this same draft in place. Submitting the
+// enquiry from Cart Checkout removes it from this list.
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import EndUserLayout from "../../components/EndUserLayout";
 import { useTheme } from "../../ThemeContext";
 import { getG } from "../../theme";
@@ -31,9 +40,13 @@ export default function Drafts() {
   const { isDark } = useTheme();
   const themeG = getG(isDark);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [drafts, setDrafts] = useState([]);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  // Hand-off notice from Product Selection / Cart Checkout's "Save as
+  // Draft" button, if that's how we got here.
+  const [notice, setNotice] = useState(location.state?.notice || "");
 
   useEffect(() => {
     const role = localStorage.getItem("role");
@@ -47,9 +60,13 @@ export default function Drafts() {
     return unsub;
   }, []);
 
+  // Resume sends the officer back to Product Selection (not Cart
+  // Checkout) with this draft's items already restored into the live
+  // cart and the draftId carried in the URL, so "View Cart & Submit"
+  // from there brings the Requested Date / Ref No / Remarks along too.
   const resumeDraft = (draft) => {
     replaceCart(draft.customerId, draft.items);
-    navigate(`/end-user/order-cart?customerId=${draft.customerId}&draftId=${draft.id}`);
+    navigate(`/end-user/product-selection?customerId=${draft.customerId}&draftId=${draft.id}`);
   };
 
   const confirmDelete = (id) => {
@@ -100,6 +117,12 @@ export default function Drafts() {
           <p style={S.subtitle}>Enquiries you've saved but haven't submitted yet.</p>
         </div>
       </div>
+
+      {notice && (
+        <div style={{ marginBottom: 16, background: "rgba(15,33,56,0.08)", border: "1px solid rgba(15,33,56,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: themeG.accent }}>
+          {notice}
+        </div>
+      )}
 
       {drafts.length === 0 ? (
         <div style={S.empty}>

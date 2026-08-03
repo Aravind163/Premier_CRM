@@ -43,6 +43,11 @@ class DashboardController extends Controller
         $totalProducts  = $productQ->where('Status', 'active')->count();
         $totalRevenue   = (clone $orderQ)->where('PaymentStatus', 'paid')->sum('TotalAmount');
 
+        $totalOrders    = (clone $orderQ)->count();
+        $approvedOrders = (clone $orderQ)->whereIn('Status', ['approved', 'processing', 'dispatched', 'delivered'])->count();
+        $pendingOrders  = (clone $orderQ)->where('Status', 'pending')->count();
+        $rejectedOrders = (clone $orderQ)->where('Status', 'declined')->count();
+
         $recentOrders = (clone $orderQ)
             ->orderBy('CreatedAt', 'desc')
             ->limit(10)
@@ -59,10 +64,14 @@ class DashboardController extends Controller
 
         return response()->json([
             'stats' => [
-                'total_customers' => $totalCustomers,
-                'active_orders'   => $activeOrders,
-                'total_products'  => $totalProducts,
-                'total_revenue'   => $totalRevenue,
+                'total_customers'  => $totalCustomers,
+                'active_orders'    => $activeOrders,
+                'total_products'   => $totalProducts,
+                'total_revenue'    => $totalRevenue,
+                'total_orders'     => $totalOrders,
+                'approved_orders'  => $approvedOrders,
+                'pending_orders'   => $pendingOrders,
+                'rejected_orders'  => $rejectedOrders,
             ],
             'recent_orders' => $recentOrders,
         ]);
@@ -211,8 +220,22 @@ class DashboardController extends Controller
         // ── 8. Long Pending Orders (>=3 days, approved/processing) ──────
         $longPending = collect($agingList)->filter(fn ($a) => $a['days'] >= 3)->take(10)->values();
 
+        // ── 9. Order Summary (real counts backing the "Order Summary"
+        // card row on the admin/sysadmin dashboard). "Rejected indents"
+        // is a proxy — no dedicated indent-validity flag exists yet, so
+        // it reuses the same possible-duplicate-pending heuristic as
+        // "possibleDuplicates" above.
+        $orderSummary = [
+            'total'           => $orders->count(),
+            'pending'         => $orders->where('Status', 'pending')->count(),
+            'approved'        => $orders->whereIn('Status', ['approved', 'processing', 'dispatched', 'delivered'])->count(),
+            'rejected'        => $orders->where('Status', 'declined')->count(),
+            'rejectedIndents' => $duplicates->count(),
+        ];
+
         return response()->json([
             'enquiryStatus'        => $enquiryStatus,
+            'orderSummary'         => $orderSummary,
             'ordersPlaced'         => [
                 'today'        => $dailyCount,
                 'customerWise' => $customerWise,

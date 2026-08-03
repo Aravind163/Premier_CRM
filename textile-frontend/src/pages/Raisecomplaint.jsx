@@ -91,7 +91,7 @@ export default function RaiseComplaint() {
 
     historyCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
     table: { width: "100%", borderCollapse: "collapse" },
-    th: { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(15,33,56,0.04)" },
+    th: { textAlign: "left", fontSize: 11,color: "#FFFFFF", background: "#1F3A63", padding: "12px 16px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 },
     td: { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` },
     statusTag: (open) => ({ fontSize: 11.5, fontWeight: 600, padding: "3px 11px", borderRadius: 20, background: open ? "rgba(168,112,31,0.12)" : "rgba(46,122,114,0.12)", color: open ? "#D69426" : "#1E4A45", border: `1px solid ${open ? "rgba(168,112,31,0.3)" : "rgba(46,122,114,0.3)"}` }),
   };

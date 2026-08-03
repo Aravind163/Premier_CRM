@@ -4,6 +4,16 @@
 // Product Name, and Product Type — bucketed into Below 2 / 2–5 / 5–10 /
 // 10–30 / More than 30 days, with a Total row. Same /credit-limit data
 // as the Overdue Report.
+//
+// CHANGES IN THIS VERSION:
+//  - Cancelling an overdue order now hands it off to the Sales Loss
+//    Report: real orders get flagged "declined" on the server (same as
+//    before, so /orders already reflects it there), and the demo/dummy
+//    rows are written to a small shared localStorage list that the
+//    Sales Loss Report reads on load and folds into its own "cancelled
+//    orders" total — so a cancelled ageing row now shows up as lost
+//    sales instead of just disappearing.
+//  - Removed the bottom "Cancel" / reset-filters confirmation control.
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../../ThemeContext";
 import Layout from "../../components/Layout";
@@ -28,24 +38,74 @@ const bucketAccent = {
   "10–30 days": "#D69426", "More than 30 days": "#B23A3A",
 };
 
+// Falls back through possible spellings for a field that isn't Sort
+// No / Shade No (e.g. Qty), where the real backend name is still tbd.
+const pick = (obj, ...keys) => {
+  for (const k of keys) {
+    if (obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
+  }
+  return "—";
+};
+
+// Shared handoff to the Sales Loss Report for demo/dummy rows, which
+// don't exist on the server and so would otherwise vanish on cancel
+// instead of showing up as a lost sale. Real orders don't need this —
+// they're flagged "declined" on the server instead, and the Sales Loss
+// Report already picks those up from /orders.
+const DUMMY_SALES_LOSS_KEY = "dummySalesLossOrders";
+function sendDummyOrderToSalesLoss(order) {
+  try {
+    const existing = JSON.parse(localStorage.getItem(DUMMY_SALES_LOSS_KEY) || "[]");
+    existing.push({
+      code: order.code,
+      sortNo: order.sortNo,
+      shadeNo: order.shadeNo,
+      productName: order.product,
+      customer: order.customer,
+      qty: order.qty,
+      value: order.balanceDue,
+      createdAt: new Date().toISOString(),
+    });
+    localStorage.setItem(DUMMY_SALES_LOSS_KEY, JSON.stringify(existing));
+  } catch {
+    // localStorage unavailable — nothing else to do here.
+  }
+}
+
+// --- Temporary demo/dummy data -----------------------------------------
+// Remove this block (or set to []) once real overdue data is enough to
+// demo the report in every environment.
+const DUMMY_AGEING_ROWS = [
+  { customer: "Sample Textiles Pvt Ltd", code: "ORD-D001", sortNo: "1471", shadeNo: "SH-204", qty: 120, balanceDue: 45200, daysOverdue: 1, product: "Cotton Yarn 40s", productType: "Yarn" },
+  { customer: "Sample Textiles Pvt Ltd", code: "ORD-D002", sortNo: "1472", shadeNo: "SH-118", qty: 60, balanceDue: 18750, daysOverdue: 4, product: "Poly Blend Fabric", productType: "Fabric" },
+  { customer: "Northline Apparel", code: "ORD-D003", sortNo: "1473", shadeNo: "SH-091", qty: 200, balanceDue: 92300, daysOverdue: 8, product: "Denim Roll 14oz", productType: "Fabric" },
+  { customer: "Northline Apparel", code: "ORD-D004", sortNo: "1474", shadeNo: "SH-045", qty: 35, balanceDue: 12600, daysOverdue: 22, product: "Cotton Yarn 30s", productType: "Yarn" },
+  { customer: "Vantage Garments", code: "ORD-D005", sortNo: "1475", shadeNo: "SH-302", qty: 500, balanceDue: 210000, daysOverdue: 38, product: "Grey Fabric", productType: "Fabric" },
+];
+
 const AGEING_COLUMNS = [
-  { key: "Customer", header: "Customer" }, { key: "Product", header: "Product" },
-  { key: "ProductType", header: "Product Type" }, { key: "Code", header: "Order Code" },
-  { key: "BalanceDue", header: "Balance Due" }, { key: "DaysOverdue", header: "Days Overdue" },
-  { key: "Bucket", header: "Ageing Bucket" },
+  { key: "SNo", header: "S.No" }, { key: "SortNo", header: "Sort No" },
+  { key: "ShadeNo", header: "Shade No" }, { key: "Code", header: "Order No" },
+  { key: "ProductType", header: "Product Type" }, { key: "Qty", header: "Qty" },
+  { key: "DaysOverdue", header: "Days Overdue" }, { key: "Bucket", header: "Ageing Bucket" },
+  { key: "Total", header: "Total" },
 ];
 
 export default function AgeingReportPage() {
   const { isDark } = useTheme();
   const themeG = getG(isDark);
   const [rows, setRows] = useState([]);
+  const [dummyRows, setDummyRows] = useState(DUMMY_AGEING_ROWS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [rowNotice, setRowNotice] = useState("");
 
   const [customerFilter, setCustomerFilter] = useState("All");
   const [productFilter, setProductFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [search, setSearch] = useState("");
+  const [confirmingCode, setConfirmingCode] = useState(null);
+  const [cancellingCode, setCancellingCode] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -68,18 +128,39 @@ export default function AgeingReportPage() {
           out.push({
             customer: r.customerName,
             code: o.code,
+            // Sort No / Shade No are product-level fields — read them
+            // off the order's product record, same as ProductCatalog.jsx.
+            sortNo: o.product?.Code ?? o.Code ?? "—",
+            shadeNo: o.product?.ShadeNo ?? o.ShadeNo ?? "—",
+            qty: pick(o, "qty", "Qty", "quantity", "Quantity"),
             balanceDue: o.balanceDue,
             paymentDueDate: o.paymentDueDate,
             daysOverdue: o.daysOverdue,
             bucket: bucketFor(o.daysOverdue),
             product: o.product?.Name || o.productName || o.code,
             productType: o.product?.SubType || o.product?.Type || o.productType || "—",
+            isDummy: false,
           });
         }
       })
     );
+    dummyRows.forEach((o) => {
+      out.push({
+        customer: o.customer,
+        code: o.code,
+        sortNo: o.sortNo,
+        shadeNo: o.shadeNo,
+        qty: o.qty,
+        balanceDue: o.balanceDue,
+        daysOverdue: o.daysOverdue,
+        bucket: bucketFor(o.daysOverdue),
+        product: o.product,
+        productType: o.productType,
+        isDummy: true,
+      });
+    });
     return out.sort((a, b) => b.daysOverdue - a.daysOverdue);
-  }, [rows]);
+  }, [rows, dummyRows]);
 
   const customerOptions = useMemo(
     () => ["All", ...Array.from(new Set(allFlatOrders.map((o) => o.customer).filter(Boolean))).sort()],
@@ -94,14 +175,18 @@ export default function AgeingReportPage() {
     [allFlatOrders]
   );
 
-  const flatOrders = useMemo(
-    () =>
-      allFlatOrders
-        .filter((o) => customerFilter === "All" || o.customer === customerFilter)
-        .filter((o) => productFilter === "All" || o.product === productFilter)
-        .filter((o) => typeFilter === "All" || o.productType === typeFilter),
-    [allFlatOrders, customerFilter, productFilter, typeFilter]
-  );
+  const flatOrders = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return allFlatOrders
+      .filter((o) => customerFilter === "All" || o.customer === customerFilter)
+      .filter((o) => productFilter === "All" || o.product === productFilter)
+      .filter((o) => typeFilter === "All" || o.productType === typeFilter)
+      .filter((o) => {
+        if (!q) return true;
+        return [o.customer, o.code, o.product, o.productType, o.sortNo, o.shadeNo]
+          .some((v) => String(v ?? "").toLowerCase().includes(q));
+      });
+  }, [allFlatOrders, customerFilter, productFilter, typeFilter, search]);
 
   const bucketCounts = AGEING_BUCKETS.reduce((acc, b) => {
     acc[b.label] = flatOrders.filter((o) => o.bucket === b.label).length;
@@ -121,11 +206,37 @@ export default function AgeingReportPage() {
     { label: "Total Value Overdue", value: fmtAmt(totalValue), accent: "#8A5A0E" },
   ];
 
-  const resetFilters = () => {
-    setCustomerFilter("All");
-    setProductFilter("All");
-    setTypeFilter("All");
-    setShowCancelConfirm(false);
+  // Cancels an overdue order and sends it to the Sales Loss Report:
+  //  - real orders are marked declined on the server (so it will surface
+  //    there via /orders), then dropped from this view.
+  //  - dummy rows don't exist on the server, so they're written straight
+  //    into the shared localStorage list the Sales Loss Report reads on
+  //    load, then dropped from this view.
+  const cancelOrder = async (order) => {
+    setConfirmingCode(null);
+    setCancellingCode(order.code);
+    setRowNotice("");
+    if (order.isDummy) {
+      sendDummyOrderToSalesLoss(order);
+      setDummyRows((prev) => prev.filter((o) => o.code !== order.code));
+      setCancellingCode(null);
+      return;
+    }
+    try {
+      // ASSUMPTION: adjust this route/payload to match your backend.
+      await API.patch(`/orders/${order.code}/status`, { status: "declined" });
+      setRows((prev) =>
+        prev.map((r) =>
+          r.customerName === order.customer
+            ? { ...r, orders: (r.orders || []).filter((o) => o.code !== order.code) }
+            : r
+        )
+      );
+    } catch {
+      setRowNotice(`Could not reach the server to cancel ${order.code}. It has not been removed — please try again.`);
+    } finally {
+      setCancellingCode(null);
+    }
   };
 
   const exportExcel = () => {
@@ -141,9 +252,10 @@ export default function AgeingReportPage() {
         {
           title: "Overdue Orders — Ageing Detail",
           columns: AGEING_COLUMNS,
-          rows: flatOrders.map((o) => ({
-            Customer: o.customer, Product: o.product, ProductType: o.productType, Code: o.code,
-            BalanceDue: fmtAmt(o.balanceDue), DaysOverdue: o.daysOverdue, Bucket: o.bucket,
+          rows: flatOrders.map((o, i) => ({
+            SNo: i + 1, SortNo: o.sortNo, ShadeNo: o.shadeNo, Code: o.code,
+            ProductType: o.productType, Qty: o.qty, DaysOverdue: o.daysOverdue,
+            Bucket: o.bucket, Total: fmtAmt(o.balanceDue),
           })),
         },
       ],
@@ -151,10 +263,16 @@ export default function AgeingReportPage() {
   };
 
   const card = cardStyle(themeG);
-  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 12px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 };
+  // Navy header / white text, sticky within its own scroll container —
+  // matches ProductCatalog.jsx's table header treatment.
+  const th = { textAlign: "left", fontSize: 11, color: "#FFFFFF", padding: "10px 12px", background: "#1F3A63", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, position: "sticky", top: 0, zIndex: 1 };
   const td = { padding: "10px 12px", fontSize: 13, color: themeG.textMain };
   const filterSelect = { padding: "9px 12px", borderRadius: 9, border: `1px solid ${themeG.border}`, fontSize: 13, fontFamily: FONT, color: themeG.textMain, background: themeG.card, outline: "none", minWidth: 160 };
   const filterLabel = { fontSize: 11, fontWeight: 700, color: themeG.textLabel, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6, display: "block" };
+  const searchInput = { padding: "9px 12px", borderRadius: 9, border: `1px solid ${themeG.border}`, fontSize: 13, fontFamily: FONT, color: themeG.textMain, background: themeG.card, outline: "none", minWidth: 240 };
+  const cancelBtn = { padding: "6px 12px", borderRadius: 7, border: "1px solid #B23A3A", background: "transparent", color: "#B23A3A", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FONT };
+  // Detail table shows ~10 rows before it scrolls internally.
+  const tableScroll = { maxHeight: 460, overflowY: "auto", overflowX: "auto" };
 
   return (
     <Layout pageTitle="Reports">
@@ -165,9 +283,19 @@ export default function AgeingReportPage() {
       ) : (
         <>
           {error && <div style={errorBoxStyle}>{error}</div>}
+          {rowNotice && <div style={errorBoxStyle}>{rowNotice}</div>}
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16, marginBottom: 16 }}>
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div>
+                <label style={filterLabel}>Search</label>
+                <input
+                  style={searchInput}
+                  placeholder="Customer, order no, product, sort no, shade no…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
               <div>
                 <label style={filterLabel}>Customer Name</label>
                 <select style={filterSelect} value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)}>
@@ -199,7 +327,62 @@ export default function AgeingReportPage() {
             ))}
           </div>
 
-          <div style={{ ...card, marginBottom: 24 }}>
+          {/* ── Detail table, then Ageing Buckets below it ── */}
+          <div style={card}>
+            {flatOrders.length === 0 ? (
+              <p style={{ fontSize: 13, color: themeG.textSub, margin: 0 }}>Nothing overdue right now. 🎉</p>
+            ) : (
+                <div style={tableScroll}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
+                    <thead>
+                      <tr>
+                        {["S.No", "Sort No", "Shade No", "Order No", "Customer", "Product Type", "Qty", "Days Overdue", "Bucket", "Total", "Action"].map((h) => (
+                          <th key={h} style={th}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {flatOrders.map((o, i) => (
+                        <tr key={o.code + i} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
+                          <td style={td}>{i + 1}</td>
+                          <td style={td}>{o.sortNo}</td>
+                          <td style={td}>{o.shadeNo}</td>
+                          <td style={td}>{o.code}</td>
+                          <td style={td}>{o.customer}</td>
+                          <td style={td}>{o.productType}</td>
+                          <td style={td}>{o.qty}</td>
+                          <td style={td}>{o.daysOverdue}</td>
+                          <td style={{ ...td, fontWeight: 700, color: bucketAccent[o.bucket] || themeG.textMain }}>{o.bucket}</td>
+                          <td style={{ ...td, fontWeight: 700, color: "#B23A3A" }}>{fmtAmt(o.balanceDue)}</td>
+                          <td style={td}>
+                            {confirmingCode === o.code ? (
+                              <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                <button
+                                  onClick={() => cancelOrder(o)}
+                                  disabled={cancellingCode === o.code}
+                                  style={{ ...cancelBtn, background: "#B23A3A", color: "#fff" }}
+                                >
+                                  {cancellingCode === o.code ? "…" : "Confirm"}
+                                </button>
+                                <button onClick={() => setConfirmingCode(null)} style={{ ...cancelBtn, borderColor: themeG.border, color: themeG.textMain }}>
+                                  Back
+                                </button>
+                              </span>
+                            ) : (
+                              <button onClick={() => setConfirmingCode(o.code)} style={cancelBtn}>
+                                Cancel
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+          <div style={{ ...card, marginTop: 24 }}>
             <p style={{ fontSize: 14, fontWeight: 700, color: themeG.textMain, margin: "0 0 14px", fontFamily: FONT }}>Ageing Buckets</p>
             {flatOrders.length === 0 ? (
               <p style={{ fontSize: 13, color: themeG.textSub, margin: 0 }}>No overdue orders match the current filters.</p>
@@ -225,50 +408,6 @@ export default function AgeingReportPage() {
                   </tr>
                 </tfoot>
               </table>
-            )}
-          </div>
-
-          <div style={card}>
-            {flatOrders.length === 0 ? (
-              <p style={{ fontSize: 13, color: themeG.textSub, margin: 0 }}>Nothing overdue right now. 🎉</p>
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr>{["Customer", "Product", "Product Type", "Order Code", "Balance Due", "Days Overdue", "Bucket"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    {flatOrders.map((o, i) => (
-                      <tr key={o.code + i} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
-                        <td style={td}>{o.customer}</td>
-                        <td style={td}>{o.product}</td>
-                        <td style={td}>{o.productType}</td>
-                        <td style={td}>{o.code}</td>
-                        <td style={{ ...td, fontWeight: 700, color: "#B23A3A" }}>{fmtAmt(o.balanceDue)}</td>
-                        <td style={td}>{o.daysOverdue}</td>
-                        <td style={{ ...td, fontWeight: 700, color: bucketAccent[o.bucket] || themeG.textMain }}>{o.bucket}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12 }}>
-            {!showCancelConfirm ? (
-              <button
-                onClick={() => setShowCancelConfirm(true)}
-                style={{ padding: "9px 18px", borderRadius: 9, border: `1px solid ${themeG.border}`, background: "transparent", color: themeG.textSub, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}
-              >
-                Cancel
-              </button>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 13, color: themeG.textMain, fontFamily: FONT }}>Reset all filters on this report?</span>
-                <button onClick={resetFilters} style={{ padding: "7px 16px", borderRadius: 8, border: "none", background: "#B23A3A", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT }}>Yes</button>
-                <button onClick={() => setShowCancelConfirm(false)} style={{ padding: "7px 16px", borderRadius: 8, border: `1px solid ${themeG.border}`, background: "transparent", color: themeG.textMain, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT }}>No</button>
-              </div>
             )}
           </div>
         </>

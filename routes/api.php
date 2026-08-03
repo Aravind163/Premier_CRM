@@ -41,10 +41,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/allocations/customers',   [AllocationController::class, 'customers']);
     Route::get('/allocations/by-customer', [AllocationController::class, 'byCustomer']);
     Route::post('/allocations/by-customer',[AllocationController::class, 'storeByCustomer']);
+    // Single combined call for the whole Marketing Review board — every
+    // product with active demand plus its full per-customer breakdown, in
+    // one round trip. Replaces the old GET /allocations/products followed
+    // by one GET /allocations?product_id=X per product, which was loading
+    // the page one product at a time.
+    Route::get('/allocations/board',    [AllocationController::class, 'board']);
     Route::get('/allocations',          [AllocationController::class, 'index']);
     Route::post('/allocations',         [AllocationController::class, 'store']);
     Route::get('/allocations/{id}/batches', [AllocationController::class, 'batchBreakdown']);
-    Route::get('/allocations/board', [AllocationController::class, 'board']);
 
     // Marketing Review -> Final Approval workflow (System Admin only) and
     // the flat list feeding the Sales Order page's four drill-down views.
@@ -89,8 +94,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Tamil Nadu district / taluk reference data — used for District
     // assignment (System Admin → Admin) and Taluk assignment (Admin → End User)
     Route::get('/locations/districts', [LocationController::class, 'districts']);
-    Route::get('/locations/taluks',    [LocationController::class, 'taluks']);
+    // Every taluk across every district in one call — used by Marketing
+    // Review's Region filter, which previously looped one request per
+    // district (GET /locations/districts, then N x GET /locations/taluks)
+    // to build the same combined list.
     Route::get('/locations/taluks/all', [LocationController::class, 'allTaluks']);
-    
-
+    Route::get('/locations/taluks',    [LocationController::class, 'taluks']);
 });

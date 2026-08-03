@@ -14,8 +14,13 @@ class Product extends Model
 
     protected $appends = ['warehouse'];
 
+    // FIX: SortNo/ShadeNo added (see the accompanying migration — these
+    // columns didn't exist at all before). Without being listed here,
+    // Product::create()/update() would silently discard them even once
+    // the columns exist and the controller tries to pass them in, since
+    // Eloquent mass-assignment only ever writes $fillable attributes.
     protected $fillable = [
-        'Code', 'Name', 'Category', 'SubType', 'Color', 'Weight', 'Size',
+        'Code', 'SortNo', 'ShadeNo', 'Name', 'Category', 'SubType', 'Color', 'Weight', 'Size',
         'Price', 'Quantity', 'Quality', 'Description', 'Status', 'CreatedBy',
     ];
 

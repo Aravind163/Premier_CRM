@@ -2,26 +2,52 @@ import { useState, useEffect } from "react";
 import API from "../services/api";
 
 // Own assigned District/Taluk, as cached at login (see Login.jsx) — same
-// keys EndUserLayout / the full Add Customer form already read. Stored as
-// a JSON array (or a plain string, for older records); normalise either
-// shape into a clean string array.
+// keys EndUserLayout / the full Add Customer form already read.
+//
+// FIX: some accounts have this value stored *double* JSON-encoded in
+// localStorage (i.e. JSON.stringify() was called twice at login), e.g.
+//   '"[\"Tirumangalam\",\"Melur\"]"'
+// instead of
+//   '["Tirumangalam","Melur"]'
+// A single JSON.parse() on that only unwraps one layer and returns the
+// *string* '["Tirumangalam","Melur"]' — not an array — which used to get
+// wrapped as a single bogus element (`[' ["Tirumangalam","Melur"]']`).
+// That broke both the Taluk dropdown (rendered the raw text instead of
+// two options) and District derivation for end_users (findDistrictForTaluk
+// couldn't match the mangled string, so assignedDistricts came back empty
+// and the form got stuck on "Not set — contact admin").
+//
+// This version keeps unwrapping while the parsed result is still a
+// string, so it's safe whether the value is stored once-encoded,
+// double-encoded, or as a plain unencoded string.
 function readAssignedAreas(key) {
-  const raw = localStorage.getItem(key) || "";
+  const raw = localStorage.getItem(key);
   if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.filter(Boolean);
-    if (parsed) return [String(parsed)];
-  } catch {
-    // not JSON — plain string
+
+  let value = raw;
+  for (let i = 0; i < 3 && typeof value === "string"; i++) {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed === value) break; // nothing left to unwrap
+      value = parsed;
+    } catch {
+      break; // not JSON at this layer — treat current value as final
+    }
   }
-  return [raw];
+
+  if (Array.isArray(value)) {
+    return value.filter((v) => v !== null && v !== undefined && v !== "").map(String);
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    return [value];
+  }
+  return [];
 }
 
 // Same Tamil Nadu district -> taluk map used in the full Add Customer
 // form and CustomerView — needed here because an end_user's Employee/User
 // record only ever stores Taluk, never District (District assignment only
-// applies to admin-role accounts). So for a Field Officer, "their
+// applies to admin-role employees). So for a Field Officer, "their
 // district" has to be derived by reverse-looking-up their Taluk(s), not
 // read from a District field that's always empty for that role.
 const TALUKS = {

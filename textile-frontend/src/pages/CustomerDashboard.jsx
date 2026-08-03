@@ -5,6 +5,7 @@ import CustomerLayout from "../components/CustomerLayout";
 import { useTheme } from "../ThemeContext";
 import { getG, statusColor } from "../theme";
 import API from "../services/api";
+import { groupOrders } from "../utils/groupOrders";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
@@ -106,34 +107,43 @@ export default function CustomerDashboard() {
   }, []);
 
   const norm = (s) => (s || "").toLowerCase();
-  const createdOf = (o) => o.createdAt || o.CreatedAt || o.EnquiryDate || null;
+
+  // ── Every multi-product order collapses to one entry here — all the
+  // metrics below (stat cards, Recent Orders, Enquiry Status, Dispatch
+  // Status, aging, declined, duplicates, long-pending) count/list
+  // ORDERS, so they all read off this instead of the raw rows. Only
+  // the product-wise breakdown further down stays row-based, since
+  // that's deliberately counting per-product occurrences. ──
+  const groupedOrders = groupOrders(orders);
 
   // ── Top stat cards ──
-  const total = orders.length;
-  const activeOrders = orders.filter(o => ["pending", "approved", "processing"].includes(norm(o.Status)));
-  const totalRevenue = orders.reduce((sum, o) => sum + (parseFloat(o.TotalAmount) || 0), 0);
+  const total = groupedOrders.length;
+  const activeOrders = groupedOrders.filter(g => ["pending", "approved", "processing"].includes(norm(g.status)));
+  const totalRevenue = groupedOrders.reduce((sum, g) => sum + g.totalAmount, 0);
 
   const statCards = [
     { label: "My Orders",     value: loading ? "—" : total.toLocaleString(), icon: "📦", accent: "#1E4A45" },
     { label: "In Progress",   value: loading ? "—" : activeOrders.length.toLocaleString(), icon: "⏳", accent: "#D69426" },
-    { label: "Delivered",     value: loading ? "—" : orders.filter(o => norm(o.Status) === "delivered").length.toLocaleString(), icon: "✅", accent: "#2E7A72" },
+    { label: "Delivered",     value: loading ? "—" : groupedOrders.filter(g => norm(g.status) === "delivered").length.toLocaleString(), icon: "✅", accent: "#2E7A72" },
     { label: "Total Value",   value: loading ? "—" : formatRevenue(totalRevenue), icon: "📈", accent: "#3A2560" },
   ];
 
   // ── Recent orders ──
-  const recentOrders = [...orders]
-    .sort((a, b) => new Date(createdOf(b) || 0) - new Date(createdOf(a) || 0))
+  const recentOrders = [...groupedOrders]
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
     .slice(0, 4);
 
   // ── Enquiry Status ──
   const enquiryStatus = {
     total,
-    pending: orders.filter(o => norm(o.Status) === "pending").length,
-    approvedPlus: orders.filter(o => ["approved", "processing", "dispatched", "delivered"].includes(norm(o.Status))).length,
-    declined: orders.filter(o => DECLINED_STATUSES.includes(norm(o.Status))).length,
+    pending: groupedOrders.filter(g => norm(g.status) === "pending").length,
+    approvedPlus: groupedOrders.filter(g => ["approved", "processing", "dispatched", "delivered"].includes(norm(g.status))).length,
+    declined: groupedOrders.filter(g => DECLINED_STATUSES.includes(norm(g.status))).length,
   };
 
-  // ── Product-wise breakdown of my enquiries ──
+  // ── Product-wise breakdown of my enquiries — deliberately stays
+  // row-based (per product), not order-based, since a single order
+  // with 2 products should count as 1 for each of those products. ──
   const productWiseMap = {};
   orders.forEach((o) => {
     const name = o.product?.Name || "—";
@@ -145,15 +155,15 @@ export default function CustomerDashboard() {
 
   // ── Dispatch Status ──
   const dispatchStatus = {
-    dispatched: orders.filter(o => norm(o.Status) === "dispatched").length,
-    pendingDispatch: orders.filter(o => PENDING_DISPATCH_STATUSES.includes(norm(o.Status))).length,
-    delivered: orders.filter(o => norm(o.Status) === "delivered").length,
+    dispatched: groupedOrders.filter(g => norm(g.status) === "dispatched").length,
+    pendingDispatch: groupedOrders.filter(g => PENDING_DISPATCH_STATUSES.includes(norm(g.status))).length,
+    delivered: groupedOrders.filter(g => norm(g.status) === "delivered").length,
   };
 
   // ── Pending Dispatch Aging ──
-  const pendingDispatchOrders = orders
-    .filter(o => PENDING_DISPATCH_STATUSES.includes(norm(o.Status)))
-    .map(o => ({ code: o.Code, customer: user.name || "You", status: o.Status, days: daysSince(createdOf(o)) ?? 0 }))
+  const pendingDispatchOrders = groupedOrders
+    .filter(g => PENDING_DISPATCH_STATUSES.includes(norm(g.status)))
+    .map(g => ({ code: g.code, customer: user.name || "You", status: g.status, days: daysSince(g.createdAt) ?? 0 }))
     .sort((a, b) => b.days - a.days);
 
   const agingBuckets = { "0-1": 0, "2-3": 0, "4+": 0 };
@@ -163,29 +173,22 @@ export default function CustomerDashboard() {
     else agingBuckets["4+"] += 1;
   });
 
-  // ── Stock Shortage (my pending enquiries where requested qty exceeds current stock) ──
+  // ── Stock Shortage (my pending enquiries where requested qty exceeds
+  // current stock) — checked per underlying product row, since stock is
+  // tracked per product, but reported against the parent order's code. ──
   const stockShortage = orders
     .filter(o => norm(o.Status) === "pending")
     .map((o) => {
       const prod = products.find(p => p.Id === o.product?.Id || p.Id === o.ProductId);
       const available = prod ? prod.Quantity : null;
-      return { code: o.Code, product: o.product?.Name || "—", requested: o.Quantity, available };
+      const code = o.OrderDetails?.EnquiryOrderNo || o.Code;
+      return { code, product: o.product?.Name || "—", requested: o.Quantity, available };
     })
     .filter(r => r.available !== null && r.requested > r.available);
 
   // ── Declined enquiries (value at risk) ──
-  const declinedOrders = orders.filter(o => DECLINED_STATUSES.includes(norm(o.Status)));
-  const declinedValue = declinedOrders.reduce((sum, o) => sum + (parseFloat(o.TotalAmount) || 0), 0);
-
-  // ── Possible duplicate enquiries (same product, more than one pending) ──
-  const pendingByProduct = {};
-  orders.filter(o => norm(o.Status) === "pending").forEach((o) => {
-    const name = o.product?.Name || "—";
-    pendingByProduct[name] = (pendingByProduct[name] || 0) + 1;
-  });
-  const possibleDuplicates = Object.entries(pendingByProduct)
-    .filter(([, count]) => count > 1)
-    .map(([product, count]) => ({ product, count }));
+  const declinedOrders = groupedOrders.filter(g => DECLINED_STATUSES.includes(norm(g.status)));
+  const declinedValue = declinedOrders.reduce((sum, g) => sum + g.totalAmount, 0);
 
   // ── Long pending orders (approved/processing 3+ days, no dispatch yet) ──
   const longPendingOrders = pendingDispatchOrders.filter(o => o.days >= 3);
@@ -246,12 +249,12 @@ export default function CustomerDashboard() {
               <tr><td colSpan={4} style={{ ...styles.td, textAlign: "center", padding: 30 }}>Loading recent orders…</td></tr>
             ) : recentOrders.length === 0 ? (
               <tr><td colSpan={4} style={{ ...styles.td, textAlign: "center", padding: 30 }}>No orders yet — head to the Product Catalog to place your first enquiry.</td></tr>
-            ) : recentOrders.map((o) => (
-              <tr key={o.Id} style={styles.tr}>
-                <td style={{ ...styles.td, color: themeG.accent, fontWeight: 600 }}>{o.Code}</td>
-                <td style={styles.td}>{o.product?.Name || "—"}</td>
-                <td style={{ ...styles.td, fontWeight: 600 }}>₹{(parseFloat(o.TotalAmount) || 0).toLocaleString()}</td>
-                <td style={styles.td}><Badge text={o.Status} /></td>
+            ) : recentOrders.map((g) => (
+              <tr key={g.groupKey} style={styles.tr}>
+                <td style={{ ...styles.td, color: themeG.accent, fontWeight: 600 }}>{g.code}</td>
+                <td style={styles.td}>{g.productLabel}</td>
+                <td style={{ ...styles.td, fontWeight: 600 }}>₹{g.totalAmount.toLocaleString()}</td>
+                <td style={styles.td}><Badge text={g.status} /></td>
               </tr>
             ))}
           </tbody>
@@ -370,29 +373,13 @@ export default function CustomerDashboard() {
               <table style={styles.smallTable}>
                 <thead><tr><th style={styles.smallTh}>Order</th><th style={styles.smallTh}>Value</th><th style={styles.smallTh}>Notes</th></tr></thead>
                 <tbody>
-                  {declinedOrders.map((r, i) => (
-                    <tr key={i}><td style={styles.smallTd}>{r.Code}</td><td style={styles.smallTd}>₹{(parseFloat(r.TotalAmount) || 0).toLocaleString()}</td><td style={styles.smallTd}>{r.Notes || "—"}</td></tr>
+                  {declinedOrders.map((g) => (
+                    <tr key={g.groupKey}><td style={styles.smallTd}>{g.code}</td><td style={styles.smallTd}>₹{g.totalAmount.toLocaleString()}</td><td style={styles.smallTd}>{g.notes || "—"}</td></tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-
-          {/* 7. Possible duplicate enquiries */}
-          <h2 style={styles.sectionTitle}>Possible Duplicate Enquiries</h2>
-          <p style={styles.sectionSub}>You have more than one pending enquiry for the same product — you may want to consolidate these.</p>
-          <div style={styles.widgetBox}>
-            {possibleDuplicates.length === 0 ? <p style={styles.emptyNote}>No duplicate pending enquiries found.</p> : (
-              <table style={styles.smallTable}>
-                <thead><tr><th style={styles.smallTh}>Product</th><th style={styles.smallTh}>Pending Count</th></tr></thead>
-                <tbody>
-                  {possibleDuplicates.map((r, i) => (
-                    <tr key={i}><td style={styles.smallTd}>{r.product}</td><td style={{ ...styles.smallTd, fontWeight: 600 }}>{r.count}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
 
           {/* 8. Long pending orders */}
           <h2 style={styles.sectionTitle}>Long Pending Orders</h2>

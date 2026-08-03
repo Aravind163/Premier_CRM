@@ -46,6 +46,7 @@ export default function SalesOrder() {
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
   const [search, setSearch] = useState("");
+  const [busyIds, setBusyIds] = useState(() => new Set());
 
   const load = async () => {
     setLoading(true); setError("");
@@ -68,6 +69,52 @@ export default function SalesOrder() {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [view]);
 
   const setView = (id) => setSearchParams(id === "pending_final_approval" ? {} : { view: id });
+
+  // Reject — same PATCH /allocations/{id}/decision endpoint Marketing
+  // Review's tick/cross actions use, so a rejection made here shows up
+  // everywhere else that reads allocation status (Marketing Review,
+  // Order Status, the customer/end-user dashboards) — it's the same
+  // shared record, not a page-local flag. Only a still-Pending row can be
+  // rejected, matching the backend's existing rule.
+  const handleReject = async (row) => {
+    if (!row.allocationId || row.status !== "pending") return;
+    if (!window.confirm(`Reject the order for ${row.customerName} — ${row.productName}?`)) return;
+    setBusyIds((s) => new Set(s).add(row.allocationId));
+    setError(""); setOk("");
+    try {
+      await API.patch(`/allocations/${row.allocationId}/decision`, { status: "rejected" });
+      setRows((prev) => prev.map((r) => (r.allocationId === row.allocationId ? { ...r, status: "rejected" } : r)));
+      setOk("Order rejected.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to reject this order.");
+    } finally {
+      setBusyIds((s) => { const n = new Set(s); n.delete(row.allocationId); return n; });
+    }
+  };
+
+  // Cancel — a distinct action from Reject: it pulls the order out of
+  // Sales Order entirely and logs it as a loss, so it can show up on the
+  // Sales Loss Report page. NOTE: this calls a new endpoint,
+  // POST /allocations/{id}/cancel, which doesn't exist in the
+  // AllocationController shown so far — it needs to be added there (set
+  // the allocation/Order to a 'cancelled' state and write/expose a row
+  // the Sales Loss Report page's own query reads from). Once that
+  // endpoint responds, the row is simply removed from this page's list.
+  const handleCancel = async (row) => {
+    if (!row.allocationId) return;
+    if (!window.confirm(`Cancel the order for ${row.customerName} — ${row.productName}? It will be removed from Sales Order and logged in Sales Loss Report.`)) return;
+    setBusyIds((s) => new Set(s).add(row.allocationId));
+    setError(""); setOk("");
+    try {
+      await API.post(`/allocations/${row.allocationId}/cancel`);
+      setRows((prev) => prev.filter((r) => r.allocationId !== row.allocationId));
+      // setOk("Order cancelled and moved to Sales Loss Report.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to cancel this order.");
+    } finally {
+      setBusyIds((s) => { const n = new Set(s); n.delete(row.allocationId); return n; });
+    }
+  };
 
   const filterBySearch = (list) => {
     const q = search.trim().toLowerCase();
@@ -119,7 +166,7 @@ export default function SalesOrder() {
 
       <div style={S.searchBar}>
         <div style={S.searchInputWrap}>
-          <SearchIcon />
+          <span style={S.searchIconWrap}><SearchIcon /></span>
           <input
             type="text"
             placeholder="Search customer or product name / code…"
@@ -141,20 +188,51 @@ export default function SalesOrder() {
             <table style={S.table}>
               <thead>
                 <tr>
-                  <th style={S.th}>Customer</th><th style={S.th}>Product</th>
-                  <th style={S.th}>Qty</th><th style={S.th}>Value</th><th style={S.th}>Status</th>
+                  <th style={S.th}>S.No</th>
+                  <th style={S.th}>Customer</th><th style={S.th}>Customer Code</th>
+                  <th style={S.th}>Product</th><th style={S.th}>Product Code</th>
+                  <th style={S.th}>Qty</th><th style={S.th}>Status</th>
+                  {view === "pending_final_approval" && <th style={S.th}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
-                {visible.map((r) => (
-                  <tr key={r.allocationId}>
-                    <td style={{ ...S.td, fontWeight: 700, color: themeG.accent }}>{r.customerName} <span style={{ fontWeight: 400, color: themeG.textSub }}>({r.customerCode})</span></td>
-                    <td style={S.td}>{r.productName} <span style={{ color: themeG.textSub }}>({r.productCode})</span></td>
-                    <td style={S.td}>{r.allocatedQty}</td>
-                    <td style={S.td}>{fmtAmt(r.totalValue)}</td>
-                    <td style={S.td}>{statusBadge(r.status)}</td>
-                  </tr>
-                ))}
+                {visible.map((r, idx) => {
+                  const busy = busyIds.has(r.allocationId);
+                  const canReject = r.status === "pending" && !busy;
+                  return (
+                    <tr key={r.allocationId}>
+                      <td style={S.td}>{idx + 1}</td>
+                      <td style={{ ...S.td, fontWeight: 700, color: themeG.accent }}>{r.customerName}</td>
+                      <td style={S.td}>{r.customerCode}</td>
+                      <td style={S.td}>{r.productName}</td>
+                      <td style={S.td}>{r.productCode}</td>
+                      <td style={S.td}>{r.allocatedQty}</td>
+                      <td style={S.td}>{statusBadge(r.status)}</td>
+                      {view === "pending_final_approval" && (
+                        <td style={S.td}>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button
+                              onClick={() => handleReject(r)}
+                              disabled={!canReject}
+                              title={r.status === "pending" ? "Reject this order" : "Only a Pending order can be rejected"}
+                              style={{ ...S.actionBtnReject, ...(canReject ? {} : S.actionBtnDisabled) }}
+                            >
+                              Reject
+                            </button>
+                            <button
+                              onClick={() => handleCancel(r)}
+                              disabled={busy}
+                              title="Cancel this order and log it in Sales Loss Report"
+                              style={{ ...S.actionBtnCancel, ...(busy ? S.actionBtnDisabled : {}) }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -183,14 +261,20 @@ function buildStyles(themeG) {
 
     searchBar: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 16 },
     searchInputWrap: { position: "relative", display: "flex", alignItems: "center", flex: "1 1 280px", minWidth: 240, color: themeG.textSub },
+    searchIconWrap: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", color: themeG.textSub, pointerEvents: "none" },
     searchInput: { width: "100%", boxSizing: "border-box", padding: "10px 34px", borderRadius: 10, border: `1px solid ${themeG.border}`, fontSize: 13.5, fontFamily: FONT, background: themeG.card, outline: "none", color: themeG.textMain },
     clearBtn: { position: "absolute", right: 8, background: "transparent", border: "none", color: themeG.textSub, fontSize: 17, lineHeight: 1, cursor: "pointer", padding: 4 },
 
     card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
-    tableScroll: { overflowX: "auto" },
+    // Shows roughly 10 data rows before scrolling; the header stays
+    // pinned (position: sticky) while the body scrolls underneath it.
+    tableScroll: { overflowX: "auto", overflowY: "auto", maxHeight: 460 },
     table: { width: "100%", tableLayout: "auto", borderCollapse: "collapse" },
-    th: { textAlign: "left", fontSize: 10.5, color: themeG.textLabel, padding: "9px 12px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 },
+    th: { textAlign: "left", fontSize: 10.5, color: "#FFFFFF", background: "#1F3A63", padding: "10px 12px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, position: "sticky", top: 0, zIndex: 1 },
     td: { padding: "10px 12px", fontSize: 13, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` },
+    actionBtnReject: { padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(178,58,58,0.35)", background: "rgba(178,58,58,0.08)", color: "#B23A3A", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT, whiteSpace: "nowrap" },
+    actionBtnCancel: { padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(138,90,14,0.35)", background: "rgba(138,90,14,0.08)", color: "#8A5A0E", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT, whiteSpace: "nowrap" },
+    actionBtnDisabled: { opacity: 0.45, cursor: "not-allowed" },
     empty: { padding: 50, textAlign: "center", fontSize: 14, color: themeG.textSub },
     alertError: { marginBottom: 18, background: "rgba(178,58,58,0.08)", border: "1px solid rgba(178,58,58,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#B23A3A" },
     alertOk: { marginBottom: 18, background: "rgba(46,122,114,0.08)", border: "1px solid rgba(46,122,114,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#1E7B4D" },

@@ -64,6 +64,16 @@
 // comparing, and matched against a small set of known "customer-ish"
 // values instead of a single exact string, so backend inconsistencies
 // don't misroute orders.
+//
+// TABLE REDESIGN (latest): columns reordered to
+//   S.No | Order No | Date | Customer Name | Sub Type | Product Name |
+//   Qty | Following Person | Delivery Date | Status | Actions
+// "Order ID" is now labelled "Order No" (same underlying value, o.Code —
+// just a clearer header). Sub Type and Product Name are pulled from real
+// data: Sub Type is already the order's own o.SubType; Product Name is
+// newly resolved below via o.product?.Name (if the backend eager-loads
+// it) falling back to a lookup against the already-fetched /products
+// list by o.ProductId — no placeholder/dummy values used for either.
 import { useTheme } from "../../ThemeContext";
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
@@ -74,13 +84,18 @@ import ExcelToolbar from "../../components/ExcelToolbar";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
+// Excel export/import columns — kept in the same order as the on-screen
+// table (minus S.No/Actions, which aren't meaningful in a spreadsheet).
 const ORDER_EXCEL_COLUMNS = [
-  { key: "id", header: "Order ID" },
-  { key: "customer", header: "Customer" },
-  { key: "followPerson", header: "Follow Person" },
-  { key: "qty", header: "Qty" },
+  { key: "id", header: "Order No" },
   { key: "date", header: "Date" },
+  { key: "customer", header: "Customer Name" },
+  { key: "subType", header: "Sub Type" },
+  { key: "productName", header: "Product Name" },
+  { key: "qty", header: "Qty" },
+  { key: "followPerson", header: "Following Person" },
   { key: "deliveryDate", header: "Expected Delivery Date" },
+  { key: "status", header: "Status" },
 ];
 
 // End-user lists: only these 4. "Rejected" is UI-only; backend status is "declined".
@@ -252,10 +267,6 @@ function OrderListTab({
 
   const load = async () => {
     try {
-      // end_user: scope=own → only this FO's territory / assigned customers
-      // (backend already scopes region / AssignedTo). We then split on
-      // placement: mine = FO submitted (CartCheckout), customer = customer
-      // cart checkout under those same customers.
       const params = {};
       if (role === "end_user") params.scope = "own";
       else if (role === "admin") params.scope = "own_and_team";
@@ -269,26 +280,55 @@ function OrderListTab({
       const people = usersRes.data || [];
       setFollowPeople(people);
 
+      // Keyed by customer id so each order can look up its own customer's
+      // registered Contact Person — same field ProductCatalog.jsx shows
+      // under "Contact Person" (customer?.ContactPersons?.[0]?.contactName).
+      const customersById = {};
+      (custRes.data || []).forEach((c) => { customersById[c.Id] = c; });
+
+      // Keyed by product id — resolves the real Product Name for the new
+      // "Product Name" column below, for orders whose API response
+      // doesn't already eager-load the full product on `o.product`.
+      const productsById = {};
+      (prodRes.data || []).forEach((p) => { productsById[p.Id] = p; });
+
       const mapped = ordRes.data.map((o) => {
-        const followName =
-          o.assignedUser?.Name ||
-          o.AssignedUser?.Name ||
-          o.followUser?.Name ||
-          o.FollowUser?.Name ||
-          people.find((p) => String(p.Id) === String(o.AssignedToId))?.Name ||
-          (o.AssignedToId ? `User #${o.AssignedToId}` : "—");
+        // Backend sends the loaded relation as `assignee` (Order::with([...,
+        // 'assignee', ...])) and the raw id as `AssignedTo` — not
+        // AssignedToId / assignedUser / followUser, which never matched
+        // anything the API actually returns.
+        const assignedName =
+          o.assignee?.Name ||
+          o.assignee?.name ||
+          people.find((p) => String(p.Id ?? p.id) === String(o.AssignedTo))?.Name ||
+          people.find((p) => String(p.Id ?? p.id) === String(o.AssignedTo))?.name ||
+          (o.AssignedTo ? `User #${o.AssignedTo}` : null);
+
+        // No staff member has claimed this order yet (fresh customer-cart
+        // enquiry) — fall back to the customer's own registered Contact
+        // Person instead of showing a bare "—".
+        const customer = o.customer || customersById[o.CustomerId];
+        const contactPersonName = customer?.ContactPersons?.[0]?.contactName || null;
+
+        const followName = assignedName || contactPersonName || "—";
+
+        // Real Product Name — prefer an eager-loaded o.product, fall back
+        // to the /products lookup by ProductId. No placeholder text.
+        const productName = o.product?.Name || productsById[o.ProductId]?.Name || "—";
+
         return {
           id: o.Code,
           dbId: o.Id,
           customer: o.customer?.Name ?? "—",
           followPerson: followName,
           category: o.Category,
-          subType: o.SubType,
+          subType: o.SubType || "—",
+          productName,
           qty: o.Quantity,
           date: o.CreatedAt ? o.CreatedAt.substring(0, 10) : "",
           status: o.Status,
           deliveryDate: o.DeliveryDate ? o.DeliveryDate.substring(0, 10) : null,
-          groupRef: o.OrderDetails?.GroupRef ?? null,
+          groupRef: o.OrderDetails?.GroupRef ?? o.OrderDetails?.CartRef ?? null,
           placement: detectPlacement(o, currentUserId),
         };
       });
@@ -339,7 +379,8 @@ function OrderListTab({
     const matchStatus = statusMatchesFilter(o.status, filterStatus);
     const matchSearch = o.id.toLowerCase().includes(search.toLowerCase())
       || o.customer.toLowerCase().includes(search.toLowerCase())
-      || o.followPerson.toLowerCase().includes(search.toLowerCase());
+      || o.followPerson.toLowerCase().includes(search.toLowerCase())
+      || (o.productName || "").toLowerCase().includes(search.toLowerCase());
     const matchPlacement =
       placementFilter === "all" ? true :
         !placementFieldAvailable ? false :
@@ -433,7 +474,7 @@ function OrderListTab({
 
       <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
         <input
-          placeholder="Search order, customer, follow person…"
+          placeholder="Search order, customer, product, follow person…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{ padding: "9px 14px", borderRadius: 9, border: `1px solid ${themeG.border}`, fontSize: 13, width: 260, fontFamily: FONT, background: themeG.card, outline: "none", color: themeG.textMain }}
@@ -486,11 +527,12 @@ function OrderListTab({
       </div>
 
       <div style={{ background: "#EAF3FC", border: "1px solid rgba(91,155,217,0.35)", borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.06)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1180 }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${themeG.border}` }}>
-              {["Order ID", "Customer", "Follow Person", "Qty", "Date", "Status", "Expected Delivery Date", "Actions"].map((h) => (
-                <th key={h} style={{ textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 13px", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.16)", fontFamily: FONT }}>
+              {["S.No", "Order No", "Date", "Customer Name", "Sub Type", "Product Name", "Qty", "Following Person", "Delivery Date", "Status", "Actions"].map((h) => (
+                <th key={h} style={{ textAlign: "left", fontSize: 11, padding: "10px 13px", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, color: "#FFFFFF", background: "#1F3A63", fontFamily: FONT, whiteSpace: "nowrap" }}>
                   {h}
                 </th>
               ))}
@@ -499,7 +541,7 @@ function OrderListTab({
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: "center", padding: 40, color: themeG.textSub, fontSize: 14, fontFamily: FONT }}>
+                <td colSpan={11} style={{ textAlign: "center", padding: 40, color: themeG.textSub, fontSize: 14, fontFamily: FONT }}>
                   {placementFilter === "customer"
                     ? "No customer-placed enquiries yet. Orders you submit for a customer appear under My Orders."
                     : placementFilter === "mine"
@@ -507,12 +549,13 @@ function OrderListTab({
                       : "No orders found."}
                 </td>
               </tr>
-            ) : filtered.map((o) => {
+            ) : filtered.map((o, idx) => {
               const cc = categoryColors[o.category] || categoryColors.cloth;
               const statusLabel = displayStatus(o.status, preferRejectedLabel);
               return (
                 <tr key={o.id} style={{ borderBottom: "1px solid rgba(46,122,114,0.06)", background: cc.bg }}>
-                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.accent, fontWeight: 700, borderLeft: `3px solid ${cc.dot}`, fontFamily: FONT }}>
+                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textSub, fontFamily: FONT, borderLeft: `3px solid ${cc.dot}` }}>{idx + 1}</td>
+                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.accent, fontWeight: 700, fontFamily: FONT, whiteSpace: "nowrap" }}>
                     {o.id}
                     {o.isGroup && (
                       <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: cc.dot, background: cc.border, border: `1px solid ${cc.border}`, padding: "1px 8px", borderRadius: 20 }}>
@@ -520,18 +563,21 @@ function OrderListTab({
                       </span>
                     )}
                   </td>
+                  <td style={{ padding: "12px 13px", fontSize: 12, color: themeG.textSub, fontFamily: FONT, whiteSpace: "nowrap" }}>{o.date}</td>
                   <td style={{ padding: "12px 13px", fontSize: 14, color: themeG.textMain, fontWeight: 500, fontFamily: FONT }}>{o.customer}</td>
-                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textSub, fontFamily: FONT }}>{o.followPerson}</td>
+                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textMain, fontFamily: FONT }}>{o.subType}</td>
+                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textMain, fontFamily: FONT }}>{o.productName}</td>
                   <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textMain, fontFamily: FONT }}>{o.qty}</td>
-                  <td style={{ padding: "12px 13px", fontSize: 12, color: themeG.textSub, fontFamily: FONT }}>{o.date}</td>
-                  <td style={{ padding: "12px 13px" }}><Badge text={statusLabel} colorFn={statusColor} /></td>
+                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textSub, fontFamily: FONT }}>{o.followPerson}</td>
                   <td style={{ padding: "12px 13px", fontSize: 12, fontFamily: FONT, whiteSpace: "nowrap" }}>
                     {o.deliveryDate || "—"}
                   </td>
+                  <td style={{ padding: "12px 13px" }}><Badge text={statusLabel} colorFn={statusColor} /></td>
                   <td style={{ padding: "12px 13px", whiteSpace: "nowrap" }}>
                     <div style={{ display: "flex", gap: 7 }}>
                       <button style={btnStyle("#5B9BD9")} onClick={() => navigate(`/master/orders/add?editId=${o.dbId}&mode=view`)}>👁️</button>
-                      <button style={btnStyle(themeG.accent)} onClick={() => navigate(`/master/orders/add?editId=${o.dbId}`)}>✏️</button>                      <button style={btnStyle("#B23A3A")} disabled={deletingId === o.dbId} onClick={() => handleDelete(o)}>
+                      <button style={btnStyle(themeG.accent)} onClick={() => navigate(`/master/orders/add?editId=${o.dbId}`)}>✏️</button>
+                      <button style={btnStyle("#B23A3A")} disabled={deletingId === o.dbId} onClick={() => handleDelete(o)}>
                         {deletingId === o.dbId ? "…" : "🗑️"}
                       </button>
                     </div>
@@ -541,6 +587,7 @@ function OrderListTab({
             })}
           </tbody>
         </table>
+        </div>
         <div style={{ padding: "10px 13px", borderTop: `1px solid ${themeG.border}`, fontSize: 12, color: themeG.textSub, fontFamily: FONT }}>
           Showing {filtered.length} of {orders.filter((o) => o.category === tab).length} {tab} orders
         </div>
@@ -581,7 +628,7 @@ function OrderStatusTab({ themeG, navigate }) {
 
   const orders = allOrders.filter((o) => o.Category === tab);
 
-  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.04)" };
+  const th = { textAlign: "left", fontSize: 11, padding: "12px 16px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, color: "#FFFFFF", background: "#1F3A63" };
   const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain };
 
   const setStatus = async (id, status) => {

@@ -31,7 +31,7 @@ const PRODUCT_EXCEL_COLUMNS = [
 
 // Built-in defaults shown even if no products of that sub-type exist yet
 const YARN_DEFAULTS  = ["Bundle", "Hank", "Cone"];
-const CLOTH_DEFAULTS = ["Dhoti", "Blouse", "Pant", "Shirt", "Leggings", "Others"];
+const CLOTH_DEFAULTS = ["Dhoti", "Blouse", ];
 
 // ── Dummy fallbacks for Sort No / Shade No — same source list used on
 // the customer Product Catalog page, so a product looks the same way
@@ -243,11 +243,21 @@ export default function ProductList() {
 
       {/* ── Table ── */}
       <div style={{ background:themeG.card, border:`1px solid ${themeG.border}`, borderRadius:14, overflow:"hidden", boxShadow:"0 4px 16px rgba(46,122,114,0.06)" }}>
-        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+        <table style={{ width:"100%", borderCollapse:"collapse", tableLayout:"fixed" }}>
+          <colgroup>
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "22%" }} />
+            <col style={{ width: "20%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "auto" }} />
+          </colgroup>
           <thead>
             <tr style={{ borderBottom:`1px solid ${themeG.border}` }}>
               {["Sort No", "Shade No", "Product Name", "Type", "Color", "Qty", "Status", "Actions"].map((h) => (
-                <th key={h} style={{ textAlign:"left", fontSize:11, color:themeG.textLabel, padding:"10px 14px", textTransform:"uppercase", letterSpacing:"0.07em", fontWeight:600, background:"rgba(91,155,217,0.04)", fontFamily:FONT }}>
+                <th key={h} style={{ textAlign:"left", fontSize:11, color: "#FFFFFF", background: "#1F3A63", padding:"10px 14px", textTransform:"uppercase", letterSpacing:"0.07em", fontWeight:600, fontFamily:FONT }}>
                   {h}
                 </th>
               ))}
@@ -266,7 +276,7 @@ export default function ProductList() {
                     <ColorDot hex={p.color} />{p.name}
                   </td>
                   <td style={{ padding:"12px 14px" }}>
-                    <span style={{ fontSize:12, fontWeight:600, color:rc.dot, background:`${rc.border}`, border:`1px solid ${rc.border}`, padding:"2px 10px", borderRadius:20, fontFamily:FONT }}>
+                    <span style={{ display:"inline-block", fontSize:12, fontWeight:600, color:rc.dot, background:`${rc.border}`, border:`1px solid ${rc.border}`, padding:"4px 12px", borderRadius:20, fontFamily:FONT, whiteSpace:"normal", lineHeight:1.35 }}>
                       {p.type.replace(/_/g, " ").charAt(0).toUpperCase() + p.type.replace(/_/g, " ").slice(1)}
                     </span>
                   </td>

@@ -11,132 +11,6 @@ import logo from '/premier-icon.png'
 
 const ACTIVE_STATUSES = ["pending", "approved", "processing"];
 
-// ── Dummy fallback data ─────────────────────────────────────────────────
-// Used whenever a section has nothing to show — either the request failed
-// (endpoint not wired up yet) or it succeeded but came back empty/all
-// zeros. Keeps the dashboard from looking broken/blank on a fresh
-// install or during early development. Swap out / remove once every
-// endpoint is live with real data.
-// ── Dummy fallback data ─────────────────────────────────────────────────
-
-const DUMMY_STATS = { 
-  customers: 126, 
-  activeOrders: 43, 
-  products: 78, 
-  revenue: 8425000 
-};
-
-const DUMMY_RECENT_ORDERS = [
-  { id: "ORD-2042", customer: "Lakshmi Textiles", product: "Dhoti Pack",    amount: "₹1,24,000", status: "dispatched" },
-  { id: "ORD-2041", customer: "Sri Ganesh Mills", product: "Uniform Set",   amount: "₹96,000", status: "pending" },
-  { id: "ORD-2040", customer: "Anand Weavers",    product: "Blouse Fabric", amount: "₹71,000", status: "delivered" },
-  { id: "ORD-2039", customer: "Kaveri Fabrics",   product: "Shirt Fabric",  amount: "₹59,500", status: "approved" },
-];
-
-const DUMMY_WEEKLY_TREND = [
-  { label: "Mon", value: 18 },
-  { label: "Tue", value: 24 },
-  { label: "Wed", value: 16 },
-  { label: "Thu", value: 28 },
-  { label: "Fri", value: 22 },
-  { label: "Sat", value: 14 },
-  { label: "Sun", value: 9 },
-];
-
-const DUMMY_O2C = {
-  enquiryStatus: { total: 96, pending: 21, approved: 63, rejected: 12 },
-
-  orderSummary: {
-    total: 142,
-    pending: 28,
-    approved: 84,
-    rejected: 10,
-    rejectedIndents: 8,
-    underProduction: 51,
-    packing: 23,
-    dispatched: 68,
-  },
-
-  ordersPlaced: {
-    today: 14,
-    customerWise: [
-      { customer: "Lakshmi Textiles", value: 124000 },
-      { customer: "Sri Ganesh Mills", value: 96000 },
-      { customer: "Anand Weavers", value: 71000 },
-      { customer: "Kaveri Fabrics", value: 59500 },
-      { customer: "Om Sri Textiles", value: 45500 },
-    ],
-    productWise: [
-      { product: "Dhoti Pack", qty: 620 },
-      { product: "Blouse Fabric", qty: 410 },
-      { product: "Uniform Set", qty: 380 },
-      { product: "Shirt Fabric", qty: 290 },
-      { product: "Leggings", qty: 160 },
-    ],
-  },
-
-  dispatchStatus: { 
-    dispatched: 68, 
-    pendingDispatch: 29, 
-    delivered: 57 
-  },
-
-  pendingDispatchAging: { 
-    buckets: { "0-1": 12, "2-3": 9, "4+": 8 } 
-  },
-
-  stockShortage: [
-    { product: "Cotton Yarn 40s", requested: 900, available: 620 },
-    { product: "Zari Border Roll", requested: 500, available: 210 },
-    { product: "Polyester Blend", requested: 740, available: 520 },
-  ],
-
-  salesLoss: {
-    count: 9,
-    value: 328000,
-    list: [
-      { customer: "Anand Weavers", value: 92000 },
-      { customer: "Sri Ganesh Mills", value: 78000 },
-      { customer: "Kaveri Fabrics", value: 64000 },
-    ],
-  },
-
-  longPendingOrders: [
-    { customer: "Om Sri Textiles", days: 7 },
-    { customer: "Anand Weavers", days: 6 },
-    { customer: "Kaveri Fabrics", days: 5 },
-  ],
-};
-const DUMMY_PRODUCTION = {
-  today: { produced: 3840, target: 4200, efficiencyPct: 91 },
-
-  byLine: [
-    { line: "Line 1", produced: 980, target: 1000 },
-    { line: "Line 2", produced: 940, target: 1000 },
-    { line: "Line 3", produced: 910, target: 1000 },
-    { line: "Line 4", produced: 1010, target: 1200 },
-  ],
-
-  byProduct: [
-    { product: "Dhoti Pack", qty: 920 },
-    { product: "Blouse Fabric", qty: 780 },
-    { product: "Uniform Set", qty: 640 },
-    { product: "Shirt Fabric", qty: 590 },
-    { product: "Leggings", qty: 480 },
-  ],
-
-  weeklyOutput: [
-    { label: "Mon", value: 3720 },
-    { label: "Tue", value: 3810 },
-    { label: "Wed", value: 3690 },
-    { label: "Thu", value: 4100 },
-    { label: "Fri", value: 3940 },
-    { label: "Sat", value: 3320 },
-    { label: "Sun", value: 1980 },
-  ],
-
-  defects: { count: 74, ratePct: 2.6 },
-};
 /* ────────────────────────────────────────────────────────────────────────
    DESIGN TOKENS
    "Sapphire & Saffron" operations-ledger palette — deep navy surfaces,
@@ -328,12 +202,6 @@ export default function Dashboard() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
-  // ── Production ── mirrors the O2C section's loading pattern: pulls
-  // from /dashboard/production, and fails soft (rest of the dashboard
-  // stays usable) if that endpoint isn't wired up yet on the backend.
-  const [production, setProduction] = useState(null);
-  const [productionLoading, setProductionLoading] = useState(true);
-
   const styles = {
     page: { "--pd-strong": t.borderStrong, "--pd-cardalt": t.cardAlt, "--pd-forest": t.forest },
 
@@ -419,28 +287,21 @@ export default function Dashboard() {
         const activeOrders = orders.filter((o) => ACTIVE_STATUSES.includes(o.Status));
         const totalRevenue = orders.reduce((sum, o) => sum + (parseFloat(o.TotalAmount) || 0), 0);
 
-        // If the backend genuinely has nothing yet (fresh install, no
-        // customers/products/orders at all), show illustrative sample
-        // figures instead of an all-zero dashboard.
-        const usingDummyStats = customers.length === 0 && products.length === 0 && orders.length === 0;
-
         setStats({
-          customers:    usingDummyStats ? DUMMY_STATS.customers : customers.length,
-          activeOrders: usingDummyStats ? DUMMY_STATS.activeOrders : activeOrders.length,
-          products:     usingDummyStats ? DUMMY_STATS.products : products.length,
-          revenue:      usingDummyStats ? formatRevenue(DUMMY_STATS.revenue) : formatRevenue(totalRevenue),
+          customers:    customers.length,
+          activeOrders: activeOrders.length,
+          products:     products.length,
+          revenue:      formatRevenue(totalRevenue),
         });
 
         setRecentOrders(
-          usingDummyStats
-            ? DUMMY_RECENT_ORDERS
-            : orders.slice(0, 4).map((o) => ({
-                id: o.Code,
-                customer: o.customer?.Name ?? "—",
-                product: o.product?.Name ?? "—",
-                amount: `₹${(parseFloat(o.TotalAmount) || 0).toLocaleString()}`,
-                status: o.Status,
-              }))
+          orders.slice(0, 4).map((o) => ({
+            id: o.Code,
+            customer: o.customer?.Name ?? "—",
+            product: o.product?.Name ?? "—",
+            amount: `₹${(parseFloat(o.TotalAmount) || 0).toLocaleString()}`,
+            status: o.Status,
+          }))
         );
 
         // Weekly dispatch trend — derived from real order timestamps, Mon..Sun.
@@ -457,9 +318,7 @@ export default function Dashboard() {
           dayCounts[idx] += 1;
         });
         setWeeklyTrend(
-          usingDummyStats
-            ? DUMMY_WEEKLY_TREND
-            : (sawDate ? DAY_LABELS.map((label, i) => ({ label, value: dayCounts[i] })) : [])
+          sawDate ? DAY_LABELS.map((label, i) => ({ label, value: dayCounts[i] })) : []
         );
 
         setLastUpdated(new Date());
@@ -479,38 +338,11 @@ export default function Dashboard() {
         setO2c(res.data);
       } catch {
         // supplementary section — a failure here shouldn't block the rest
-        // of the page. Fall back to illustrative sample data instead of
-        // leaving the whole O2C snapshot missing.
-        setO2c(DUMMY_O2C);
+        // of the page, but we don't fabricate numbers either. Leave it
+        // empty so the section simply doesn't render.
+        setO2c(null);
       } finally {
         setO2cLoading(false);
-      }
-    })();
-  }, [refreshTick]);
-
-  // ── Production data — same fail-soft pattern as O2C above. Expected
-  // shape (adjust to match your real endpoint):
-  // {
-  //   today: { produced, target, efficiencyPct },
-  //   byLine: [{ line, produced, target }, ...],
-  //   byProduct: [{ product, qty }, ...],
-  //   weeklyOutput: [{ label: "Mon", value: n }, ...],
-  //   defects: { count, ratePct },
-  //   note: "..."
-  // }
-  useEffect(() => {
-    (async () => {
-      setProductionLoading(true);
-      try {
-        const res = await API.get("/dashboard/production");
-        setProduction(res.data);
-      } catch {
-        // supplementary section — a failure here shouldn't block the rest
-        // of the page. Fall back to illustrative sample data instead of
-        // leaving the whole Production section missing.
-        setProduction(DUMMY_PRODUCTION);
-      } finally {
-        setProductionLoading(false);
       }
     })();
   }, [refreshTick]);
@@ -555,31 +387,29 @@ export default function Dashboard() {
         <ErrorBoundary>
         {!o2cLoading && o2c && (() => {
           const enquiryCards = [
-            { label: "Total Enquiries", value: 157?? o2c.enquiryStatus?.total , sub: "All enquiries received", Icon: IconClipboard, color: t.forest },
-            { label: "Pending Enquiries", value:29?? o2c.enquiryStatus?.pending , sub: "Awaiting review", Icon: IconClock, color: t.ochre },
-            { label: "Approved Enquiries", value: 100 ??o2c.enquiryStatus?.approved , sub: "Moved past marketing review", Icon: IconCheckCircle, color: t.sage },
-            { label: "Rejected Enquiries", value: 28 ??o2c.enquiryStatus?.rejected , sub: "Incomplete / duplicate / bad qty", Icon: IconFileWarning, color: t.danger },
+            { label: "Total Enquiries", value: o2c.enquiryStatus?.total ?? 0, sub: "All enquiries received", Icon: IconClipboard, color: t.forest },
+            { label: "Pending Enquiries", value: o2c.enquiryStatus?.pending ?? 0, sub: "Awaiting review", Icon: IconClock, color: t.ochre },
+            { label: "Approved Enquiries", value: o2c.enquiryStatus?.approved ?? 0, sub: "Moved past marketing review", Icon: IconCheckCircle, color: t.sage },
+            { label: "Rejected Enquiries", value: o2c.enquiryStatus?.rejected ?? 0, sub: "Incomplete / duplicate / bad qty", Icon: IconFileWarning, color: t.danger },
           ];
 
           const orderCards = [
-            { label: "Total Orders", value: o2c.orderSummary?.total ?? 100, sub: "All orders placed", Icon: IconCart, color: t.forest },
-            { label: "Pending Orders", value: o2c.orderSummary?.pending ?? 40, sub: "Awaiting approval", Icon: IconClock, color: t.ochre },
-            { label: "Approved Orders", value: o2c.orderSummary?.approved ?? 49, sub: "Confirmed, in pipeline", Icon: IconCheckCircle, color: t.sage },
-            { label: "Rejected Orders", value: o2c.orderSummary?.rejected ?? 11, sub: "Declined orders", Icon: IconFileWarning, color: t.danger },
-            { label: "Rejected Indents", value: o2c.orderSummary?.rejectedIndents ?? 3, sub: "Failed indent checks", Icon: IconFileWarning, color: t.danger },
-            { label: "Under Production", value: o2c.orderSummary?.underProduction ?? 7, sub: "Currently on the floor", Icon: IconFactory, color: t.indigo },
-            { label: "Packing Orders", value: o2c.orderSummary?.packing ?? 14, sub: "Ready for packing", Icon: IconLayers, color: t.ochre },
-            { label: "Dispatched Orders", value: o2c.dispatchStatus?.dispatched ?? 8, sub: "Shipped out", Icon: IconCart, color: t.forest },
-            { label: "Partial / In-Process", value: o2c.dispatchStatus?.pendingDispatch ?? 16, sub: "Allocated or cleared, not dispatched", Icon: IconAtom, color: t.ochre },
-            { label: "Prev. Day Pending", value: o2c.pendingDispatchAging?.buckets?.["0-1"] ?? 8, sub: "Aging 1–2 days", Icon: IconClock, color: t.ochre },
-            { label: "Sales Loss", value:  12 ?? o2c.salesLoss?.count , sub: "Stock shortage + invalid + delay", Icon: IconTrendDown, color: t.danger },
-            { label: "Long Pending Orders", value: 8 ?? o2c.longPendingOrders?.length , sub: "Approved, not yet dispatched", Icon: IconTimer, color: t.inkSub },
+            { label: "Total Orders", value: o2c.orderSummary?.total ?? 0, sub: "All orders placed", Icon: IconCart, color: t.forest },
+            { label: "Pending Orders", value: o2c.orderSummary?.pending ?? 0, sub: "Awaiting approval", Icon: IconClock, color: t.ochre },
+            { label: "Approved Orders", value: o2c.orderSummary?.approved ?? 0, sub: "Confirmed, in pipeline", Icon: IconCheckCircle, color: t.sage },
+            { label: "Rejected Orders", value: o2c.orderSummary?.rejected ?? 0, sub: "Declined orders", Icon: IconFileWarning, color: t.danger },
+            { label: "Rejected Indents", value: o2c.orderSummary?.rejectedIndents ?? 0, sub: "Failed indent checks", Icon: IconFileWarning, color: t.danger },
+            { label: "Dispatched Orders", value: o2c.dispatchStatus?.dispatched ?? 0, sub: "Shipped out", Icon: IconCart, color: t.forest },
+            { label: "Partial / In-Process", value: o2c.dispatchStatus?.pendingDispatch ?? 0, sub: "Allocated or cleared, not dispatched", Icon: IconAtom, color: t.ochre },
+            { label: "Prev. Day Pending", value: o2c.pendingDispatchAging?.buckets?.["0-1"] ?? 0, sub: "Aging 1–2 days", Icon: IconClock, color: t.ochre },
+            { label: "Sales Loss", value: o2c.salesLoss?.count ?? 0, sub: "Stock shortage + invalid + delay", Icon: IconTrendDown, color: t.danger },
+            { label: "Long Pending Orders", value: o2c.longPendingOrders?.length ?? 0, sub: "Approved, not yet dispatched", Icon: IconTimer, color: t.inkSub },
           ];
 
           const enquiryBars = [
-            { label: "Pending", value: 19 ??o2c.enquiryStatus?.pending , color: t.ochre },
-            { label: "Approved", value: 20??o2c.enquiryStatus?.approved, color: t.sage },
-            { label: "Invalid", value: 18 ?? o2c.enquiryStatus?.rejected , color: t.danger },
+            { label: "Pending", value: o2c.enquiryStatus?.pending ?? 0, color: t.ochre },
+            { label: "Approved", value: o2c.enquiryStatus?.approved ?? 0, color: t.sage },
+            { label: "Dispatched", value: o2c.dispatchStatus?.dispatched ?? 0, color: t.indigo },
           ];
 
           const customerDonut = (o2c.ordersPlaced?.customerWise || []).slice(0, 5).map((c, i) => ({
@@ -827,93 +657,6 @@ export default function Dashboard() {
           </>
         )}
 
-        {/* ══════════════ Production ══════════════ */}
-        {productionLoading ? (
-          <div style={{ marginTop: 40, display: "flex", flexDirection: "column", gap: 14 }}>
-            <div className="pd-skel" style={{ height: 20, width: 180, background: `linear-gradient(90deg, ${t.border} 25%, ${t.borderStrong} 37%, ${t.border} 63%)` }} aria-hidden="true" />
-            <div style={styles.miniGrid(4)}>
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="pd-skel" style={{ height: 64, borderRadius: 8, background: `linear-gradient(90deg, ${t.border} 25%, ${t.borderStrong} 37%, ${t.border} 63%)` }} aria-hidden="true" />
-              ))}
-            </div>
-          </div>
-        ) : !production ? (
-          <>
-            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Production</h2></div>
-            <p style={styles.emptyNote}>Production data isn't available yet.</p>
-          </>
-        ) : (
-          <>
-            {/* 09 — Production overview */}
-            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Production</h2></div>
-            <p style={styles.sectionSub}>Today's output vs. target across all lines.</p>
-            <div style={styles.chartRow}>
-              <div style={styles.miniGrid(3)}>
-                {[
-                  ["Produced Today", production.today?.produced ?? 0, t.forest],
-                  ["Target Today", production.today?.target ?? 0, t.inkSub],
-                  ["Efficiency", `${production.today?.efficiencyPct ?? 0}%`, (production.today?.efficiencyPct ?? 0) >= 90 ? t.sage : t.ochre],
-                ].map(([label, val, color]) => (
-                  <div key={label} style={styles.miniCard}><p style={styles.miniLabel}>{label}</p><p style={{ ...styles.miniValue, color }}>{val}</p></div>
-                ))}
-              </div>
-              <div style={styles.chartCard}>
-                <DonutChart size={120} thickness={15} textColor={t.ink} subColor={t.inkSub}
-                  data={[
-                    { label: "Produced", value: production.today?.produced ?? 0, color: t.forest },
-                    { label: "Remaining to Target", value: Math.max(0, (production.today?.target ?? 0) - (production.today?.produced ?? 0)), color: t.border === t.borderStrong ? t.borderStrong : t.inkFaint },
-                  ]} />
-              </div>
-            </div>
-
-            {/* Production by line */}
-            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Output by production line</h2></div>
-            <div style={styles.widgetBox}>
-              {!production.byLine || production.byLine.length === 0 ? (
-                <p style={styles.emptyNote}>No per-line data yet.</p>
-              ) : (
-                <GroupedBarChart height={170} textColor={t.ink} subColor={t.inkSub}
-                  series={[{ label: "Produced", color: t.forest }, { label: "Target", color: t.inkFaint }]}
-                  data={production.byLine.slice(0, 8).map((r) => ({ label: r.line, values: [r.produced, r.target] }))} />
-              )}
-            </div>
-
-            {/* Output by product + weekly trend */}
-            <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Output by product &amp; weekly trend</h2></div>
-            <div style={styles.twoCol}>
-              <div style={styles.widgetBox}>
-                <p style={styles.widgetTitle}>Top products produced</p>
-                {!production.byProduct || production.byProduct.length === 0 ? (
-                  <p style={styles.emptyNote}>No data yet.</p>
-                ) : (
-                  <BarChart height={160} barWidth={70} textColor={t.ink} subColor={t.inkSub}
-                    data={production.byProduct.slice(0, 6).map((p, i) => ({ label: p.product, value: p.qty, color: [t.forest, t.sage, t.ochre, t.indigo, t.danger, t.inkSub][i % 6] }))} />
-                )}
-              </div>
-              <div style={styles.widgetBox}>
-                <p style={styles.widgetTitle}>Weekly output trend</p>
-                {!production.weeklyOutput || production.weeklyOutput.length === 0 ? (
-                  <p style={styles.emptyNote}>No dated production records yet.</p>
-                ) : (
-                  <AreaChart data={production.weeklyOutput} height={160} color={t.forest} textColor={t.ink} subColor={t.inkSub} gridColor={t.border} />
-                )}
-              </div>
-            </div>
-
-            {/* Defects / quality */}
-            {production.defects && (
-              <>
-                <div style={styles.sectionHead}><h2 style={styles.sectionTitle}>Quality — defects</h2></div>
-                <div style={styles.miniGrid(2)}>
-                  <div style={styles.miniCard}><p style={styles.miniLabel}>Defect Count</p><p style={{ ...styles.miniValue, color: t.danger }}>{production.defects.count ?? 0}</p></div>
-                  <div style={styles.miniCard}><p style={styles.miniLabel}>Defect Rate</p><p style={{ ...styles.miniValue, color: t.danger }}>{production.defects.ratePct ?? 0}%</p></div>
-                </div>
-              </>
-            )}
-
-            {production.note && <p style={styles.approxNote}>{production.note}</p>}
-          </>
-        )}
       </div>
     </Layout>
   );

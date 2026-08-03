@@ -50,7 +50,17 @@ class ProductController extends Controller
             'tab'         => 'required|in:yarn,cloth',
             'subType'     => 'required|string|max:20',
             'name'        => 'required|string|max:191',
-            'price'       => 'required|numeric|min:0',
+            // FIX: was 'required' — but ProductList.jsx's bulk Excel
+            // import (handleImportRows) never collects/sends a price at
+            // all, so every single bulk-imported row was failing this
+            // validation (422) and getting silently swallowed by the
+            // frontend's catch{failed++}. That's the actual reason
+            // uploaded rows never showed up afterwards. Price genuinely
+            // isn't known at quick-add/bulk-import time — default it to
+            // 0 and let it be filled in later from the product's own
+            // Edit screen, same as CreditLimit/MaxDiscountPct already
+            // work as "fill in later" fields elsewhere in this app.
+            'price'       => 'nullable|numeric|min:0',
             'qty'         => 'required|integer|min:0',
             'weight'      => 'nullable|string|max:500',
             'size'        => 'nullable|string|max:500',
@@ -59,17 +69,28 @@ class ProductController extends Controller
             'quality'     => 'nullable|string|in:Premium,Standard,Economy,premium,standard,economy',
             'description' => 'nullable|string',
             'status'      => 'nullable|in:active,inactive',
+            // FIX: sortNo/shadeNo were never validated/accepted at all,
+            // so even though ProductList.jsx's Excel import already sent
+            // them in the POST body, Laravel's validate() dropped them
+            // before they ever reached Product::create(). Genuinely new
+            // products could never get a real Sort No/Shade No — only
+            // the originally-seeded catalog had anything resembling one,
+            // and only because the seeder happened to store it in Code.
+            'sortNo'      => 'nullable|string|max:50',
+            'shadeNo'     => 'nullable|string|max:50',
         ]);
 
         $product = Product::create([
             'Code'        => $this->generateProductCode($validated['tab']),
+            'SortNo'      => $validated['sortNo'] ?? null,
+            'ShadeNo'     => $validated['shadeNo'] ?? null,
             'Name'        => $validated['name'],
             'Category'    => $validated['tab'],
             'SubType'     => Str::lower($validated['subType']),
             'Color'       => $validated['color'] ?? '#FFFFFF',
             'Weight'      => $validated['weight'] ?? null,
             'Size'        => $validated['size'] ?? null,
-            'Price'       => $validated['price'],
+            'Price'       => $validated['price'] ?? 0,
             'Quantity'    => $validated['qty'],
             // Store as ucfirst so DB is consistent: Premium / Standard / Economy
             'Quality'     => ucfirst(Str::lower($validated['quality'] ?? 'standard')),

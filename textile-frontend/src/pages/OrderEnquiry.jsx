@@ -5,8 +5,22 @@
 // This is also where Additional Details (Requested Date, Ref/PO,
 // Remarks) live and where Submit Enquiry actually happens — Product
 // Selection itself never submits anything anymore, it only adds to this
-// cart. Drafts (named, savable snapshots of a whole cart + details) live
-// here too, since a draft is fundamentally "a cart + its details".
+// cart.
+//
+// ── Drafts ──
+// Resuming a saved draft now happens on Product Selection
+// (ProductCatalog.jsx), not here — that's where you'd actually want to
+// keep shopping. Product Selection merges the draft's items straight
+// into the shared cart (utils/customerCart.js) and stashes the draft's
+// Additional Details via utils/draftSession.js. This page picks that
+// handoff up once on mount (if present) to restore Requested Date /
+// Ref-PO / Remarks and to know which draft is being edited, then clears
+// it — a one-time pickup, not something that persists across visits.
+//
+// "💾 Save Draft" here saves the current cart + details as a draft, then
+// — same as Submit does — clears the cart and this page's fields, and
+// moves on to the Drafts list, instead of leaving a stale cart sitting
+// here after it's already been saved off as a draft.
 //
 // ── "Edit" now covers the whole row, not just Qty ──
 // Clicking Edit on a line switches it into an editable state for every
@@ -20,6 +34,14 @@
 // have a field-level update API beyond qty yet — see
 // utils/customerCart.js if that needs to become persisted too.
 //
+// ── Qty and UOM are two separate columns ──
+// Qty (the stepper/number) and UOM (m / pcs, derived from the product's
+// SubType via dummyUom()) are their own dedicated columns, never
+// combined into a single "4 m"-style cell — keeps Qty independently
+// editable/sortable/exportable without string-parsing a unit back out
+// of it, and matches every other product table in the app (catalog,
+// admin product list, end-user cart).
+//
 // Layout note: Save Draft / Submit Enquiry now live in a bottom action
 // row AFTER the Additional Details card, not in the cart's own footer.
 // They used to sit directly under the product rows, above Requested
@@ -30,13 +52,14 @@
 // (end-user/CartCheckout.jsx), instead of silently submitting with a
 // null delivery date.
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import CustomerLayout from "../components/CustomerLayout";
 import { useTheme } from "../ThemeContext";
 import { getG } from "../theme";
 import API from "../services/api";
-import { getCart, addToCart, updateCartQty, removeFromCart, clearCart, subscribeToCart } from "../utils/customerCart";
-import { saveDraft as saveDraftEntry, getDraft, deleteDraft as deleteDraftEntry } from "../utils/customerDrafts";
+import { getCart, updateCartQty, removeFromCart, clearCart, subscribeToCart } from "../utils/customerCart";
+import { saveDraft as saveDraftEntry, deleteDraft as deleteDraftEntry } from "../utils/customerDrafts";
+import { getDraftSession, clearDraftSession } from "../utils/draftSession";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
@@ -65,7 +88,6 @@ export default function OrderEnquiry() {
   const { isDark } = useTheme();
   const themeG = getG(isDark);
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   const [cart, setCart] = useState(getCart());
@@ -74,7 +96,7 @@ export default function OrderEnquiry() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const [draftId, setDraftId] = useState(searchParams.get("draftId") || null);
+  const [draftId, setDraftId] = useState(null);
   const [requestedDate, setRequestedDate] = useState("");
   const [refNo, setRefNo] = useState("");
   const [remarks, setRemarks] = useState("");
@@ -96,43 +118,19 @@ export default function OrderEnquiry() {
   }, []);
 
   useEffect(() => {
-    // Loading a draft: push its items into the live cart (merging with
-    // whatever's already there) and restore its Additional Details.
-    // Drafts saved before item snapshots existed only have a productId —
-    // fetch the catalog once so those can still be reconstructed instead
-    // of silently loading nothing.
-    if (!draftId) return;
-    const draft = getDraft(draftId);
-    if (!draft) return;
-
-    (async () => {
-      const items = draft.items || [];
-      const needsLookup = items.some((it) => !it.product);
-      let catalog = [];
-      if (needsLookup) {
-        try {
-          const res = await API.get("/products", { params: { status: "active" } });
-          catalog = res.data;
-        } catch { /* best effort — items with a snapshot still load fine below */ }
-      }
-
-      let loadedCount = 0;
-      items.forEach((it) => {
-        const product = it.product || catalog.find((p) => String(p.Id) === String(it.productId));
-        if (product) {
-          addToCart({ product, qty: it.qty, color: "", size: "" });
-          loadedCount++;
-        }
-      });
-
-      if (loadedCount < items.length) {
-        setError(`${items.length - loadedCount} item(s) from this draft are no longer available and couldn't be restored.`);
-      }
-    })();
-
-    if (draft.requestedDate) setRequestedDate(draft.requestedDate);
-    if (draft.refNo) setRefNo(draft.refNo);
-    if (draft.remarks) setRemarks(draft.remarks);
+    // One-time pickup of Additional Details handed off by Product
+    // Selection when a draft was resumed there (see utils/draftSession.js).
+    // The draft's items are already in the shared cart by the time this
+    // page mounts — only the details + which-draft-is-this need restoring
+    // here. Cleared immediately after reading so it never reapplies on a
+    // later, unrelated visit.
+    const session = getDraftSession();
+    if (!session) return;
+    setDraftId(session.draftId || null);
+    if (session.requestedDate) setRequestedDate(session.requestedDate);
+    if (session.refNo) setRefNo(session.refNo);
+    if (session.remarks) setRemarks(session.remarks);
+    clearDraftSession();
     // eslint-disable-next-line
   }, []);
 
@@ -176,11 +174,15 @@ export default function OrderEnquiry() {
     }
   };
 
+  // Saving a draft "closes out" this cart the same way Submit does — the
+  // draft now owns these items, so this page goes back to its empty
+  // state and the customer lands on Drafts, matching what happens when
+  // saving a draft from Product Selection.
   const saveDraft = () => {
     if (cart.length === 0) { setError("Add something to the cart before saving a draft."); return; }
     setSavingDraft(true);
     try {
-      const entry = saveDraftEntry({
+      saveDraftEntry({
         id: draftId || undefined,
         customerName: user.name || "Customer",
         cart: Object.fromEntries(cart.map((i) => [i.product.Id, i.qty])), // kept for backward-compat shape
@@ -191,8 +193,14 @@ export default function OrderEnquiry() {
           color: colorOverrides[i.key] || i.color,
         })),
       });
-      setDraftId(entry.id);
-      setNotice("Draft saved — find it anytime under Drafts.");
+      clearCart();
+      setColorOverrides({});
+      setEditingKey(null);
+      setDraftId(null);
+      setRequestedDate("");
+      setRefNo("");
+      setRemarks("");
+      navigate("/customer/drafts");
     } finally {
       setSavingDraft(false);
     }
@@ -207,8 +215,8 @@ export default function OrderEnquiry() {
     browseBtn: { padding: "10px 22px", borderRadius: 9, border: "none", background: themeG.accent, color: "#fff", fontWeight: 700, fontSize: 13.5, cursor: "pointer", fontFamily: FONT },
 
     tableScroll: { overflowX: "auto" },
-    table: { width: "100%", minWidth: 760, borderCollapse: "collapse" },
-    th: { textAlign: "left", padding: "12px 16px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: themeG.textLabel, background: themeG.bg, borderBottom: `1px solid ${themeG.border}` },
+    table: { width: "100%", minWidth: 800, borderCollapse: "collapse" },
+    th: { textAlign: "left", padding: "12px 16px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#FFFFFF", background: "#1F3A63", borderBottom: `1px solid ${themeG.border}` },
     td: { padding: "12px 16px", fontSize: 13.5, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` },
     qtyBox: { display: "flex", alignItems: "center", gap: 8 },
     qtyBtn: { width: 26, height: 26, borderRadius: 7, border: `1px solid ${themeG.border}`, background: themeG.bg, color: themeG.textMain, fontSize: 14, fontWeight: 700, cursor: "pointer" },
@@ -259,71 +267,61 @@ export default function OrderEnquiry() {
           </div>
         ) : (
           <>
-          <div style={S.tableScroll}>
-            <table style={S.table}>
-              <thead>
-                <tr>
-                  <th style={S.th}>S.No</th>
-                  <th style={S.th}>Sort No</th>
-                  <th style={S.th}>Shade No</th>
-                  <th style={S.th}>Product Name</th>
-                  <th style={S.th}>Type</th>
-                  <th style={S.th}>Qty</th>
-                  <th style={S.th}>Colour</th>
-                  <th style={S.th}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cart.map((item, i) => {
-                  const isEditing = editingKey === item.key;
-                  const swatch = colorOverrides[item.key] || item.product.Color || DUMMY_SWATCHES[i % DUMMY_SWATCHES.length];
-                  return (
-                    <tr key={item.key}>
-                      <td style={S.td}>{i + 1}</td>
-                      <td style={S.td}>{item.product.Code || "—"}</td>
-                      <td style={S.td}>{dummyShadeNo(item.product, i)}</td>
-                      <td style={S.td}>{item.product.Name}</td>
-                      <td style={S.td}>{dummyType(item.product, i)}</td>
-                      <td style={S.td}>
-                        {isEditing ? (
-                          <div style={S.qtyBox}>
-                            <button style={S.qtyBtn} onClick={() => updateCartQty(item.key, item.qty - 1)}>−</button>
-                            <span style={S.qtyVal}>{item.qty}</span>
-                            <button style={S.qtyBtn} onClick={() => updateCartQty(item.key, item.qty + 1)}>+</button>
+            <div style={S.tableScroll}>
+              <table style={S.table}>
+                <thead>
+                  <tr>
+                    <th style={S.th}>S.No</th>
+                    <th style={S.th}>Sort No</th>
+                    <th style={S.th}>Shade No</th>
+                    <th style={S.th}>Product Name</th>
+                    <th style={S.th}>Type</th>
+                    <th style={S.th}>Qty</th>
+                    <th style={S.th}>UOM</th>
+                    <th style={S.th}>Colour</th>
+                    <th style={S.th}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cart.map((item, i) => {
+                    const isEditing = editingKey === item.key;
+                    const swatch = colorOverrides[item.key] || item.product.Color || DUMMY_SWATCHES[i % DUMMY_SWATCHES.length];
+                    return (
+                      <tr key={item.key}>
+                        <td style={S.td}>{i + 1}</td>
+                        <td style={S.td}>{item.product.Code || "—"}</td>
+                        <td style={S.td}>{dummyShadeNo(item.product, i)}</td>
+                        <td style={S.td}>{item.product.Name}</td>
+                        <td style={S.td}>{dummyType(item.product, i)}</td>
+                        <td style={S.td}>
+                          {isEditing ? (
+                            <div style={S.qtyBox}>
+                              <button style={S.qtyBtn} onClick={() => updateCartQty(item.key, item.qty - 1)}>−</button>
+                              <span style={S.qtyVal}>{item.qty}</span>
+                              <button style={S.qtyBtn} onClick={() => updateCartQty(item.key, item.qty + 1)}>+</button>
+                            </div>
+                          ) : (
+                            <span>{item.qty}</span>
+                          )}
+                        </td>
+                        <td style={S.td}>{dummyUom(item.product.SubType)}</td>
+                        <td style={S.td}><div style={S.swatch(swatch)} /></td>
+                        <td style={S.td}>
+                          <div style={S.actionBtns}>
+                            <button style={S.editBtn} onClick={() => setEditingKey(isEditing ? null : item.key)}>
+                              {isEditing ? "Done" : "Edit"}
+                            </button>
+                            <button style={S.removeBtn} onClick={() => removeFromCart(item.key)}>Remove</button>
                           </div>
-                        ) : (
-                          <span>{item.qty} {dummyUom(item.product.SubType)}</span>
-                        )}
-                      </td>
-                      <td style={S.td}>
-                        {isEditing ? (
-                          <input
-                            type="color"
-                            style={S.colorPicker}
-                            value={swatch.startsWith("#") ? swatch : "#8FD9A8"}
-                            onChange={(e) => setColorOverrides((prev) => ({ ...prev, [item.key]: e.target.value }))}
-                            title="Pick a colour for this line"
-                          />
-                        ) : (
-                          <div style={S.swatch(swatch)} />
-                        )}
-                      </td>
-                      <td style={S.td}>
-                        <div style={S.actionBtns}>
-                          <button style={S.editBtn} onClick={() => setEditingKey(isEditing ? null : item.key)}>
-                            {isEditing ? "Done" : "Edit"}
-                          </button>
-                          <button style={S.removeBtn} onClick={() => removeFromCart(item.key)}>Remove</button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-          <div style={S.footer}>
+            <div style={S.footer}>
               <div>
                 <p style={S.totalLabel}>Total Quantity</p>
                 <p style={S.totalValue}>{cart.reduce((s, i) => s + i.qty, 0)}</p>

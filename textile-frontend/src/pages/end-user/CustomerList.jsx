@@ -165,7 +165,7 @@ export default function EndUserCustomerList() {
             <thead>
               <tr style={{ borderBottom: `1px solid ${themeG.border}` }}>
                 {["ID", "Customer Name", "Phone", "District", "Taluk", "Type", "Orders", "Balance (₹)", "Status"].map((h) => (
-                  <th key={h} style={{ textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 12px", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, background: "rgba(91,155,217,0.04)", whiteSpace: "nowrap" }}>
+                  <th key={h} style={{ textAlign: "left", fontSize: 11,  padding: "10px 12px", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, whiteSpace: "nowrap",color: "#FFFFFF", background: "#1F3A63" }}>
                     {h}
                   </th>
                 ))}

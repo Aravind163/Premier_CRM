@@ -13,8 +13,17 @@ class ProductAllocation extends Model
     const UPDATED_AT = 'UpdatedAt';
 
     protected $fillable = [
-        'ProductId', 'CustomerId', 'AllocatedQty', 'AllocatedBy',
-        'Status', 'Remarks', 'ErpStatus', 'DecidedBy', 'DecidedAt', 'ErpTransferredAt',
+        'ProductId',
+        'CustomerId',
+        'AllocatedQty',
+        'AllocatedBy',
+        'OrderId',
+        'Status',
+        'Remarks',
+        'ErpStatus',
+        'DecidedBy',
+        'DecidedAt',
+        'ErpTransferredAt',
     ];
 
     protected $casts = [
@@ -22,6 +31,12 @@ class ProductAllocation extends Model
         'DecidedAt' => 'datetime',
         'ErpTransferredAt' => 'datetime',
     ];
+
+
+    public function order()
+    {
+        return $this->belongsTo(\App\Models\Order::class, 'OrderId', 'Id');
+    }
 
     public function product()
     {

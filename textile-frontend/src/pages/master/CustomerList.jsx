@@ -232,7 +232,7 @@ function CustomerListTab({ themeG, navigate }) {
           <thead>
             <tr style={{ borderBottom: `1px solid ${themeG.border}` }}>
               {["ID", "Customer Name", "Phone", "District", "Taluk", "Type", "Orders", "Balance (₹)", "Status", "Actions"].map((h) => (
-                <th key={h} style={{ textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 12px", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, background: "rgba(91,155,217,0.04)", whiteSpace: "nowrap" }}>
+                <th key={h} style={{ textAlign: "left", fontSize: 11,  padding: "10px 12px", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600,  whiteSpace: "nowrap" ,color: "#FFFFFF", background: "#1F3A63"}}>
                   {h}
                 </th>
               ))}
@@ -445,7 +445,7 @@ function CustomerStatusTab({ themeG, navigate }) {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
 
-  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "12px 16px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, background: "rgba(91,155,217,0.04)" };
+  const th = { textAlign: "left", fontSize: 11,  color: "#FFFFFF", background: "#1F3A63",padding: "12px 16px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 };
   const td = { padding: "13px 16px", fontSize: 13.5, color: themeG.textMain };
 
   const actionBtn = (bg, color, border) => ({

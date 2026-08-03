@@ -13,11 +13,27 @@
 // pushes into the persistent, per-customer cart (utils/endUserCart.js).
 // Reviewing everything added, adjusting quantities, filling in
 // Requested Date / Ref No / Remarks, and actually submitting the
-// enquiry (or saving it as a draft) all happen on the separate Cart
-// Checkout page — see CartCheckout.jsx — reached via "View Cart &
-// Submit". The selected customer is carried in the URL (?customerId=)
-// so that hand-off, and the "Back to Catalog" link on Cart Checkout,
-// both survive a refresh.
+// enquiry all happen on the separate Cart Checkout page — see
+// CartCheckout.jsx — reached via "View Cart & Submit". The selected
+// customer is carried in the URL (?customerId=) so that hand-off, and
+// the "Back to Catalog" link on Cart Checkout, both survive a refresh.
+//
+// ── Drafts flow ──
+// This page also has its own "💾 Save as Draft" action now (Cart
+// Summary sidebar): it snapshots the current cart into a draft, empties
+// this customer's live cart, and hands off to My Drafts — same
+// end-state as saving from Cart Checkout, just reachable without going
+// there first. "View Cart & Submit" and "📑 My Drafts" also leave this
+// page empty by default the next time it's opened fresh.
+//
+// Resuming a draft from My Drafts brings the officer back here (not
+// straight to Cart Checkout) with ?customerId= and &draftId= in the
+// URL — the draft's saved items are restored into the live cart
+// (see the draft-loading effect below) so they show up already added.
+// From here "View Cart & Submit" carries the draftId along to Cart
+// Checkout too, so that page can pull back the draft's Requested Date /
+// Ref No / Remarks as well. Saving again with "💾 Save as Draft" updates
+// that same draft in place instead of creating a new one.
 //
 // Product Name column uses the same combined search + dropdown control
 // as ProductCatalog.jsx (customer version): type to filter, or open it
@@ -41,13 +57,23 @@
 // value if the API supplies one, otherwise a representative placeholder
 // so the column is never blank. Shade also now shows a Shade No next to
 // the swatch, not just the colour dot.
+//
+// FIX: Sort No used to render `p.Code` directly (the auto-generated
+// product code, e.g. "CLT-046") instead of the product's real Sort No.
+// The admin-facing Product List page (ProductList.jsx) already reads
+// `product.SortNo` correctly and falls back to `product.Code` only when
+// SortNo isn't set — that's the real, Excel-sourced value (e.g. "2073",
+// "9720", "32963"). sortNoFor() below brings that same convention here
+// so this page shows the same real Sort No as the admin list instead of
+// a meaningless auto-incrementing code.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import EndUserLayout from "../../components/EndUserLayout";
 import { useTheme } from "../../ThemeContext";
 import { getG } from "../../theme";
 import API from "../../services/api";
-import { getCart, addToCart, subscribeToCart, clearCart } from "../../utils/endUserCart";
+import { getCart, addToCart, subscribeToCart, clearCart, replaceCart } from "../../utils/endUserCart";
+import { saveDraft, updateDraft, getDraft } from "../../utils/endUserDrafts";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
@@ -57,12 +83,14 @@ const TAB_ICONS = { blouse: "👚", dhoti: "📜", uniform: "🎽", "uniform shi
 // Top-level "Type" -> the real SubType values that nest under it — see
 // ProductCatalog.jsx (customer version) for the full explanation. Kept
 // identical here so both roles group the catalog the same way.
+// FIX: "Premier Shirting" removed as its own top-level tab — it now
+// falls through to the "Others" bucket automatically (see the `grouped`
+// useMemo below), same as ProductCatalog.jsx.
 const TYPE_GROUPS = {
   "Blouse": ["Blouse"],
-  "Dhoti": ["Dhoti", "Cotton Dhoti Grey", "Cotton Dhoti Fabric"],
+  "Dhoti": ["Dhoti", "BO Grey - Dhothies", "BO Fabric - Dhothies"],
   "Uniform Shirting": ["Uniform Shirting"],
   "Uniform Suiting": ["Uniform Suiting"],
-  "Premier Shirting": ["Premier Shirting"],
 };
 
 function dummyUom(subType) {
@@ -71,6 +99,15 @@ function dummyUom(subType) {
   return "pcs";
 }
 const DUMMY_SWATCHES = ["#8FD9A8", "#7FD1E0", "#E893C9", "#9A9AA5", "#F0A15C", "#B7A6E0"];
+
+// ── Real Sort No, matching ProductList.jsx's convention exactly ──
+// product.SortNo (the real, Excel-sourced value) wins whenever it's
+// set; product.Code (the auto-generated "CLT-046"-style code) is only
+// ever a last-resort fallback for a product that genuinely has no
+// SortNo yet.
+function sortNoFor(product) {
+  return product.SortNo || product.Code || "—";
+}
 
 // ── Dummy fallbacks for the per-row Type / Description / Shade No —
 // pulled straight from the variant wording seen across the requirements
@@ -81,8 +118,12 @@ const DUMMY_TYPES = ["BLD & DYED", "Bld/Dyed", "R.Blue/G.Blue", "Fiber Dyed", "Y
 // Shade No now reads "Shade 101" rather than "SH-101".
 const DUMMY_SHADE_NOS = ["101", "102", "103", "104", "105", "106"];
 
+// FIX: was checking `product.Type`, a field that has never existed on
+// the backend. The real per-row Type text is what ProductCatalogSeeder.php
+// actually stores in `Description` — reading that first surfaces the
+// real value everywhere instead of always falling through to placeholders.
 function dummyType(product, i) {
-  return product.Type || DUMMY_TYPES[i % DUMMY_TYPES.length];
+  return product.Description || DUMMY_TYPES[i % DUMMY_TYPES.length];
 }
 function dummyShadeNo(product, i) {
   const num = product.ShadeNo || DUMMY_SHADE_NOS[i % DUMMY_SHADE_NOS.length];
@@ -110,10 +151,12 @@ export default function ProductSelection() {
 
   const [customers, setCustomers] = useState([]);
   const customerId = params.get("customerId") || "";
+  const draftId = params.get("draftId") || "";
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [savingDraft, setSavingDraft] = useState(false);
 
   const [activeType, setActiveType] = useState("");
   const [activeSubType, setActiveSubType] = useState("");
@@ -174,6 +217,21 @@ export default function ProductSelection() {
     const unsub = subscribeToCart(() => setCart(getCart(customerId)));
     return unsub;
   }, [customerId]);
+
+  // ── Resume-a-draft support ──
+  // If we arrived here via "▶ Resume" on My Drafts (customerId + draftId
+  // both in the URL), pull that draft's saved line items back into this
+  // customer's live cart so they show up already added, same as if the
+  // officer had just added them in this session. Runs once per
+  // draftId/customerId pair.
+  useEffect(() => {
+    if (!draftId || !customerId) return;
+    const d = getDraft(draftId);
+    if (d && Array.isArray(d.items)) {
+      replaceCart(customerId, d.items);
+    }
+    // eslint-disable-next-line
+  }, [draftId, customerId]);
 
   // Close the combined dropdown when clicking anywhere outside it.
   useEffect(() => {
@@ -251,7 +309,7 @@ export default function ProductSelection() {
       .filter((p) => !q || p.Name.toLowerCase().includes(q))
       .filter((p, i) => {
         if (!sq) return true;
-        const sortNo = String(p.Code ?? "").toLowerCase();
+        const sortNo = String(sortNoFor(p) ?? "").toLowerCase();
         const desc = dummyDescription(p, i).toLowerCase();
         return sortNo.includes(sq) || desc.includes(sq);
       })
@@ -292,6 +350,37 @@ export default function ProductSelection() {
     clearCart(customerId);
     setRowQty({});
     setNotice("Cart cleared.");
+  };
+
+  // Snapshots the current cart into a draft (updating the same draft in
+  // place if we got here by resuming one), then empties this customer's
+  // live cart and hands off to My Drafts — so Product Selection is
+  // empty by default the next time it's opened fresh.
+  const handleSaveDraft = () => {
+    if (!customerId) { setError("Select a customer first."); return; }
+    if (cart.length === 0) { setError("Your cart is empty — nothing to save as a draft."); return; }
+    setError("");
+    setSavingDraft(true);
+    try {
+      const existing = draftId ? getDraft(draftId) : null;
+      if (existing) {
+        updateDraft(draftId, { items: cart });
+      } else {
+        saveDraft({
+          customerId,
+          customerName: customer?.Name,
+          customerCode: customer?.Code,
+          items: cart,
+        });
+      }
+      clearCart(customerId);
+      setRowQty({});
+      navigate("/end-user/drafts", {
+        state: { notice: "Saved as a draft. Find it any time under My Drafts." },
+      });
+    } finally {
+      setSavingDraft(false);
+    }
   };
 
   const selectedCount = cart.length;
@@ -347,7 +436,7 @@ export default function ProductSelection() {
     tableCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
     tableScroll: { maxHeight: 340, overflowY: "auto", overflowX: "auto" },
     table: { width: "100%", minWidth: 800, borderCollapse: "collapse" },
-    th: { textAlign: "left", padding: "12px 16px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: themeG.textLabel, background: themeG.bg, borderBottom: `1px solid ${themeG.border}`, position: "sticky", top: 0, zIndex: 1 },
+    th: { textAlign: "left", padding: "12px 16px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#FFFFFF", background: "#1F3A63", borderBottom: `1px solid ${themeG.border}`, position: "sticky", top: 0, zIndex: 1 },
     td: { padding: "12px 16px", fontSize: 13.5, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}`, whiteSpace: "nowrap" },
     tdWrap: { padding: "12px 16px", fontSize: 13, color: themeG.textSub, borderBottom: `1px solid ${themeG.border}`, whiteSpace: "normal", maxWidth: 240 },
 
@@ -371,6 +460,7 @@ export default function ProductSelection() {
     lineItemSub: { color: themeG.textSub, fontSize: 11 },
     emptyNote: { fontSize: 12.5, color: themeG.textSub, fontStyle: "italic" },
     viewCartBtn: { width: "100%", padding: "11px 0", borderRadius: 9, border: "none", background: themeG.accent, color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT, marginTop: 14 },
+    draftSaveBtn: { width: "100%", padding: "10px 0", borderRadius: 9, border: `1.5px solid ${themeG.accent}`, background: "rgba(91,155,217,0.08)", color: themeG.accent, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT, marginTop: 8 },
     draftsBtn: { width: "100%", padding: "10px 0", borderRadius: 9, border: `1px solid ${themeG.border}`, background: "transparent", color: themeG.textSub, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT, marginTop: 8 },
   };
 
@@ -460,7 +550,7 @@ export default function ProductSelection() {
                 ))}
               </div>
             )}
-            
+
             {subTypesForActiveType.length > 1 && (
               <div style={S.subTabRow}>
                 {subTypesForActiveType.map((s) => (
@@ -549,7 +639,7 @@ export default function ProductSelection() {
                             const already = inCartQty(p.Id);
                             return (
                               <tr key={p.Id}>
-                                <td style={S.td}>{p.Code || "—"}</td>
+                                <td style={S.td}>{sortNoFor(p)}</td>
                                 <td style={S.td}><span style={S.shadeNo}>{dummyShadeNo(p, i)}</span></td>
                                 <td style={S.tdWrap}>{dummyDescription(p, i)}</td>
                                 <td style={S.td}>{dummyType(p, i)}</td>
@@ -622,8 +712,14 @@ export default function ProductSelection() {
                   ))
                 )}
 
-                <button style={S.viewCartBtn} onClick={() => navigate(`/end-user/order-cart?customerId=${customerId}`)}>
+                <button
+                  style={S.viewCartBtn}
+                  onClick={() => navigate(`/end-user/order-cart?customerId=${customerId}${draftId ? `&draftId=${draftId}` : ""}`)}
+                >
                   View Cart &amp; Submit →
+                </button>
+                <button style={S.draftSaveBtn} disabled={savingDraft || cart.length === 0} onClick={handleSaveDraft}>
+                  {savingDraft ? "Saving…" : "💾 Save as Draft"}
                 </button>
                 <button style={S.draftsBtn} onClick={() => navigate("/end-user/drafts")}>📑 My Drafts</button>
               </div>

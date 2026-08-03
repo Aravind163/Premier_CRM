@@ -17,7 +17,15 @@ class OrderController extends Controller
     /** GET /api/orders */
     public function index(Request $request)
     {
-        $query = Order::with(['customer', 'product', 'assignee']);
+        // NOTE: 'creator' added so the frontend (OrderList.jsx) can tell
+        // whether an order was placed by the end_user themself ("My
+        // Orders") or by one of their customers directly ("Customer
+        // Orders") — see detectPlacement() on the frontend. Requires an
+        // Order::creator() relationship, e.g.
+        //   public function creator() { return $this->belongsTo(User::class, 'CreatedBy'); }
+        // If that relationship doesn't exist on the Order model yet, add
+        // it before deploying this change.
+        $query = Order::with(['customer', 'product', 'assignee', 'creator']);
         $caller = $request->user();
 
         if ($status = $request->query('status')) {
@@ -49,19 +57,31 @@ class OrderController extends Controller
             $query->where('CustomerId', $customerId);
         }
 
-        // End Users normally only see orders they personally created.
-        // Pass ?scope=area to instead see every order (any creator) for
-        // customers within their own assigned Taluk(s) — used by the
-        // read-only "Order Enquiry" screen so a field officer can see
-        // what's pending approval across their whole area, not just their
-        // own entries.
+        // End Users (Field Officers) see:
+        //   - orders they personally created (CreatedBy = them), i.e.
+        //     staff-placed orders (My Orders), AND
+        //   - orders placed by any of their own customers directly via
+        //     cart checkout (Customer Orders) — these have CreatedBy set
+        //     to the customer's own user id, not the field officer's, so
+        //     they have to be pulled in via CustomerId + Taluk instead.
+        //
+        // Pass ?scope=area to instead see every order (any creator, any
+        // customer) for customers within their own assigned Taluk(s) —
+        // used by the read-only "Order Enquiry" screen so a field officer
+        // can see what's pending approval across their whole area, not
+        // just their own entries / their own customers.
         if ($caller && $caller->role === 'end_user') {
+            $taluks = $this->callerAreas($caller, 'Taluk');
+            $customerIds = Customer::whereIn('Taluk', $taluks)->pluck('Id');
+
             if ($request->query('scope') === 'area') {
-                $taluks = $this->callerAreas($caller, 'Taluk');
-                $customerIds = Customer::whereIn('Taluk', $taluks)->pluck('Id');
                 $query->whereIn('CustomerId', $customerIds->isEmpty() ? [0] : $customerIds);
             } else {
-                $query->where('CreatedBy', $caller->id);
+                // "own" scope (default): mine + my customers'.
+                $query->where(function ($q) use ($caller, $customerIds) {
+                    $q->where('CreatedBy', $caller->id)
+                        ->orWhereIn('CustomerId', $customerIds->isEmpty() ? [0] : $customerIds);
+                });
             }
         }
 
@@ -89,7 +109,10 @@ class OrderController extends Controller
     /** GET /api/orders/{id} */
     public function show($id)
     {
-        $order = Order::with(['customer', 'product', 'invoice'])->find($id);
+        // NOTE: 'creator' added here too, for consistency with index()
+        // (e.g. the view/edit order screen also benefits from knowing who
+        // placed the order).
+        $order = Order::with(['customer', 'product', 'invoice', 'creator'])->find($id);
 
         if (!$order) {
             return response()->json(['message' => 'Order not found'], 404);
@@ -113,13 +136,13 @@ class OrderController extends Controller
         }
 
         $validated = $request->validate([
-            'customerId'   => 'required|integer|exists:Customers,Id',
-            'productId'    => 'required|integer|exists:Products,Id',
-            'qty'          => 'required|integer|min:1',
+            'customerId' => 'required|integer|exists:Customers,Id',
+            'productId' => 'required|integer|exists:Products,Id',
+            'qty' => 'required|integer|min:1',
             'pricePerUnit' => 'required|numeric|min:0',
-            'discount'     => 'nullable|numeric|min:0|max:100',
+            'discount' => 'nullable|numeric|min:0|max:100',
             'deliveryDate' => 'nullable|date',
-            'notes'        => 'nullable|string',
+            'notes' => 'nullable|string',
             'orderDetails' => 'nullable|array',   // ← product-specific fields
         ]);
 
@@ -144,30 +167,30 @@ class OrderController extends Controller
 
         $product = Product::find($validated['productId']);
 
-        $qty          = (float) $validated['qty'];
+        $qty = (float) $validated['qty'];
         $pricePerUnit = (float) $validated['pricePerUnit'];
-        $discountPct  = (float) ($validated['discount'] ?? 0);
-        $totalAmount  = round($qty * $pricePerUnit * (1 - $discountPct / 100), 2);
+        $discountPct = (float) ($validated['discount'] ?? 0);
+        $totalAmount = round($qty * $pricePerUnit * (1 - $discountPct / 100), 2);
 
         $order = Order::create([
-            'Code'          => $this->generateOrderCode(),
-            'CustomerId'    => $validated['customerId'],
-            'ProductId'     => $validated['productId'],
-            'Category'      => $product->Category,
-            'SubType'       => $product->SubType,
-            'Quantity'      => $validated['qty'],
-            'PricePerUnit'  => $pricePerUnit,
-            'DiscountPct'   => $discountPct,
-            'TotalAmount'   => $totalAmount,
-            'Status'        => 'pending',
+            'Code' => $this->generateOrderCode(),
+            'CustomerId' => $validated['customerId'],
+            'ProductId' => $validated['productId'],
+            'Category' => $product->Category,
+            'SubType' => $product->SubType,
+            'Quantity' => $validated['qty'],
+            'PricePerUnit' => $pricePerUnit,
+            'DiscountPct' => $discountPct,
+            'TotalAmount' => $totalAmount,
+            'Status' => 'pending',
             'PaymentStatus' => 'unpaid',
-            'DeliveryDate'  => $validated['deliveryDate'] ?? null,
-            'Notes'         => $validated['notes'] ?? null,
-            'CreatedBy'     => $request->user()->id,
+            'DeliveryDate' => $validated['deliveryDate'] ?? null,
+            'Notes' => $validated['notes'] ?? null,
+            'CreatedBy' => $request->user()->id,
             // NOTE: OrderDetails is cast as 'array' on the Order model, so
             // Eloquent handles the JSON encode/decode itself — pass the
             // plain array (or null), never a pre-encoded JSON string here.
-            'OrderDetails'  => $validated['orderDetails'] ?? null,
+            'OrderDetails' => $validated['orderDetails'] ?? null,
         ]);
 
         return response()->json($order->load(['customer', 'product']), 201);
@@ -206,13 +229,13 @@ class OrderController extends Controller
         }
 
         $validated = $request->validate([
-            'items'              => 'required|array|min:1',
-            'items.*.productId'  => 'required|integer|exists:Products,Id',
-            'items.*.qty'        => 'required|integer|min:1',
-            'items.*.color'      => 'nullable|string|max:100',
-            'items.*.size'       => 'nullable|string|max:50',
-            'deliveryDate'       => 'nullable|date',
-            'notes'              => 'nullable|string',
+            'items' => 'required|array|min:1',
+            'items.*.productId' => 'required|integer|exists:Products,Id',
+            'items.*.qty' => 'required|integer|min:1',
+            'items.*.color' => 'nullable|string|max:100',
+            'items.*.size' => 'nullable|string|max:50',
+            'deliveryDate' => 'nullable|date',
+            'notes' => 'nullable|string',
         ]);
 
         $cartRef = 'CART-' . now()->format('YmdHis') . '-' . $customer->Id;
@@ -225,31 +248,33 @@ class OrderController extends Controller
                     continue; // skip anything that vanished / went inactive mid-checkout
                 }
 
-                $qty          = (int) $item['qty'];
+                $qty = (int) $item['qty'];
                 $pricePerUnit = (float) $product->Price;
-                $totalAmount  = round($qty * $pricePerUnit, 2);
+                $totalAmount = round($qty * $pricePerUnit, 2);
 
-                $orderDetails = ['CartRef' => $cartRef];
-                if (!empty($item['color'])) $orderDetails['Color'] = $item['color'];
-                if (!empty($item['size']))  $orderDetails['Size']  = $item['size'];
+                $orderDetails = ['GroupRef' => $cartRef];
+                if (!empty($item['color']))
+                    $orderDetails['Color'] = $item['color'];
+                if (!empty($item['size']))
+                    $orderDetails['Size'] = $item['size'];
 
                 $created[] = Order::create([
-                    'Code'          => $this->generateOrderCode(),
-                    'CustomerId'    => $customer->Id,
-                    'ProductId'     => $product->Id,
-                    'Category'      => $product->Category,
-                    'SubType'       => $product->SubType,
-                    'Quantity'      => $qty,
-                    'PricePerUnit'  => $pricePerUnit,
-                    'DiscountPct'   => 0,
-                    'TotalAmount'   => $totalAmount,
-                    'Status'        => 'pending',
+                    'Code' => $this->generateOrderCode(),
+                    'CustomerId' => $customer->Id,
+                    'ProductId' => $product->Id,
+                    'Category' => $product->Category,
+                    'SubType' => $product->SubType,
+                    'Quantity' => $qty,
+                    'PricePerUnit' => $pricePerUnit,
+                    'DiscountPct' => 0,
+                    'TotalAmount' => $totalAmount,
+                    'Status' => 'pending',
                     'PaymentStatus' => 'unpaid',
-                    'DeliveryDate'  => $validated['deliveryDate'] ?? null,
-                    'Notes'         => $validated['notes'] ?? null,
-                    'CreatedBy'     => $caller->id,
+                    'DeliveryDate' => $validated['deliveryDate'] ?? null,
+                    'Notes' => $validated['notes'] ?? null,
+                    'CreatedBy' => $caller->id,
                     // Plain array — the model's 'array' cast encodes it for us.
-                    'OrderDetails'  => $orderDetails,
+                    'OrderDetails' => $orderDetails,
                 ]);
             }
             return $created;
@@ -261,7 +286,7 @@ class OrderController extends Controller
 
         return response()->json([
             'message' => count($orders) . ' item(s) submitted as an enquiry.',
-            'orders'  => collect($orders)->map(fn ($o) => $o->load(['customer', 'product'])),
+            'orders' => collect($orders)->map(fn($o) => $o->load(['customer', 'product'])),
         ], 201);
     }
 
@@ -275,14 +300,14 @@ class OrderController extends Controller
         }
 
         $validated = $request->validate([
-            'qty'           => 'sometimes|required|integer|min:1',
-            'pricePerUnit'  => 'sometimes|required|numeric|min:0',
-            'discount'      => 'nullable|numeric|min:0|max:100',
-            'status'        => 'sometimes|required|in:approved,pending,assigned,processing,dispatched,delivered,declined',
+            'qty' => 'sometimes|required|integer|min:1',
+            'pricePerUnit' => 'sometimes|required|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0|max:100',
+            'status' => 'sometimes|required|in:approved,pending,assigned,processing,dispatched,delivered,declined',
             'paymentStatus' => 'sometimes|required|in:paid,unpaid,partial,refund',
-            'deliveryDate'  => 'nullable|date',
-            'notes'         => 'nullable|string',
-            'orderDetails'  => 'nullable|array',   // ← product-specific fields
+            'deliveryDate' => 'nullable|date',
+            'notes' => 'nullable|string',
+            'orderDetails' => 'nullable|array',   // ← product-specific fields
         ]);
 
         $caller = $request->user();
@@ -313,15 +338,15 @@ class OrderController extends Controller
             }
         }
 
-        $qty          = $validated['qty']          ?? $order->Quantity;
+        $qty = $validated['qty'] ?? $order->Quantity;
         $pricePerUnit = $validated['pricePerUnit'] ?? $order->PricePerUnit;
-        $discountPct  = $validated['discount']     ?? $order->DiscountPct;
+        $discountPct = $validated['discount'] ?? $order->DiscountPct;
 
         $update = [
-            'Quantity'     => $qty,
+            'Quantity' => $qty,
             'PricePerUnit' => $pricePerUnit,
-            'DiscountPct'  => $discountPct,
-            'TotalAmount'  => round($qty * $pricePerUnit * (1 - $discountPct / 100), 2),
+            'DiscountPct' => $discountPct,
+            'TotalAmount' => round($qty * $pricePerUnit * (1 - $discountPct / 100), 2),
         ];
 
         if (isset($validated['status'])) {
@@ -422,7 +447,7 @@ class OrderController extends Controller
         ]);
 
         $order->update([
-            'Status'     => 'assigned',
+            'Status' => 'assigned',
             'AssignedTo' => $validated['assignedTo'] ?? $caller->id,
             'AssignedAt' => now(),
         ]);
@@ -470,12 +495,20 @@ class OrderController extends Controller
         $order->update($update);
 
         if ($validated['status'] === 'approved') {
-            $this->notifyCustomer($order, 'order_approved', 'Your order has been approved',
-                "Order {$order->Code} has been approved and will move to dispatch.");
+            $this->notifyCustomer(
+                $order,
+                'order_approved',
+                'Your order has been approved',
+                "Order {$order->Code} has been approved and will move to dispatch."
+            );
         }
         if ($validated['status'] === 'declined') {
-            $this->notifyCustomer($order, 'order_declined', 'Your order was declined',
-                "Order {$order->Code} was declined." . ($order->RejectionReason ? " Reason: {$order->RejectionReason}" : ''));
+            $this->notifyCustomer(
+                $order,
+                'order_declined',
+                'Your order was declined',
+                "Order {$order->Code} was declined." . ($order->RejectionReason ? " Reason: {$order->RejectionReason}" : '')
+            );
         }
 
         return response()->json($order->load(['customer', 'product']));
@@ -507,12 +540,16 @@ class OrderController extends Controller
         ]);
 
         $order->update([
-            'Status'          => 'declined',
+            'Status' => 'declined',
             'RejectionReason' => $validated['reason'],
         ]);
 
-        $this->notifyCustomer($order, 'order_declined', 'Your order was declined',
-            "Order {$order->Code} was declined. Reason: {$validated['reason']}");
+        $this->notifyCustomer(
+            $order,
+            'order_declined',
+            'Your order was declined',
+            "Order {$order->Code} was declined. Reason: {$validated['reason']}"
+        );
 
         return response()->json($order->load(['customer', 'product']));
     }
@@ -548,27 +585,27 @@ class OrderController extends Controller
         if ($holdReason = $this->creditHoldReason($order)) {
             $order->update(['OnHold' => true, 'HoldReason' => $holdReason, 'HoldPlacedAt' => now()]);
             return response()->json([
-                'message'    => 'Order held for credit/discount review, not dispatched.',
+                'message' => 'Order held for credit/discount review, not dispatched.',
                 'holdReason' => $holdReason,
-                'order'      => $order->fresh(['customer', 'product']),
+                'order' => $order->fresh(['customer', 'product']),
             ], 422);
         }
 
         $validated = $request->validate([
-            'lrNumber'      => 'required|string|max:100',
+            'lrNumber' => 'required|string|max:100',
             'transportName' => 'required|string|max:150',
-            'dispatchedAt'  => 'nullable|date',
+            'dispatchedAt' => 'nullable|date',
         ]);
 
         $dispatchedAt = $validated['dispatchedAt'] ?? now();
 
         $order->update([
-            'Status'        => 'dispatched',
-            'OnHold'        => false,
-            'LRNumber'      => $validated['lrNumber'],
+            'Status' => 'dispatched',
+            'OnHold' => false,
+            'LRNumber' => $validated['lrNumber'],
             'TransportName' => $validated['transportName'],
-            'DispatchedAt'  => $dispatchedAt,
-            'DispatchedBy'  => $request->user()->id,
+            'DispatchedAt' => $dispatchedAt,
+            'DispatchedBy' => $request->user()->id,
             'WarehouseSource' => $order->product->warehouse ?? null,
             // Bill's payment clock starts at dispatch — default credit
             // term (15 days unless already customized) counts from here.
@@ -585,8 +622,12 @@ class OrderController extends Controller
             $order->customer->increment('Outstanding', (float) $order->TotalAmount);
         }
 
-        $this->notifyCustomer($order, 'order_dispatched', 'Your order has been dispatched',
-            "Order {$order->Code} has been dispatched via {$validated['transportName']} (LR: {$validated['lrNumber']}).");
+        $this->notifyCustomer(
+            $order,
+            'order_dispatched',
+            'Your order has been dispatched',
+            "Order {$order->Code} has been dispatched via {$validated['transportName']} (LR: {$validated['lrNumber']})."
+        );
 
         return response()->json($order->load(['customer', 'product', 'dispatcher']));
     }
@@ -614,7 +655,7 @@ class OrderController extends Controller
         $validated = $request->validate(['note' => 'nullable|string|max:255']);
 
         $order->update([
-            'OnHold'     => false,
+            'OnHold' => false,
             'HoldReason' => trim(($order->HoldReason ?? '') . ' — released' . (!empty($validated['note']) ? ": {$validated['note']}" : '')),
         ]);
 
@@ -628,7 +669,8 @@ class OrderController extends Controller
     private function creditHoldReason(Order $order): ?string
     {
         $customer = $order->customer;
-        if (!$customer) return null;
+        if (!$customer)
+            return null;
 
         $reasons = [];
 
@@ -637,7 +679,9 @@ class OrderController extends Controller
             if ($projected > (float) $customer->CreditLimit) {
                 $reasons[] = sprintf(
                     'Credit limit exceeded: outstanding %.2f + this order %.2f > limit %.2f',
-                    (float) $customer->Outstanding, (float) $order->TotalAmount, (float) $customer->CreditLimit
+                    (float) $customer->Outstanding,
+                    (float) $order->TotalAmount,
+                    (float) $customer->CreditLimit
                 );
             }
         }
@@ -655,7 +699,8 @@ class OrderController extends Controller
         if ($customer->MaxDiscountPct !== null && (float) $order->DiscountPct > (float) $customer->MaxDiscountPct) {
             $reasons[] = sprintf(
                 'Discount %.2f%% exceeds this customer\'s approved policy of %.2f%%',
-                (float) $order->DiscountPct, (float) $customer->MaxDiscountPct
+                (float) $order->DiscountPct,
+                (float) $customer->MaxDiscountPct
             );
         }
 
@@ -697,9 +742,9 @@ class OrderController extends Controller
         }
 
         $validated = $request->validate([
-            'paymentDueDate'  => 'nullable|date',
+            'paymentDueDate' => 'nullable|date',
             'paymentTermDays' => 'nullable|integer|min:1|max:365',
-            'note'            => 'nullable|string|max:255',
+            'note' => 'nullable|string|max:255',
         ]);
 
         if (empty($validated['paymentDueDate']) && empty($validated['paymentTermDays'])) {
@@ -708,7 +753,7 @@ class OrderController extends Controller
 
         $update = [
             'PaymentDueDateSetBy' => $caller->id,
-            'PaymentDueDateNote'  => $validated['note'] ?? null,
+            'PaymentDueDateNote' => $validated['note'] ?? null,
         ];
 
         if (!empty($validated['paymentTermDays'])) {
@@ -757,7 +802,7 @@ class OrderController extends Controller
 
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01', 'max:' . max($balanceDue, 0.01)],
-            'note'   => 'nullable|string|max:255',
+            'note' => 'nullable|string|max:255',
         ]);
 
         $amount = round((float) $validated['amount'], 2);
@@ -765,7 +810,7 @@ class OrderController extends Controller
         $newStatus = $newAmountPaid >= (float) $order->TotalAmount ? 'paid' : 'partial';
 
         $order->update([
-            'AmountPaid'    => $newAmountPaid,
+            'AmountPaid' => $newAmountPaid,
             'PaymentStatus' => $newStatus,
         ]);
 
@@ -795,12 +840,12 @@ class OrderController extends Controller
         $value = $employee->{$field} ?? $caller->{$field} ?? null;
 
         if (is_array($value)) {
-            return array_values(array_filter($value, fn ($v) => $v !== null && $v !== ''));
+            return array_values(array_filter($value, fn($v) => $v !== null && $v !== ''));
         }
         if (is_string($value) && $value !== '') {
             $decoded = json_decode($value, true);
             if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                return array_values(array_filter($decoded, fn ($v) => $v !== null && $v !== ''));
+                return array_values(array_filter($decoded, fn($v) => $v !== null && $v !== ''));
             }
             return [$value];
         }

@@ -12,23 +12,6 @@ import API from "../services/api";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-// Placeholder figures shown in place of real stats when the API returns
-// nothing (0 / null) for them — e.g. a freshly-seeded area with no data
-// yet. Purely cosmetic; swapped out the moment real numbers come in.
-const DUMMY_STATS = {
-  total_orders: 45,
-  approved_orders: 30,
-  pending_orders: 10,
-  rejected_orders: 5,
-  total_products: 56
-};
-const DUMMY_OPEN_COMPLAINTS = 3;
-const DUMMY_RECENT_ORDERS = [
-  { id: "ORD-1042", customer: "Sri Balaji Textiles", product: "Cotton Yarn 40s", amount: 42500, status: "dispatched" },
-  { id: "ORD-1041", customer: "Kaveri Handlooms", product: "Poly-Cotton Blend", amount: 18750, status: "processing" },
-  { id: "ORD-1039", customer: "Anand Weaving Mills", product: "Grey Fabric Roll", amount: 63200, status: "pending" },
-];
-
 function formatRevenue(total) {
   if (total >= 10000000) return `₹${(total / 10000000).toFixed(2)}Cr`;
   if (total >= 100000) return `₹${(total / 100000).toFixed(2)}L`;
@@ -63,11 +46,9 @@ export default function EndUserDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Once loading is done, any stat that's still 0/null/undefined falls
-  // back to a placeholder figure so the dashboard doesn't look empty.
-  const statVal = (key) => (loading ? null : (stats[key] || DUMMY_STATS[key]));
-  const openComplaintsVal = loading ? null : (openComplaints || DUMMY_OPEN_COMPLAINTS);
-  const recentOrdersVal = loading ? [] : (recentOrders.length ? recentOrders : DUMMY_RECENT_ORDERS);
+  const statVal = (key) => (loading ? null : (stats[key] ?? 0));
+  const openComplaintsVal = loading ? null : (openComplaints ?? 0);
+  const recentOrdersVal = loading ? [] : recentOrders;
 
   useEffect(() => {
     const role = localStorage.getItem("role");
@@ -184,6 +165,8 @@ export default function EndUserDashboard() {
         <h3 style={S.tableTitle}>Recent Orders in Your Area</h3>
         {loading ? (
           <p style={S.emptyNote}>Loading…</p>
+        ) : recentOrdersVal.length === 0 ? (
+          <p style={S.emptyNote}>No orders yet in your area.</p>
         ) : (
           <table style={S.table}>
             <thead>

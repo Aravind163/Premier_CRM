@@ -3,9 +3,12 @@
 // Lists every saved Product Selection draft for this customer (there can
 // be several — one per in-progress order they haven't submitted yet),
 // each showing who it's for and when it was saved. "Resume" reopens
-// Product Selection with that draft's cart/details loaded back in;
-// saving again from there updates this same draft instead of creating a
-// duplicate.
+// Product Selection (not Order Enquiry — that's the review/submit step,
+// not where you'd want to keep shopping) with that draft's cart loaded
+// back in and its Additional Details stashed for Order Enquiry to pick
+// up once the customer clicks through to it (see utils/draftSession.js);
+// saving again from either page updates this same draft instead of
+// creating a duplicate.
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import CustomerLayout from "../components/CustomerLayout";
@@ -41,7 +44,11 @@ export default function CustomerDrafts() {
     setDrafts(listDrafts());
   };
 
-  const resume = (id) => navigate(`/customer/enquiry?draftId=${id}`);
+  // Resume now goes to Product Selection, not Order Enquiry — that's
+  // where a customer would actually want to keep shopping from. Order
+  // Enquiry picks up this draft's Additional Details automatically once
+  // the customer clicks "View Cart & Submit" from there.
+  const resume = (id) => navigate(`/customer/catalog?draftId=${id}`);
 
   const S = {
     heading: { fontSize: 20, fontWeight: 700, color: themeG.textMain, margin: "0 0 4px", fontFamily: FONT },

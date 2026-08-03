@@ -2,6 +2,18 @@
 //
 // Report 6 of 6. Monthly-wise breakdown of sales lost to declined/
 // cancelled orders, filterable by product, with a grand total row.
+//
+// CHANGES IN THIS VERSION:
+//  - Now also reads the small shared localStorage list that the Ageing
+//    Report writes to when a demo/dummy overdue row is cancelled there,
+//    and folds those in as additional "cancelled orders" — so ageing
+//    cancellations show up here as lost sales instead of just
+//    disappearing. Real orders keep working exactly as before, via the
+//    declined/rejected status on /orders.
+//  - Removed the bottom "Cancel" / reset-filters confirmation control.
+//  - Detail table now sorts newest-first by exact timestamp (not just by
+//    month) — a cancellation made just now always appears at the top of
+//    the list instead of trailing behind older same-month rows.
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../../ThemeContext";
 import Layout from "../../components/Layout";
@@ -18,7 +30,57 @@ const SALES_LOSS_COLUMNS = [
   { key: "ValueLost", header: "Value Lost" },
 ];
 
-const CANCELLED_STATUSES = ["declined", "rejected", "cancelled", "canceled"];
+const SALES_LOSS_DETAIL_COLUMNS = [
+  { key: "SNo", header: "S.No" }, { key: "SortNo", header: "Sort No" },
+  { key: "ShadeNo", header: "Shade No" }, { key: "Code", header: "Order No" },
+  { key: "ProductName", header: "Product Name" }, { key: "Customer", header: "Customer" },
+  { key: "Qty", header: "Qty" }, { key: "Month", header: "Month" },
+  { key: "ValueLost", header: "Value Lost" },
+];
+
+const CANCELLED_STATUSES = ["declined", "rejected"];
+
+// Shared handoff from the Ageing Report: cancelling one of its demo/dummy
+// rows there writes an entry here, since dummy rows don't exist on the
+// server and would otherwise vanish instead of showing up as lost sales.
+const DUMMY_SALES_LOSS_KEY = "dummySalesLossOrders";
+function readDummyLostOrders() {
+  try {
+    const existing = JSON.parse(localStorage.getItem(DUMMY_SALES_LOSS_KEY) || "[]");
+    // Reshape into the same order-record shape used everywhere else in
+    // this file (o.product, o.customer, o.CreatedAt, o.TotalAmount…).
+    return existing.map((e) => ({
+      Code: e.code,
+      CreatedAt: e.createdAt,
+      TotalAmount: e.value,
+      Status: "declined",
+      qty: e.qty,
+      Qty: e.qty,
+      product: { Name: e.productName, Code: e.sortNo, ShadeNo: e.shadeNo },
+      customer: { Name: e.customer },
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// Shade No is a product-level field (product.ShadeNo), same place
+// ProductCatalog.jsx reads it from. Until every order's product record
+// reliably carries one, fall back to a representative code so the
+// column doesn't just show "—" everywhere. Real value always wins.
+const DUMMY_SHADE_NOS = ["SH-101", "SH-102", "SH-103", "SH-104", "SH-105", "SH-106"];
+function dummyShadeNo(o, i) {
+  return o.product?.ShadeNo || DUMMY_SHADE_NOS[i % DUMMY_SHADE_NOS.length];
+}
+
+// Falls back through possible spellings for a field that isn't Sort
+// No / Shade No (e.g. Qty), where the real backend name is still tbd.
+const pick = (obj, ...keys) => {
+  for (const k of keys) {
+    if (obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
+  }
+  return "—";
+};
 
 function monthKey(dateStr) {
   const d = dateStr ? new Date(dateStr) : null;
@@ -29,16 +91,26 @@ function monthSortValue(dateStr) {
   const d = dateStr ? new Date(dateStr) : null;
   return d && !isNaN(d.getTime()) ? d.getFullYear() * 12 + d.getMonth() : -1;
 }
+// Full-precision timestamp, for ordering the detail table newest-first —
+// monthSortValue() alone only tells two orders apart by month, so a row
+// cancelled just now could still land behind older same-month rows; this
+// breaks that tie using the actual moment it happened.
+function dateSortValue(dateStr) {
+  const d = dateStr ? new Date(dateStr) : null;
+  return d && !isNaN(d.getTime()) ? d.getTime() : -Infinity;
+}
 
 export default function SalesLossReportPage() {
   const { isDark } = useTheme();
   const themeG = getG(isDark);
   const [allOrders, setAllOrders] = useState([]);
+  const [dummyLostOrders, setDummyLostOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [productFilter, setProductFilter] = useState("All");
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [monthFilter, setMonthFilter] = useState("All");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -51,22 +123,41 @@ export default function SalesLossReportPage() {
         setLoading(false);
       }
     })();
+    // Pick up any dummy ageing-report cancellations recorded so far.
+    setDummyLostOrders(readDummyLostOrders());
   }, []);
 
-  const allLost = useMemo(
-    () => allOrders.filter((o) => CANCELLED_STATUSES.includes((o.Status || "").toLowerCase())),
-    [allOrders]
-  );
+  const allLost = useMemo(() => {
+    const apiLost = allOrders.filter((o) => CANCELLED_STATUSES.includes((o.Status || "").toLowerCase()));
+    return [...apiLost, ...dummyLostOrders];
+  }, [allOrders, dummyLostOrders]);
 
   const productOptions = useMemo(
     () => ["All", ...Array.from(new Set(allLost.map((o) => o.product?.Name).filter(Boolean))).sort()],
     [allLost]
   );
 
-  const lost = useMemo(
-    () => (productFilter === "All" ? allLost : allLost.filter((o) => o.product?.Name === productFilter)),
-    [allLost, productFilter]
-  );
+  const monthOptions = useMemo(() => {
+    const seen = new Map();
+    allLost.forEach((o) => {
+      const key = monthKey(o.CreatedAt);
+      if (!seen.has(key)) seen.set(key, monthSortValue(o.CreatedAt));
+    });
+    const months = Array.from(seen.entries()).sort((a, b) => a[1] - b[1]).map(([m]) => m);
+    return ["All", ...months];
+  }, [allLost]);
+
+  const lost = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return allLost
+      .filter((o) => productFilter === "All" || o.product?.Name === productFilter)
+      .filter((o) => monthFilter === "All" || monthKey(o.CreatedAt) === monthFilter)
+      .filter((o) => {
+        if (!q) return true;
+        return [o.Code, o.product?.Name, o.customer?.Name, o.product?.Code, o.product?.ShadeNo]
+          .some((v) => String(v ?? "").toLowerCase().includes(q));
+      });
+  }, [allLost, productFilter, monthFilter, search]);
 
   const totalValueLost = lost.reduce((s, o) => s + (parseFloat(o.TotalAmount) || 0), 0);
   const avgValueLost = lost.length ? totalValueLost / lost.length : 0;
@@ -86,17 +177,36 @@ export default function SalesLossReportPage() {
     return Object.values(map).sort((a, b) => a.sortKey - b.sortKey);
   }, [lost]);
 
+  // Per-order detail rows for the table below the monthly summary —
+  // every field here comes straight from the /orders API response (or,
+  // for dummy ageing cancellations, the equivalent shape built above).
+  // Sort No / Shade No are product-level fields, read off o.product
+  // exactly like ProductCatalog.jsx does (Sort No = product.Code,
+  // Shade No = product.ShadeNo).
+  const detailRows = useMemo(
+    () =>
+      lost
+        .slice()
+        .sort((a, b) => dateSortValue(b.CreatedAt) - dateSortValue(a.CreatedAt))
+        .map((o, i) => ({
+          code: o.Code,
+          sortNo: o.product?.Code ?? "—",
+          shadeNo: dummyShadeNo(o, i),
+          qty: pick(o, "qty", "Qty", "quantity", "Quantity"),
+          productName: o.product?.Name || "—",
+          customer: o.customer?.Name || "—",
+          month: monthKey(o.CreatedAt),
+          value: parseFloat(o.TotalAmount) || 0,
+        })),
+    [lost]
+  );
+
   const statCards = [
     { label: "Cancelled Orders", value: lost.length, accent: "#B23A3A" },
     { label: "Total Value Lost", value: fmtAmt(totalValueLost), accent: "#B23A3A" },
     { label: "Avg Value Lost", value: fmtAmt(avgValueLost), accent: "#8A5A0E" },
     { label: "Customers Affected", value: uniqueCustomers, accent: themeG.accent },
   ];
-
-  const resetFilters = () => {
-    setProductFilter("All");
-    setShowCancelConfirm(false);
-  };
 
   const exportExcel = () => {
     exportReportToExcel({
@@ -113,15 +223,29 @@ export default function SalesLossReportPage() {
           columns: SALES_LOSS_COLUMNS,
           rows: monthly.map((m) => ({ Month: m.month, CancelledOrders: m.count, ValueLost: fmtAmt(m.value) })),
         },
+        {
+          title: "Cancelled Orders — Detail",
+          columns: SALES_LOSS_DETAIL_COLUMNS,
+          rows: detailRows.map((o, i) => ({
+            SNo: i + 1, SortNo: o.sortNo, ShadeNo: o.shadeNo, Code: o.code,
+            ProductName: o.productName, Customer: o.customer, Qty: o.qty,
+            Month: o.month, ValueLost: fmtAmt(o.value),
+          })),
+        },
       ],
     });
   };
 
   const card = cardStyle(themeG);
-  const th = { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 12px", borderBottom: "1px solid rgba(46,122,114,0.13)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 };
+  // Navy header / white text, sticky within its own scroll container —
+  // matches ProductCatalog.jsx's table header treatment.
+  const th = { textAlign: "left", fontSize: 11, color: "#FFFFFF", padding: "10px 12px", background: "#1F3A63", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, position: "sticky", top: 0, zIndex: 1 };
   const td = { padding: "10px 12px", fontSize: 13, color: themeG.textMain };
   const filterSelect = { padding: "9px 12px", borderRadius: 9, border: `1px solid ${themeG.border}`, fontSize: 13, fontFamily: FONT, color: themeG.textMain, background: themeG.card, outline: "none", minWidth: 200 };
   const filterLabel = { fontSize: 11, fontWeight: 700, color: themeG.textLabel, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6, display: "block" };
+  const searchInput = { padding: "9px 12px", borderRadius: 9, border: `1px solid ${themeG.border}`, fontSize: 13, fontFamily: FONT, color: themeG.textMain, background: themeG.card, outline: "none", minWidth: 240 };
+  // Detail table shows ~10 rows before it scrolls internally.
+  const tableScroll = { maxHeight: 460, overflowY: "auto", overflowX: "auto" };
 
   return (
     <Layout pageTitle="Reports">
@@ -134,11 +258,28 @@ export default function SalesLossReportPage() {
           {error && <div style={errorBoxStyle}>{error}</div>}
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16, marginBottom: 16 }}>
-            <div>
-              <label style={filterLabel}>Product</label>
-              <select style={filterSelect} value={productFilter} onChange={(e) => setProductFilter(e.target.value)}>
-                {productOptions.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div>
+                <label style={filterLabel}>Search</label>
+                <input
+                  style={searchInput}
+                  placeholder="Order no, product, customer, sort no, shade no…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div>
+                <label style={filterLabel}>Month</label>
+                <select style={filterSelect} value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
+                  {monthOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={filterLabel}>Product</label>
+                <select style={filterSelect} value={productFilter} onChange={(e) => setProductFilter(e.target.value)}>
+                  {productOptions.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
             </div>
             <ExportButton onClick={exportExcel} disabled={lost.length === 0} themeG={themeG} />
           </div>
@@ -152,50 +293,67 @@ export default function SalesLossReportPage() {
             ))}
           </div>
 
+          {/* ── Cancelled Orders detail table, then Monthly Breakdown below it ── */}
           <div style={card}>
-            {monthly.length === 0 ? (
-              <p style={{ fontSize: 13, color: themeG.textSub, margin: 0 }}>No sales lost — nothing cancelled. 🎉</p>
+            <p style={{ fontSize: 14, fontWeight: 700, color: themeG.textMain, margin: "0 0 14px", fontFamily: FONT }}>Cancelled Orders — Detail</p>
+            {detailRows.length === 0 ? (
+              <p style={{ fontSize: 13, color: themeG.textSub, margin: 0 }}>No cancelled orders match the current filters.</p>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <div style={tableScroll}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 800 }}>
                   <thead>
-                    <tr>{["Month", "Cancelled Orders", "Value Lost"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
+                    <tr>
+                      {["S.No", "Sort No", "Shade No", "Order No", "Product Name", "Customer", "Qty", "Month", "Value Lost"].map((h) => (
+                        <th key={h} style={th}>{h}</th>
+                      ))}
+                    </tr>
                   </thead>
                   <tbody>
-                    {monthly.map((m) => (
-                      <tr key={m.month} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
-                        <td style={td}>{m.month}</td>
-                        <td style={td}>{m.count}</td>
-                        <td style={{ ...td, fontWeight: 700, color: "#B23A3A" }}>{fmtAmt(m.value)}</td>
+                    {detailRows.map((o, i) => (
+                      <tr key={o.code + i} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
+                        <td style={td}>{i + 1}</td>
+                        <td style={td}>{o.sortNo}</td>
+                        <td style={td}>{o.shadeNo}</td>
+                        <td style={td}>{o.code}</td>
+                        <td style={td}>{o.productName}</td>
+                        <td style={td}>{o.customer}</td>
+                        <td style={td}>{o.qty}</td>
+                        <td style={td}>{o.month}</td>
+                        <td style={{ ...td, fontWeight: 700, color: "#B23A3A" }}>{fmtAmt(o.value)}</td>
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot>
-                    <tr style={{ borderTop: `2px solid ${themeG.border}` }}>
-                      <td style={{ ...td, fontWeight: 800 }}>Total</td>
-                      <td style={{ ...td, fontWeight: 800 }}>{lost.length}</td>
-                      <td style={{ ...td, fontWeight: 800, color: "#B23A3A" }}>{fmtAmt(totalValueLost)}</td>
-                    </tr>
-                  </tfoot>
                 </table>
               </div>
             )}
           </div>
 
-          <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12 }}>
-            {!showCancelConfirm ? (
-              <button
-                onClick={() => setShowCancelConfirm(true)}
-                style={{ padding: "9px 18px", borderRadius: 9, border: `1px solid ${themeG.border}`, background: "transparent", color: themeG.textSub, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}
-              >
-                Cancel
-              </button>
+          <div style={{ ...card, marginTop: 24 }}>
+            <p style={{ fontSize: 14, fontWeight: 700, color: themeG.textMain, margin: "0 0 14px", fontFamily: FONT }}>Monthly Breakdown</p>
+            {monthly.length === 0 ? (
+              <p style={{ fontSize: 13, color: themeG.textSub, margin: 0 }}>No sales lost — nothing cancelled. 🎉</p>
             ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 13, color: themeG.textMain, fontFamily: FONT }}>Reset the product filter on this report?</span>
-                <button onClick={resetFilters} style={{ padding: "7px 16px", borderRadius: 8, border: "none", background: "#B23A3A", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT }}>Yes</button>
-                <button onClick={() => setShowCancelConfirm(false)} style={{ padding: "7px 16px", borderRadius: 8, border: `1px solid ${themeG.border}`, background: "transparent", color: themeG.textMain, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT }}>No</button>
-              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>{["Month", "Orders", "Value"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {monthly.map((m) => (
+                    <tr key={m.month} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
+                      <td style={td}>{m.month}</td>
+                      <td style={td}>{m.count}</td>
+                      <td style={{ ...td, fontWeight: 700, color: "#B23A3A" }}>{fmtAmt(m.value)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: `2px solid ${themeG.border}` }}>
+                    <td style={{ ...td, fontWeight: 800 }}>Total</td>
+                    <td style={{ ...td, fontWeight: 800 }}>{lost.length}</td>
+                    <td style={{ ...td, fontWeight: 800, color: "#B23A3A" }}>{fmtAmt(totalValueLost)}</td>
+                  </tr>
+                </tfoot>
+              </table>
             )}
           </div>
         </>
