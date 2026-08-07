@@ -80,31 +80,23 @@ class AllocationController extends Controller
      * GET /api/allocations?product_id=X
      *
      * One row per active Order for this product (pending/approved/
-     * processing), newest first. Previously this summed every active
-     * Order a customer had for the product into a single merged row —
-     * Marketing wants each Order to keep showing up as its own line, so
-     * we build the list from Orders directly instead of grouping by
-     * CustomerId.
+     * processing), newest-ordered-first within priority (see below).
      *
-     * IMPORTANT CAVEAT: the allocation itself (AllocatedQty / Status /
-     * Remarks / ERP state) is still tracked per (Product, Customer) on
-     * ProductAllocation — there's no OrderId column there yet. So if the
-     * same customer has two active Orders for this product, both rows
-     * below will display the *same* AllocatedQty/Status/allocationId
-     * (they share one allocation record), and approving/allocating one
-     * currently affects both. Giving each Order its own independent
-     * allocation needs a follow-up migration adding an OrderId column to
-     * product_allocations (with the unique key becoming
-     * [ProductId, CustomerId, OrderId]), plus matching updates to
-     * store(), storeByCustomer(), decision(), bulkDecision() and
-     * erpTransfer()/bulkErpTransfer() below. This method only fixes the
-     * *display* — each Order is its own line now — pending that schema
-     * change.
+     * ── PER-ORDER ALLOCATION (fixed) ────────────────────────────────────
+     * Previously the allocation itself (AllocatedQty / Status / Remarks /
+     * ERP state) was tracked per (Product, Customer) only, with no OrderId
+     * column. That meant: if the same customer had two active Orders for
+     * the same product, BOTH rows showed the same AllocatedQty/Status —
+     * approving/allocating one silently affected the other, a brand-new
+     * Order could inherit a stale "rejected" status from an unrelated
+     * earlier order, and a row's Allocated Qty could show a combined total
+     * that didn't match its own Requested Qty (e.g. "Requested 10,
+     * Allocated 12" because 12 was really the sum across two orders).
      *
-     * (Same caveat applies to cascadeOrderStatus() below: since one
-     * allocation still represents every active Order a customer has for
-     * this product, mirroring its decision onto "the Order" really means
-     * mirroring it onto all of them, until that migration lands.)
+     * Fix: product_allocations now carries OrderId, and every allocation
+     * lookup/write below is keyed by (ProductId, OrderId) — each Order is
+     * fully independent. CustomerId is still stored on the row (useful for
+     * joins/reporting) but is no longer part of the identity key.
      */
     public function index(Request $request)
     {
@@ -136,12 +128,12 @@ class AllocationController extends Controller
         $customerIds = $orders->pluck('CustomerId')->unique()->values();
         $customers = Customer::whereIn('Id', $customerIds)->get()->keyBy('Id');
 
-        // Still keyed by CustomerId (see caveat above) — every Order line
-        // from the same customer reads off this same allocation record.
+        // Keyed by OrderId now — each Order reads its own, independent
+        // allocation record (see class-level note above).
         $allocations = ProductAllocation::where('ProductId', $product->Id)
-            ->whereIn('CustomerId', $customerIds)
+            ->whereIn('OrderId', $orders->pluck('Id'))
             ->get()
-            ->keyBy('CustomerId');
+            ->keyBy('OrderId');
 
         $officerIds = $orders->pluck('CreatedBy')->filter()->unique()->values();
         $officers = User::whereIn('id', $officerIds)->pluck('name', 'id');
@@ -152,7 +144,7 @@ class AllocationController extends Controller
             if (!$customer)
                 continue;
 
-            $allocation = $allocations->get($order->CustomerId);
+            $allocation = $allocations->get($order->Id);
 
             $rows[] = [
                 'orderId' => $order->Id,
@@ -175,12 +167,17 @@ class AllocationController extends Controller
             ];
         }
 
-        // Biggest requests first, so the admin sees who needs the most first.
-        usort($rows, fn($a, $b) => $b['orderedQty'] <=> $a['orderedQty']);
+        // Pending / partially-allocated demand first, then biggest
+        // requests — matches board()'s ordering intent, applied here too
+        // since this endpoint can be called standalone.
+        usort($rows, function ($a, $b) {
+            $pa = $this->rowUrgency($a);
+            $pb = $this->rowUrgency($b);
+            if ($pa !== $pb)
+                return $pa <=> $pb;
+            return $b['orderedQty'] <=> $a['orderedQty'];
+        });
 
-        // Allocated/remaining totals still come from the (Product,Customer)
-        // allocation records, not summed per-Order, since that's still the
-        // real unit of allocation on the server today.
         $totalAllocated = (int) $allocations->sum('AllocatedQty');
 
         return response()->json([
@@ -202,16 +199,18 @@ class AllocationController extends Controller
      *
      * Single combined payload for the whole Marketing Review board: every
      * product that currently has active order demand, each with its full
-     * per-customer breakdown — computed in one pass instead of the old
-     * GET /allocations/products followed by one GET
-     * /allocations?product_id=X per product (which was loading the page
-     * one product at a time — see Batches.jsx's previous loadBoard()).
+     * per-customer/per-order breakdown — computed in one pass instead of
+     * the old GET /allocations/products followed by one GET
+     * /allocations?product_id=X per product.
      *
-     * Same underlying rules as products()/index() above: active demand =
-     * pending/approved/processing orders; allocations are still keyed by
-     * (ProductId, CustomerId) (see the caveat on index()), so every Order
-     * line from the same customer for the same product reads off the
-     * same allocation record.
+     * Per-order allocation keying — see the note on index() above; this
+     * endpoint uses the same (ProductId, OrderId) lookup.
+     *
+     * Rows within each product are ordered PENDING / PARTIALLY ALLOCATED
+     * FIRST (System Admin: Not Submitted/Pending decisions first; Admin:
+     * Not Allocated/Partial Allocated first), then by largest outstanding
+     * quantity — so the Marketing Review table naturally surfaces the
+     * work that still needs attention instead of already-settled rows.
      */
     public function board(Request $request)
     {
@@ -261,14 +260,13 @@ class AllocationController extends Controller
         $officerIds = $orders->pluck('CreatedBy')->filter()->unique()->values();
         $officers = User::whereIn('id', $officerIds)->pluck('name', 'id');
 
-        // Still keyed by (ProductId, CustomerId) — same caveat as index()
-        // above: every Order line from the same customer for the same
-        // product reads off this same allocation record.
+        // Keyed by (ProductId, then OrderId) — each Order reads its own,
+        // independent allocation record. See the note on index() above.
         $allocationsByProduct = ProductAllocation::whereIn('ProductId', $activeProductIds)
-            ->whereIn('CustomerId', $customerIds)
+            ->whereIn('OrderId', $orders->pluck('Id'))
             ->get()
             ->groupBy('ProductId')
-            ->map(fn($group) => $group->keyBy('CustomerId'));
+            ->map(fn($group) => $group->keyBy('OrderId'));
 
         $ordersByProduct = $orders->groupBy('ProductId');
 
@@ -287,7 +285,7 @@ class AllocationController extends Controller
                     continue;
                 }
 
-                $allocation = $productAllocations->get($order->CustomerId);
+                $allocation = $productAllocations->get($order->Id);
 
                 $rows[] = [
                     'orderId' => $order->Id,
@@ -310,8 +308,15 @@ class AllocationController extends Controller
                 ];
             }
 
-            // Biggest requests first, same as index() above.
-            usort($rows, fn($a, $b) => $b['orderedQty'] <=> $a['orderedQty']);
+            // Pending / partially-allocated first, then largest requests —
+            // see method doc-block above.
+            usort($rows, function ($a, $b) {
+                $pa = $this->rowUrgency($a);
+                $pb = $this->rowUrgency($b);
+                if ($pa !== $pb)
+                    return $pa <=> $pb;
+                return $b['orderedQty'] <=> $a['orderedQty'];
+            });
 
             $totalAllocated = (int) $productAllocations->sum('AllocatedQty');
             $totalOrdered = (int) $orderTotals->get($productId)->TotalOrdered;
@@ -340,12 +345,57 @@ class AllocationController extends Controller
     }
 
     /**
+     * Ranks a board/index row by how urgently it needs attention:
+     *   0 = not yet submitted, or submitted and still Pending decision,
+     *       or not fully allocated yet (Requested > Allocated)
+     *   1 = everything else (Approved/Rejected AND fully allocated)
+     * Used to sort Pending/Partially-Allocated rows to the top of the
+     * table, both in the flat index() list and within each product group
+     * in board().
+     */
+    private function rowUrgency(array $row): int
+    {
+        if (($row['status'] ?? null) === null || $row['status'] === 'pending') {
+            return 0;
+        }
+        if ((int) $row['allocatedQty'] < (int) $row['orderedQty']) {
+            return 0;
+        }
+        return 1;
+    }
+
+    /**
      * POST /api/allocations
-     * Body: { productId, allocations: [{ customerId, allocatedQty }] }
+     * Body: { productId, allocations: [{ orderId, customerId, allocatedQty }] }
      *
-     * Bulk upsert. Rejected if the total allocated would exceed the
-     * product's available stock — an admin can always allocate *less*
-     * than what was ordered, never more than what's on hand.
+     * Bulk upsert, ONE allocation record per Order now (keyed on
+     * (ProductId, OrderId) — see the note on index() above). Rejected if
+     * the total allocated would exceed the product's available stock — an
+     * admin can always allocate *less* than what was ordered, never more
+     * than what's on hand.
+     *
+     * ── ERP-STATUS CARRY-OVER FIX ─────────────────────────────────────
+     * A row can already be ErpStatus = 'erp_so_created' from a PREVIOUS,
+     * smaller allocation (e.g. 700 of an 800-unit order was allocated,
+     * approved, and transferred). If Admin later tops that row up (e.g.
+     * +100 to reach the full 800) and clicks Approval, the extra 100
+     * units have obviously never reached ERP — but without this check
+     * ErpStatus would just sit at 'erp_so_created' forever, so the badge
+     * would keep reading "ERP SO Created" even though only 700 of the
+     * new 800 total were ever actually transferred.
+     *
+     * Fix: whenever a row that's currently 'erp_so_created' receives a
+     * NEW AllocatedQty that's higher than what's already stored, drop
+     * ErpStatus back to 'not_transferred' (and clear ErpTransferredAt) so
+     * the row re-enters the normal Approve -> Ready for ERP -> Transfer
+     * cycle for the full new total.
+     *
+     * NOTE: this compares against the PREVIOUS AllocatedQty as a stand-in
+     * for "what was actually transferred", which is safe as long as a row
+     * is never partially transferred (bulkErpTransfer() always transfers
+     * the row's *entire* AllocatedQty in one go — see below). If partial
+     * ERP transfers are ever introduced, track a dedicated
+     * TransferredQty column instead of inferring it from AllocatedQty.
      */
     public function store(Request $request)
     {
@@ -354,24 +404,22 @@ class AllocationController extends Controller
         $validated = $request->validate([
             'productId' => 'required|integer|exists:Products,Id',
             'allocations' => 'required|array|min:1',
+            'allocations.*.orderId' => 'required|integer|exists:Orders,Id',
             'allocations.*.customerId' => 'required|integer|exists:Customers,Id',
             'allocations.*.allocatedQty' => 'required|integer|min:0',
         ]);
 
         $product = Product::find($validated['productId']);
 
-        // Multiple entries can share a CustomerId (a customer with more than
-        // one active Order for this product — see the caveat in index()).
-        // Only one ProductAllocation row per (Product, Customer) ever actually
-        // gets written below, so dedupe here first — keep the LAST value per
-        // customer, matching what updateOrCreate() will persist — otherwise
-        // the same customer's demand gets double-counted against stock.
-        $byCustomer = [];
+        // One entry per OrderId — each Order is its own allocation record
+        // now. Dedupe defensively by OrderId (keep the last value) in case
+        // the client ever sends the same order twice in one payload.
+        $byOrder = [];
         foreach ($validated['allocations'] as $item) {
-            $byCustomer[$item['customerId']] = $item['allocatedQty'];
+            $byOrder[$item['orderId']] = $item;
         }
 
-        $totalRequested = array_sum($byCustomer);
+        $totalRequested = array_sum(array_column($byOrder, 'allocatedQty'));
 
         if ($totalRequested > (int) $product->Quantity) {
             return response()->json([
@@ -379,18 +427,39 @@ class AllocationController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($byCustomer, $validated, $request) {
-            foreach ($byCustomer as $customerId => $allocatedQty) {
+        DB::transaction(function () use ($byOrder, $validated, $request) {
+            foreach ($byOrder as $orderId => $item) {
+                $allocatedQty = $item['allocatedQty'];
+
                 $existing = ProductAllocation::where('ProductId', $validated['productId'])
-                    ->where('CustomerId', $customerId)->first();
+                    ->where('OrderId', $orderId)->first();
                 $qtyChanged = !$existing || (int) $existing->AllocatedQty !== (int) $allocatedQty;
 
+                $attributes = [
+                    'CustomerId' => $item['customerId'],
+                    'AllocatedQty' => $allocatedQty,
+                    'AllocatedBy' => $request->user()->id,
+                ];
+
+                if ($qtyChanged) {
+                    $attributes['Status'] = 'pending';
+                    $attributes['DecidedBy'] = null;
+                    $attributes['DecidedAt'] = null;
+                }
+
+                // Carry-over fix — see method doc-block above.
+                if (
+                    $existing
+                    && $existing->ErpStatus === 'erp_so_created'
+                    && (int) $allocatedQty > (int) $existing->AllocatedQty
+                ) {
+                    $attributes['ErpStatus'] = 'not_transferred';
+                    $attributes['ErpTransferredAt'] = null;
+                }
+
                 $allocation = ProductAllocation::updateOrCreate(
-                    ['ProductId' => $validated['productId'], 'CustomerId' => $customerId],
-                    array_merge(
-                        ['AllocatedQty' => $allocatedQty, 'AllocatedBy' => $request->user()->id],
-                        $qtyChanged ? ['Status' => 'pending', 'DecidedBy' => null, 'DecidedAt' => null] : []
-                    )
+                    ['ProductId' => $validated['productId'], 'OrderId' => $orderId],
+                    $attributes
                 );
                 $this->consumeFifo($allocation);
             }
@@ -482,6 +551,15 @@ class AllocationController extends Controller
      * allocated, plus enough stock context (total stock, total ordered by
      * everyone, allocated to everyone else) to safely edit this customer's
      * share without re-fetching the product-wise screen.
+     *
+     * NOTE: this view is aggregated per PRODUCT for the customer (a
+     * customer can have several active Orders for the same product, and
+     * this rolls them up into one line). "MyAllocatedQty" now SUMS across
+     * every one of that customer's per-order allocation rows for the
+     * product, since each Order has its own allocation record —
+     * previously there was only ever one row per (Product, Customer) to
+     * read, so a plain keyBy() was enough; with per-order rows that would
+     * silently drop all but one Order's allocation.
      */
     public function byCustomer(Request $request)
     {
@@ -522,8 +600,12 @@ class AllocationController extends Controller
             ->get()
             ->keyBy('ProductId');
 
+        // SUM across this customer's per-order allocation rows for each
+        // product — see method doc-block above.
         $myAllocated = ProductAllocation::where('CustomerId', $customer->Id)
             ->whereIn('ProductId', $ordered->keys())
+            ->select('ProductId', DB::raw('SUM(AllocatedQty) as MyAllocatedQty'))
+            ->groupBy('ProductId')
             ->get()
             ->keyBy('ProductId');
 
@@ -536,7 +618,7 @@ class AllocationController extends Controller
             $availableQty = (int) $product->Quantity;
             $totalOrdered = (int) ($allTotalOrdered->get($productId)->TotalOrdered ?? 0);
             $totalAllocated = (int) ($allAllocated->get($productId)->TotalAllocated ?? 0);
-            $myAllocatedQty = (int) ($myAllocated->get($productId)->AllocatedQty ?? 0);
+            $myAllocatedQty = (int) ($myAllocated->get($productId)->MyAllocatedQty ?? 0);
             $allocatedToOthers = $totalAllocated - $myAllocatedQty;
 
             $rows[] = [
@@ -564,12 +646,17 @@ class AllocationController extends Controller
 
     /**
      * POST /api/allocations/by-customer
-     * Body: { customerId, allocations: [{ productId, allocatedQty }] }
+     * Body: { customerId, allocations: [{ productId, orderId, allocatedQty }] }
      *
-     * Same rule as the product-wise store(): can never push a product's
-     * grand total (this customer + everyone else already allocated) past
-     * its available stock. Checked per line item since a customer-wise
-     * save can touch several different products at once.
+     * Customer-wise save, now keyed by (ProductId, OrderId) — a customer
+     * with two active Orders for the same product gets two independent
+     * allocation rows here too, matching store() above. Same rule as the
+     * product-wise store(): can never push a product's grand total (every
+     * order's allocation, this customer's and everyone else's) past its
+     * available stock.
+     *
+     * Same ERP-status carry-over fix as store() above — see that
+     * method's doc-block for the full rationale.
      */
     public function storeByCustomer(Request $request)
     {
@@ -579,14 +666,20 @@ class AllocationController extends Controller
             'customerId' => 'required|integer|exists:Customers,Id',
             'allocations' => 'required|array|min:1',
             'allocations.*.productId' => 'required|integer|exists:Products,Id',
+            'allocations.*.orderId' => 'required|integer|exists:Orders,Id',
             'allocations.*.allocatedQty' => 'required|integer|min:0',
         ]);
 
         $productIds = array_column($validated['allocations'], 'productId');
         $products = Product::whereIn('Id', $productIds)->get()->keyBy('Id');
 
+        // "Elsewhere" = every other allocation row for this product,
+        // regardless of which order it belongs to — excluded by OrderId
+        // now instead of by CustomerId, since the same customer's other
+        // Order for this product also needs to count towards the total.
+        $orderIds = array_column($validated['allocations'], 'orderId');
         $allocatedElsewhere = ProductAllocation::whereIn('ProductId', $productIds)
-            ->where('CustomerId', '!=', $validated['customerId'])
+            ->whereNotIn('OrderId', $orderIds)
             ->select('ProductId', DB::raw('SUM(AllocatedQty) as TotalAllocated'))
             ->groupBy('ProductId')
             ->get()
@@ -610,15 +703,34 @@ class AllocationController extends Controller
         DB::transaction(function () use ($validated, $request) {
             foreach ($validated['allocations'] as $item) {
                 $existing = ProductAllocation::where('ProductId', $item['productId'])
-                    ->where('CustomerId', $validated['customerId'])->first();
+                    ->where('OrderId', $item['orderId'])->first();
                 $qtyChanged = !$existing || (int) $existing->AllocatedQty !== (int) $item['allocatedQty'];
 
+                $attributes = [
+                    'CustomerId' => $validated['customerId'],
+                    'AllocatedQty' => $item['allocatedQty'],
+                    'AllocatedBy' => $request->user()->id,
+                ];
+
+                if ($qtyChanged) {
+                    $attributes['Status'] = 'pending';
+                    $attributes['DecidedBy'] = null;
+                    $attributes['DecidedAt'] = null;
+                }
+
+                // Carry-over fix — see store()'s doc-block above.
+                if (
+                    $existing
+                    && $existing->ErpStatus === 'erp_so_created'
+                    && (int) $item['allocatedQty'] > (int) $existing->AllocatedQty
+                ) {
+                    $attributes['ErpStatus'] = 'not_transferred';
+                    $attributes['ErpTransferredAt'] = null;
+                }
+
                 $allocation = ProductAllocation::updateOrCreate(
-                    ['ProductId' => $item['productId'], 'CustomerId' => $validated['customerId']],
-                    array_merge(
-                        ['AllocatedQty' => $item['allocatedQty'], 'AllocatedBy' => $request->user()->id],
-                        $qtyChanged ? ['Status' => 'pending', 'DecidedBy' => null, 'DecidedAt' => null] : []
-                    )
+                    ['ProductId' => $item['productId'], 'OrderId' => $item['orderId']],
+                    $attributes
                 );
                 $this->consumeFifo($allocation);
             }
@@ -662,17 +774,23 @@ class AllocationController extends Controller
      * erp_status=not_transferred|erp_so_created, date=YYYY-MM-DD (matches
      * DecidedAt), search=text (customer/product name or code).
      *
-     * Flat list across every product/customer with a saved allocation —
+     * Flat list across every product/order with a saved allocation —
      * feeds the Sales Order page's four "View Details" drill-downs
      * (Pending Final Approval / Approved Orders Today / Total Order Value /
      * ERP Transfer Pending), which all read from this same table rather
      * than from Orders directly.
+     *
+     * Order context (Order No / Requested Qty) now comes straight off the
+     * allocation's own OrderId relation — no more guessing the right
+     * Order by (ProductId, CustomerId), which could previously attach the
+     * wrong Order's numbers to a row when a customer had more than one
+     * Order for the same product.
      */
     public function list(Request $request)
     {
         $this->authorizeStaff($request);
 
-        $query = ProductAllocation::with(['product', 'customer']);
+        $query = ProductAllocation::with(['product', 'customer', 'order']);
 
         if ($status = $request->query('status')) {
             $query->where('Status', $status);
@@ -686,6 +804,19 @@ class AllocationController extends Controller
 
         $allocations = $query->orderByDesc('UpdatedAt')->get();
 
+        // ── DEDUPE (defensive) ─────────────────────────────────────────
+        // product_allocations has no enforced DB-level unique constraint on
+        // (ProductId, OrderId) in every environment — updateOrCreate() in
+        // store() relies on the application layer to find the "existing"
+        // row, which can lose a race and insert a second row for the same
+        // pair. Collapse to the most-recently-updated row per
+        // (ProductId, OrderId) here so a stray duplicate never surfaces as
+        // two identical lines in the UI.
+        $allocations = $allocations
+            ->groupBy(fn($a) => $a->ProductId . '-' . $a->OrderId)
+            ->map(fn($group) => $group->sortByDesc('UpdatedAt')->first())
+            ->values();
+
         if ($search = $request->query('search')) {
             $q = mb_strtolower($search);
             $allocations = $allocations->filter(function ($a) use ($q) {
@@ -696,24 +827,44 @@ class AllocationController extends Controller
             })->values();
         }
 
-        return response()->json($allocations->map(fn($a) => [
-            'allocationId' => $a->Id,
-            'productId' => $a->ProductId,
-            'productCode' => $a->product->Code ?? null,
-            'productName' => $a->product->Name ?? null,
-            'customerId' => $a->CustomerId,
-            'customerCode' => $a->customer->Code ?? null,
-            'customerName' => $a->customer->Name ?? null,
-            'allocatedQty' => (int) $a->AllocatedQty,
-            'price' => (float) ($a->product->Price ?? 0),
-            'totalValue' => round((float) $a->AllocatedQty * (float) ($a->product->Price ?? 0), 2),
-            'status' => $a->Status,
-            'remarks' => $a->Remarks,
-            'erpStatus' => $a->ErpStatus,
-            'decidedAt' => optional($a->DecidedAt)->toDateTimeString(),
-            'erpTransferredAt' => optional($a->ErpTransferredAt)->toDateTimeString(),
-            'updatedAt' => $a->UpdatedAt,
-        ])->values());
+        $productIds = $allocations->pluck('ProductId')->unique()->values();
+        $products = Product::whereIn('Id', $productIds)->get()->keyBy('Id');
+        $allocatedSumByProduct = ProductAllocation::whereIn('ProductId', $productIds)
+            ->select('ProductId', DB::raw('SUM(AllocatedQty) as TotalAllocated'))
+            ->groupBy('ProductId')
+            ->get()
+            ->keyBy('ProductId');
+
+        return response()->json($allocations->map(function ($a) use ($products, $allocatedSumByProduct) {
+            $product = $products->get($a->ProductId);
+            $poolAvailable = $product
+                ? max(0, (int) $product->Quantity - (int) ($allocatedSumByProduct->get($a->ProductId)->TotalAllocated ?? 0))
+                : 0;
+            $rowAvailable = $poolAvailable + (int) $a->AllocatedQty;
+
+            return [
+                'allocationId' => $a->Id,
+                'productId' => $a->ProductId,
+                'productCode' => $a->product->Code ?? null,
+                'productName' => $a->product->Name ?? null,
+                'customerId' => $a->CustomerId,
+                'customerCode' => $a->customer->Code ?? null,
+                'customerName' => $a->customer->Name ?? null,
+                'orderId' => $a->OrderId,
+                'orderNo' => $a->order->Code ?? null,
+                'requestedQty' => $a->order->Quantity ?? null,
+                'availableQty' => $rowAvailable,
+                'allocatedQty' => (int) $a->AllocatedQty,
+                'price' => (float) ($a->product->Price ?? 0),
+                'totalValue' => round((float) $a->AllocatedQty * (float) ($a->product->Price ?? 0), 2),
+                'status' => $a->Status,
+                'remarks' => $a->Remarks,
+                'erpStatus' => $a->ErpStatus,
+                'decidedAt' => optional($a->DecidedAt)->toDateTimeString(),
+                'erpTransferredAt' => optional($a->ErpTransferredAt)->toDateTimeString(),
+                'updatedAt' => $a->UpdatedAt,
+            ];
+        })->values());
     }
 
     /**
@@ -726,10 +877,10 @@ class AllocationController extends Controller
      * at any time (the Remarks box is freeform and independent of the
      * approve/reject decision).
      *
-     * Approving/rejecting here also mirrors onto the underlying Order(s)
-     * (see cascadeOrderStatus()) so Order Status / customer / end-user
-     * dashboards agree with what Marketing Review just decided, instead of
-     * only ProductAllocation knowing about it:
+     * Approving/rejecting here also mirrors onto the ONE underlying Order
+     * this allocation now represents (see cascadeOrderStatus()) — since
+     * allocations are per-order, this can no longer bleed onto a
+     * customer's other, unrelated Order for the same product:
      *   - approved -> Order.Status = 'approved'
      *   - rejected -> Order.Status = 'declined'
      */
@@ -759,11 +910,12 @@ class AllocationController extends Controller
             // erpTransfer() / bulkErpTransfer() below), never automatically
             // the instant a row is ticked here.
 
-            $this->cascadeOrderStatus(
-                $allocation->ProductId,
-                $allocation->CustomerId,
-                $validated['status'] === 'approved' ? 'approved' : 'declined'
-            );
+            if ($allocation->OrderId) {
+                $this->cascadeOrderStatus(
+                    $allocation->OrderId,
+                    $validated['status'] === 'approved' ? 'approved' : 'declined'
+                );
+            }
         }
 
         if ($request->has('remarks')) {
@@ -782,7 +934,7 @@ class AllocationController extends Controller
      * actually moved; anything else in the list is silently skipped.
      *
      * Same Order-status mirroring as decision() above, applied per
-     * (Product, Customer) pair actually touched by this batch.
+     * allocation's own OrderId.
      */
     public function bulkDecision(Request $request)
     {
@@ -794,12 +946,12 @@ class AllocationController extends Controller
             'status' => 'required|in:approved,rejected',
         ]);
 
-        // Snapshot which (Product, Customer) pairs are actually Pending and
-        // about to move, BEFORE updating, so we know exactly which Orders
-        // to cascade onto afterwards.
+        // Snapshot which OrderIds are actually Pending and about to move,
+        // BEFORE updating, so we know exactly which Orders to cascade onto
+        // afterwards.
         $targets = ProductAllocation::whereIn('Id', $validated['ids'])
             ->where('Status', 'pending')
-            ->get(['Id', 'ProductId', 'CustomerId']);
+            ->get(['Id', 'OrderId']);
 
         $updated = ProductAllocation::whereIn('Id', $validated['ids'])
             ->where('Status', 'pending')
@@ -811,7 +963,9 @@ class AllocationController extends Controller
 
         $orderStatus = $validated['status'] === 'approved' ? 'approved' : 'declined';
         foreach ($targets as $t) {
-            $this->cascadeOrderStatus($t->ProductId, $t->CustomerId, $orderStatus);
+            if ($t->OrderId) {
+                $this->cascadeOrderStatus($t->OrderId, $orderStatus);
+            }
         }
 
         return response()->json(['message' => "{$updated} row(s) updated.", 'updated' => $updated]);
@@ -825,10 +979,11 @@ class AllocationController extends Controller
      * ERP integration in behind this same endpoint. This is a deliberate,
      * separate action from Approve — it is never triggered automatically.
      *
-     * Also mirrors onto the underlying Order(s): the ERP handoff means
-     * production/fulfilment now starts, so Order.Status advances to
-     * 'processing' — matching the Order Status tab's own pending -> approved
-     * -> processing -> dispatched -> delivered flow.
+     * Also mirrors onto the ONE underlying Order this allocation
+     * represents: the ERP handoff means production/fulfilment now starts,
+     * so Order.Status advances to 'processing' — matching the Order
+     * Status tab's own pending -> approved -> processing -> dispatched ->
+     * delivered flow.
      */
     public function erpTransfer(Request $request, $id)
     {
@@ -849,7 +1004,9 @@ class AllocationController extends Controller
         $allocation->ErpTransferredAt = now();
         $allocation->save();
 
-        $this->cascadeOrderStatus($allocation->ProductId, $allocation->CustomerId, 'processing');
+        if ($allocation->OrderId) {
+            $this->cascadeOrderStatus($allocation->OrderId, 'processing');
+        }
 
         return response()->json(['message' => 'Transferred to ERP.', 'erpStatus' => $allocation->ErpStatus]);
     }
@@ -862,7 +1019,14 @@ class AllocationController extends Controller
      * button calls — completely separate from Approval/Approve.
      *
      * Same Order-status mirroring as erpTransfer() above (-> 'processing'),
-     * applied per (Product, Customer) pair actually transferred.
+     * applied per allocation's own OrderId.
+     *
+     * NOTE: this always transfers a row's ENTIRE current AllocatedQty in
+     * one go — there's no partial-transfer concept today. That's what
+     * makes the "compare against previous AllocatedQty" carry-over check
+     * in store()/storeByCustomer() above safe; if partial ERP transfers
+     * are ever introduced here, that check needs to move to a dedicated
+     * TransferredQty column instead.
      */
     public function bulkErpTransfer(Request $request)
     {
@@ -876,7 +1040,7 @@ class AllocationController extends Controller
         $targets = ProductAllocation::whereIn('Id', $validated['ids'])
             ->where('Status', 'approved')
             ->where('ErpStatus', '!=', 'erp_so_created')
-            ->get(['Id', 'ProductId', 'CustomerId']);
+            ->get(['Id', 'OrderId']);
 
         $updated = ProductAllocation::whereIn('Id', $validated['ids'])
             ->where('Status', 'approved')
@@ -887,7 +1051,9 @@ class AllocationController extends Controller
             ]);
 
         foreach ($targets as $t) {
-            $this->cascadeOrderStatus($t->ProductId, $t->CustomerId, 'processing');
+            if ($t->OrderId) {
+                $this->cascadeOrderStatus($t->OrderId, 'processing');
+            }
         }
 
         return response()->json(['message' => "{$updated} row(s) transferred.", 'updated' => $updated]);
@@ -902,25 +1068,14 @@ class AllocationController extends Controller
 
     /**
      * Mirrors an allocation decision (approve/reject) or ERP handoff onto
-     * every currently-active Order this allocation actually represents
-     * (Orders.ProductId + Orders.CustomerId, status still in
-     * pending/approved/processing) — so Order Status, the customer
-     * dashboard, and the end-user dashboard all agree with what Marketing
-     * Review just decided, instead of only ProductAllocation knowing
-     * about it.
-     *
-     * CAVEAT: ProductAllocation is still keyed by [ProductId, CustomerId],
-     * not OrderId (see the caveat in index()). So if this customer has
-     * more than one active Order for this product, ALL of them get moved
-     * together — there's no way yet to approve/advance just one of them
-     * independently. Once a follow-up migration adds OrderId to
-     * product_allocations, this should instead target the single matching
-     * Order.
+     * the ONE Order this allocation represents (matched by OrderId
+     * directly now — no more matching by ProductId+CustomerId, which
+     * used to move every active Order a customer had for that product
+     * together, even ones the decision never touched).
      */
-    private function cascadeOrderStatus(int $productId, int $customerId, string $orderStatus): void
+    private function cascadeOrderStatus(int $orderId, string $orderStatus): void
     {
-        Order::where('ProductId', $productId)
-            ->where('CustomerId', $customerId)
+        Order::where('Id', $orderId)
             ->whereIn('Status', ALLOCATION_ACTIVE_STATUSES)
             ->update(['Status' => $orderStatus]);
     }
@@ -1000,6 +1155,46 @@ class AllocationController extends Controller
             'ReceivedAt' => $product->CreatedAt ?? now(),
             'Notes' => 'Opening stock (auto-created on first allocation, pre-dates batch tracking).',
         ]);
+    }
+    /**
+     * POST /api/allocations/{id}/cancel
+     *
+     * Sales Order page's "Reject" button (Pending Final Approval view).
+     * Distinct from decision()'s reject: that keeps the allocation row
+     * around with Status = 'rejected' (shows elsewhere as "Lost"). This one
+     * removes the row from the allocation pool entirely — any stock it had
+     * reserved via FIFO is released back to its batches for other customers
+     * to draw from, and the underlying Order is cascaded to 'declined', the
+     * same way decision() does.
+     */
+    public function cancel(Request $request, $id)
+    {
+        $this->authorizeSystemAdmin($request);
+
+        $allocation = ProductAllocation::find($id);
+        if (!$allocation) {
+            return response()->json(['message' => 'Allocation not found.'], 404);
+        }
+
+        $orderId = $allocation->OrderId;
+
+        DB::transaction(function () use ($allocation) {
+            // Release whatever this allocation had reserved via FIFO — same
+            // release step consumeFifo() itself does before redrawing.
+            $consumptions = AllocationBatchConsumption::where('ProductAllocationId', $allocation->Id)->get();
+            foreach ($consumptions as $c) {
+                StockBatch::where('Id', $c->BatchId)->increment('RemainingQty', $c->ConsumedQty);
+            }
+            AllocationBatchConsumption::where('ProductAllocationId', $allocation->Id)->delete();
+
+            $allocation->delete();
+        });
+
+        if ($orderId) {
+            $this->cascadeOrderStatus($orderId, 'declined');
+        }
+
+        return response()->json(['message' => 'Order removed from Sales Order.']);
     }
 
     /** Only Admin / System Admin may view or set allocations; Super Admin can view but not save. */

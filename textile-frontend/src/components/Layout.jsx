@@ -110,7 +110,7 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
             </Link>
 
             {/* Select Category — hidden for end_user (they place orders, not manage catalog) */}
-            {!isEndUser && (
+            {/* {!isEndUser && (
               <Link to="/select-category" style={{ textDecoration: "none" }}>
                 <div style={{ ...S.navItem, ...(isActive("/select-category") ? S.navItemActive : {}), marginBottom: 4, background: activeCat ? "rgba(91,155,217,0.10)" : "transparent", border: activeCat ? "1px solid rgba(91,155,217,0.25)" : "1px solid transparent", borderRadius: 8 }}>
                   <span style={S.navIcon}><CategoryIcon /></span>
@@ -131,7 +131,7 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
                 <span style={S.navIcon}><ChartIcon /></span>
                 <span>Allocation</span>
               </div>
-            </Link>
+            </Link> */}
 
             {/* FIFO stock batches (Rack vs EB4), Invoices, Claims, and the
                 Customer Compliance dashboard — Marketing-facing O2C steps
@@ -171,7 +171,7 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
                         )}
 
                         {/* Products — second */}
-                        <div style={{ ...S.navSubItem, ...(isPrefix("/master/products") ? S.navSubActive : {}) }} onClick={() => setProductsOpen(!productsOpen)}>
+                        {/* <div style={{ ...S.navSubItem, ...(isPrefix("/master/products") ? S.navSubActive : {}) }} onClick={() => setProductsOpen(!productsOpen)}>
                           <span>Products</span>
                           <span style={{ ...S.chevron, transform: productsOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon small /></span>
                         </div>
@@ -182,7 +182,7 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
                             )}
                             <NavLeaf to="/master/products" label="Product List" active={isActive("/master/products")} S={S} />
                           </div>
-                        )}
+                        )} */}
 
                         {/* Orders — third */}
                         <div style={{ ...S.navSubItem, ...((isPrefix("/master/orders") || isPrefix("/master/enquiry")) ? S.navSubActive : {}) }} onClick={() => setOrdersOpen(!ordersOpen)}>
@@ -191,8 +191,8 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
                         </div>
                         {ordersOpen && (
                           <div style={S.navLeafGroup}>
-                            <NavLeaf to="/master/orders/add" label="Add Enquiry" active={isActive("/master/orders/add")} S={S} />
-                            <NavLeaf to="/master/enquiry" label="Enquiry Order" active={isActive("/master/enquiry")} S={S} />
+                            {/* <NavLeaf to="/master/orders/add" label="Add Enquiry" active={isActive("/master/orders/add")} S={S} />
+                            <NavLeaf to="/master/enquiry" label="Enquiry Order" active={isActive("/master/enquiry")} S={S} /> */}
                             <NavLeaf to="/master/orders" label="Order List" active={isActive("/master/orders")} S={S} />
                           </div>
                         )}
@@ -222,16 +222,17 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
                   </div>
                 )}
 
-                <Link to="/master/invoices" style={{ textDecoration: "none" }}>
-                  <div style={{ ...S.navItem, ...(isPrefix("/master/invoices") ? S.navItemActive : {}) }}>
-                    <span style={S.navIcon}><ReceiptIcon /></span>
-                    <span>Invoices</span>
-                  </div>
-                </Link>
+                
                 <Link to="/master/sales-order" style={{ textDecoration: "none" }}>
                   <div style={{ ...S.navItem, ...(isPrefix("/master/sales-order") ? S.navItemActive : {}) }}>
                     <span style={S.navIcon}><BoxIcon /></span>
                     <span>Order Details</span>
+                  </div>
+                </Link>
+                <Link to="/master/invoices" style={{ textDecoration: "none" }}>
+                  <div style={{ ...S.navItem, ...(isPrefix("/master/invoices") ? S.navItemActive : {}) }}>
+                    <span style={S.navIcon}><ReceiptIcon /></span>
+                    <span>Invoices</span>
                   </div>
                 </Link>
                 <Link to="/master/credit-limit" style={{ textDecoration: "none" }}>

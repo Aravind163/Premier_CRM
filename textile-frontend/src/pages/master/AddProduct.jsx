@@ -437,10 +437,10 @@ export default function AddProduct() {
           <span style={{ fontSize: 18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"}</span>
         </div>
-        <span style={{ fontSize: 12, color: themeG.textSub, fontFamily: FONT }}>
+        {/* <span style={{ fontSize: 12, color: themeG.textSub, fontFamily: FONT }}>
           Category locked — <span style={{ color: themeG.accent, cursor: "pointer", textDecoration: "underline" }}
             onClick={() => navigate("/select-category")}>Switch category</span>
-        </span>
+        </span> */}
       </div>
 
       {error && (

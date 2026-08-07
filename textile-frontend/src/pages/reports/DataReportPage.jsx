@@ -98,7 +98,7 @@ function DataReportProducts({ themeG }) {
           <span style={{ fontSize: 18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"} Products</span>
         </div>
-        <span style={{ fontSize: 12, color: themeG.accent, cursor: "pointer", textDecoration: "underline" }} onClick={() => navigate("/select-category")}>Switch category</span>
+        {/* <span style={{ fontSize: 12, color: themeG.accent, cursor: "pointer", textDecoration: "underline" }} onClick={() => navigate("/select-category")}>Switch category</span> */}
         <div style={{ marginLeft: "auto" }}>
           <ExportButton onClick={exportExcel} disabled={products.length === 0} themeG={themeG} />
         </div>
@@ -219,7 +219,7 @@ function DataReportOrders({ themeG }) {
           <span style={{ fontSize: 18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"} Orders</span>
         </div>
-        <span style={{ fontSize: 12, color: themeG.accent, cursor: "pointer", textDecoration: "underline" }} onClick={() => navigate("/select-category")}>Switch category</span>
+        {/* <span style={{ fontSize: 12, color: themeG.accent, cursor: "pointer", textDecoration: "underline" }} onClick={() => navigate("/select-category")}>Switch category</span> */}
         <div style={{ marginLeft: "auto" }}>
           <ExportButton onClick={exportExcel} disabled={orders.length === 0} themeG={themeG} />
         </div>

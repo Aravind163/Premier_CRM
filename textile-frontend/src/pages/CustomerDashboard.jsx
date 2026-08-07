@@ -14,8 +14,8 @@ const DECLINED_STATUSES = ["declined", "rejected"];
 
 function formatRevenue(total) {
   if (total >= 10000000) return `₹${(total / 10000000).toFixed(2)}Cr`;
-  if (total >= 100000)   return `₹${(total / 100000).toFixed(2)}L`;
-  if (total >= 1000)     return `₹${(total / 1000).toFixed(1)}K`;
+  if (total >= 100000) return `₹${(total / 100000).toFixed(2)}L`;
+  if (total >= 1000) return `₹${(total / 1000).toFixed(1)}K`;
   return `₹${total.toLocaleString()}`;
 }
 
@@ -67,8 +67,7 @@ export default function CustomerDashboard() {
     tableCount: { fontSize: 12, color: themeG.textSub, background: "rgba(15,33,56,0.09)", padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(15,33,56,0.18)" },
     viewAllLink: { fontSize: 12.5, color: themeG.accent, fontWeight: 600, cursor: "pointer", background: "none", border: "none", fontFamily: FONT },
     table: { width: "100%", borderCollapse: "collapse" },
-    th: { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "8px 12px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 },
-    tr: { borderBottom: `1px solid ${themeG.border}` },
+    th: { textAlign: "left", fontSize: 11, color: "#ffffff", background: "#1f3a63", padding: "8px 12px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600 }, tr: { borderBottom: `1px solid ${themeG.border}` },
     td: { padding: "13px 12px", fontSize: 14, color: themeG.textMain },
 
     sectionTitle: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 20, fontWeight: 700, margin: "36px 0 4px", color: themeG.textMain },
@@ -122,16 +121,16 @@ export default function CustomerDashboard() {
   const totalRevenue = groupedOrders.reduce((sum, g) => sum + g.totalAmount, 0);
 
   const statCards = [
-    { label: "My Orders",     value: loading ? "—" : total.toLocaleString(), icon: "📦", accent: "#1E4A45" },
-    { label: "In Progress",   value: loading ? "—" : activeOrders.length.toLocaleString(), icon: "⏳", accent: "#D69426" },
-    { label: "Delivered",     value: loading ? "—" : groupedOrders.filter(g => norm(g.status) === "delivered").length.toLocaleString(), icon: "✅", accent: "#2E7A72" },
-    { label: "Total Value",   value: loading ? "—" : formatRevenue(totalRevenue), icon: "📈", accent: "#3A2560" },
+    { label: "My Orders", value: loading ? "—" : total.toLocaleString(), icon: "📦", accent: "#1E4A45" },
+    { label: "In Progress", value: loading ? "—" : activeOrders.length.toLocaleString(), icon: "⏳", accent: "#D69426" },
+    { label: "Delivered", value: loading ? "—" : groupedOrders.filter(g => norm(g.status) === "delivered").length.toLocaleString(), icon: "✅", accent: "#2E7A72" },
+    { label: "Total Value", value: loading ? "—" : formatRevenue(totalRevenue), icon: "📈", accent: "#3A2560" },
   ];
 
   // ── Recent orders ──
   const recentOrders = [...groupedOrders]
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-    .slice(0, 4);
+    .slice(0, 5);
 
   // ── Enquiry Status ──
   const enquiryStatus = {
@@ -204,7 +203,7 @@ export default function CustomerDashboard() {
           <p style={styles.headingSub}>Welcome back, {user.name || "Customer"}</p>
         </div>
         <div style={{ display: "flex", alignItems: "center" }}>
-          
+
           <button style={styles.shopBtn} onClick={() => navigate("/customer/catalog")}>🛍️ Continue Shopping</button>
         </div>
       </div>
@@ -239,18 +238,19 @@ export default function CustomerDashboard() {
         <table style={styles.table}>
           <thead>
             <tr>
-              {["Order ID", "Product", "Amount", "Status"].map((h) => (
+              {["S.No", "Order ID", "Product", "Amount", "Status"].map((h) => (
                 <th key={h} style={styles.th}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4} style={{ ...styles.td, textAlign: "center", padding: 30 }}>Loading recent orders…</td></tr>
+              <tr><td colSpan={5} style={{ ...styles.td, textAlign: "center", padding: 30 }}>Loading recent orders…</td></tr>
             ) : recentOrders.length === 0 ? (
-              <tr><td colSpan={4} style={{ ...styles.td, textAlign: "center", padding: 30 }}>No orders yet — head to the Product Catalog to place your first enquiry.</td></tr>
-            ) : recentOrders.map((g) => (
+              <tr><td colSpan={5} style={{ ...styles.td, textAlign: "center", padding: 30 }}>No orders yet — head to the Product Catalog to place your first enquiry.</td></tr>
+            ) : recentOrders.map((g, i) => (
               <tr key={g.groupKey} style={styles.tr}>
+                <td style={styles.td}>{i + 1}</td>
                 <td style={{ ...styles.td, color: themeG.accent, fontWeight: 600 }}>{g.code}</td>
                 <td style={styles.td}>{g.productLabel}</td>
                 <td style={{ ...styles.td, fontWeight: 600 }}>₹{g.totalAmount.toLocaleString()}</td>

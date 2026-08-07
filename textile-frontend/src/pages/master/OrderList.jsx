@@ -466,10 +466,10 @@ function OrderListTab({
           <span style={{ fontSize: 18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"} Orders</span>
         </div>
-        <span style={{ fontSize: 12, color: themeG.textSub, fontFamily: FONT }}>
+        {/* <span style={{ fontSize: 12, color: themeG.textSub, fontFamily: FONT }}>
           <span style={{ color: themeG.accent, cursor: "pointer", textDecoration: "underline" }}
             onClick={() => navigate("/select-category")}>Switch category</span>
-        </span>
+        </span> */}
       </div>
 
       <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
@@ -531,7 +531,7 @@ function OrderListTab({
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1180 }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${themeG.border}` }}>
-              {["S.No", "Order No", "Date", "Customer Name", "Sub Type", "Product Name", "Qty", "Following Person", "Delivery Date", "Status", "Actions"].map((h) => (
+              {["S.No", "Order No", "Date", "Customer Name", "Sub Type", "Qty", "Following Person", "Delivery Date", "Status", "Actions"].map((h) => (
                 <th key={h} style={{ textAlign: "left", fontSize: 11, padding: "10px 13px", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, color: "#FFFFFF", background: "#1F3A63", fontFamily: FONT, whiteSpace: "nowrap" }}>
                   {h}
                 </th>
@@ -566,7 +566,6 @@ function OrderListTab({
                   <td style={{ padding: "12px 13px", fontSize: 12, color: themeG.textSub, fontFamily: FONT, whiteSpace: "nowrap" }}>{o.date}</td>
                   <td style={{ padding: "12px 13px", fontSize: 14, color: themeG.textMain, fontWeight: 500, fontFamily: FONT }}>{o.customer}</td>
                   <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textMain, fontFamily: FONT }}>{o.subType}</td>
-                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textMain, fontFamily: FONT }}>{o.productName}</td>
                   <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textMain, fontFamily: FONT }}>{o.qty}</td>
                   <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textSub, fontFamily: FONT }}>{o.followPerson}</td>
                   <td style={{ padding: "12px 13px", fontSize: 12, fontFamily: FONT, whiteSpace: "nowrap" }}>
@@ -693,10 +692,10 @@ function OrderStatusTab({ themeG, navigate }) {
           <span style={{ fontSize: 18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"} Orders</span>
         </div>
-        <span style={{ fontSize: 12, color: themeG.textSub }}>
+        {/* <span style={{ fontSize: 12, color: themeG.textSub }}>
           <span style={{ color: themeG.accent, cursor: "pointer", textDecoration: "underline" }}
             onClick={() => navigate("/select-category")}>Switch category</span>
-        </span>
+        </span> */}
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>

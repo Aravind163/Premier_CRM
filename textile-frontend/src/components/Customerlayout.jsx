@@ -169,7 +169,7 @@ function buildStyles(colors, isDark) {
       display: "flex", alignItems: "center", gap: 10,
       padding: "10px 12px", borderRadius: 8, marginBottom: 2,
       cursor: "pointer", fontSize: 14,
-      color: "rgba(255,255,255,0.65)", transition: "all 0.15s",
+      color: "rgb(255, 255, 255)", transition: "all 0.15s",
       fontFamily: FONT,
     },
     navItemActive: {
@@ -179,7 +179,7 @@ function buildStyles(colors, isDark) {
     },
     navIcon: { display: "flex", alignItems: "center", color: "inherit" },
     sidebarFooterNote: {
-      fontSize: 11, color: "rgba(255,255,255,0.40)",
+      fontSize: 11, color: "rgb(255, 255, 255)",
       lineHeight: 1.5, padding: "12px 10px 4px",
       borderTop: "1px solid rgba(255,255,255,0.08)",
     },

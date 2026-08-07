@@ -13,8 +13,45 @@
 // the Remarks column, and the ERP SO Status column have been removed.
 // This page is now read-only — Approve / Reject / Transfer to ERP still
 // live on the Marketing Review page.
+//
+// SEARCH BAR + TYPE PILLS (latest): brought in line with CustomerOrders.jsx
+// / Batches.jsx instead of the old two-level Type-tab -> Sub-type-pill
+// structure. Same search bar look (icon input, matches Order No /
+// Customer / Customer Code / Product / Product Code) and a single flat
+// row of pills — Dhoti / Blouse / Uniform Shirting / Uniform Suiting /
+// Others, plus an "All" pill — using the identical match/groupFor()
+// convention as CLOTH_GROUPS in CustomerOrders.jsx / Batches.jsx. Both
+// are shared across all four views and reset whenever the tab (view)
+// changes, same as before.
+//
+// ORDER NO COLUMN: added immediately after S.No in every view's table.
+// Real allocation rows don't all agree on a single field name for this
+// across the backend, so orderNoOf() below tries the common variants
+// (orderNo / OrderNo / order_no / orderId / OrderId / orderNumber) the
+// same way subTypeOf() already falls back across subType/SubType/etc.
+//
+// PRODUCT TYPE PILLS (fixed): the first attempt at this assumed each
+// /allocations/list row already carried its own subType/category field
+// — it doesn't, so the pills silently never had anything to group.
+// Fixed by fetching /products separately (same call OrderList.jsx
+// already makes) and building a productCode -> SubType lookup, since
+// every product record does carry a real SubType (see ProductCatalog.jsx
+// / ProductSelection.jsx, p.SubType). Each allocation row's subType is
+// now resolved via r.productCode against that lookup, falling back to
+// r.subType/r.SubType/r.category/r.Category if the row happens to
+// already include one directly.
+//
+// REJECTED ORDERS TAB (new): a fifth System Admin view showing orders
+// that were rejected via the "Reject" button on the Pending Final
+// Approval tab (that button calls handleCancel -> POST
+// /allocations/{id}/cancel, which — per the note on handleCancel below —
+// is expected to set the allocation's status to "cancelled" once that
+// endpoint exists on the backend). This tab just reads the same
+// /allocations/list endpoint filtered to status=cancelled, so it'll
+// start showing real rows as soon as that backend piece lands.
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Search, Shirt, Layers, Briefcase, Ruler, LayoutGrid } from "lucide-react";
 import Layout from "../../components/AppLayout";
 import { useTheme } from "../../ThemeContext";
 import { getG } from "../../theme";
@@ -22,13 +59,15 @@ import API from "../../services/api";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-// System Admin's four drill-downs — same as before, tied to the final
-// approval + ERP handoff work that's theirs.
+// System Admin's five drill-downs — tied to the final approval + ERP
+// handoff work that's theirs, plus a Rejected Orders tab covering
+// orders rejected off the Pending Final Approval tab.
 const SYSADMIN_VIEWS = [
   { id: "pending_final_approval", label: "Pending Final Approval" },
   { id: "approved_today",         label: "Approved Orders Today" },
   { id: "total_order_value",      label: "Total Order Value" },
   { id: "erp_transfer_pending",   label: "ERP Transfer Pending" },
+  { id: "rejected_orders",        label: "Rejected Orders" },
 ];
 
 // Admin's four drill-downs — match Admin's own stat cards on Marketing
@@ -43,6 +82,28 @@ const ADMIN_VIEWS = [
 ];
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
+
+// ── Type pills — identical match/groupFor() convention as
+// CLOTH_GROUPS in CustomerOrders.jsx / Batches.jsx, so a Sub Type
+// resolves to the same pill everywhere it appears in the app. ──
+const CLOTH_GROUPS = [
+  { id: "dhoti", name: "Dhoti", match: ["dhoti", "dothi", "cotton dhoti grey", "cotton dhoti fabric"], icon: Layers, color: "#1C7A4B" },
+  { id: "blouse", name: "Blouse", match: ["blouse"], icon: Shirt, color: "#1E5B95" },
+  { id: "uniform_shirting", name: "Uniform Shirting", match: ["uniform shirting"], icon: Briefcase, color: "#B2622E" },
+  { id: "uniform_suiting", name: "Uniform Suiting", match: ["uniform suiting"], icon: Ruler, color: "#5B4B8C" },
+  { id: "others", name: "Others", match: ["others"], icon: LayoutGrid, color: "#D97706" },
+];
+
+const normalize = (v) => (v ?? "").toString().trim().toLowerCase().replace(/\s+/g, " ");
+
+const groupFor = (subType) => {
+  const c = normalize(subType);
+  if (!c) return CLOTH_GROUPS[CLOTH_GROUPS.length - 1]; // Others
+  const exact = CLOTH_GROUPS.find((g) => g.match.includes(c));
+  if (exact) return exact;
+  const partial = CLOTH_GROUPS.find((g) => g.match.some((m) => c.includes(m) || m.includes(c)));
+  return partial || CLOTH_GROUPS[CLOTH_GROUPS.length - 1];
+};
 
 export default function SalesOrder() {
   const { isDark } = useTheme();
@@ -63,8 +124,48 @@ export default function SalesOrder() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
-  const [search, setSearch] = useState("");
   const [busyIds, setBusyIds] = useState(() => new Set());
+
+  // ── SubType lookup — fetched once from /products, keyed by product
+  // Code, so every allocation row (which only carries productCode, not
+  // a subType of its own) can still be grouped under the right pill. ──
+  const [subTypeByCode, setSubTypeByCode] = useState({});
+
+  // ── Type pills (flat row, same as CustomerOrders.jsx) ──
+  const [activeType, setActiveType] = useState("all");
+
+  // ── Search bar — shared across all four views, cleared on tab switch. ──
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await API.get("/products");
+        const map = {};
+        (res.data || []).forEach((p) => {
+          if (p.Code) map[p.Code] = p.SubType;
+        });
+        setSubTypeByCode(map);
+      } catch {
+        // Non-fatal — if this fails, rows just fall back to "Others"
+        // until the product list loads successfully.
+      }
+    })();
+  }, []);
+
+  // Resolve a row's sub-type: prefer a value already on the row itself
+  // (in case the backend adds one later), otherwise look it up by
+  // productCode against the /products map above.
+  const subTypeOf = (row) =>
+    row.subType || row.SubType || row.category || row.Category ||
+    subTypeByCode[row.productCode] || subTypeByCode[row.ProductCode] || null;
+
+  // Resolve a row's order number: real allocation records don't all
+  // agree on a single field name for this, so try the common variants
+  // before giving up — same fallback-chain approach as subTypeOf().
+  const orderNoOf = (row) =>
+    row.orderNo || row.OrderNo || row.order_no ||
+    row.orderId || row.OrderId || row.orderNumber || null;
 
   const load = async () => {
     setLoading(true); setError("");
@@ -76,6 +177,12 @@ export default function SalesOrder() {
         if (view === "erp_transfer_pending") { params.status = "approved"; params.erp_status = "not_transferred"; }
         // "total_order_value" intentionally has no status/erp filter — it's
         // the full picture, sorted by value.
+        // "rejected_orders" — orders rejected off the Pending Final
+        // Approval tab via handleCancel(), which is expected to set the
+        // allocation's status to "cancelled" once its backend endpoint
+        // (POST /allocations/{id}/cancel) is wired up. See the note on
+        // handleCancel below.
+        if (view === "rejected_orders") params.status = "cancelled";
       } else {
         // Admin's four views. "pending_allocation" and "available_stock"
         // are computed/sorted client-side below (see `visible`) rather
@@ -101,6 +208,15 @@ export default function SalesOrder() {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [view]);
+
+  // Reset the Type pill and the search box whenever the tab (view)
+  // changes — a Dhoti filter or search term picked under "Pending
+  // Allocation" shouldn't silently keep narrowing "Available Stock" (or
+  // a System Admin view) after switching tabs.
+  useEffect(() => {
+    setActiveType("all");
+    setSearch("");
+  }, [view]);
 
   const setView = (id) => setSearchParams(id === defaultViewId ? {} : { view: id });
 
@@ -128,15 +244,17 @@ export default function SalesOrder() {
 
   // Cancel — a distinct action from Reject: it pulls the order out of
   // Sales Order entirely and logs it as a loss, so it can show up on the
-  // Sales Loss Report page. NOTE: this calls a new endpoint,
-  // POST /allocations/{id}/cancel, which doesn't exist in the
-  // AllocationController shown so far — it needs to be added there (set
-  // the allocation/Order to a 'cancelled' state and write/expose a row
-  // the Sales Loss Report page's own query reads from). Once that
-  // endpoint responds, the row is simply removed from this page's list.
+  // Sales Loss Report page (and, now, on this page's own Rejected Orders
+  // tab). NOTE: this calls a new endpoint, POST /allocations/{id}/cancel,
+  // which doesn't exist in the AllocationController shown so far — it
+  // needs to be added there (set the allocation/Order to a 'cancelled'
+  // state and write/expose a row the Sales Loss Report page's own query
+  // reads from, as well as what the Rejected Orders tab above filters
+  // /allocations/list on via status=cancelled). Once that endpoint
+  // responds, the row is simply removed from this page's current list.
   const handleCancel = async (row) => {
     if (!row.allocationId) return;
-    if (!window.confirm(`Cancel the order for ${row.customerName} — ${row.productName}? It will be removed from Sales Order and logged in Sales Loss Report.`)) return;
+    if (!window.confirm(`Cancel the order for ${row.customerName} — ${row.productName}? It will be removed from Sales Order .`)) return;
     setBusyIds((s) => new Set(s).add(row.allocationId));
     setError(""); setOk("");
     try {
@@ -150,18 +268,39 @@ export default function SalesOrder() {
     }
   };
 
-  const filterBySearch = (list) => {
-    const q = search.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((r) =>
-      (r.customerName || "").toLowerCase().includes(q) ||
-      (r.customerCode || "").toLowerCase().includes(q) ||
-      (r.productName || "").toLowerCase().includes(q) ||
-      (r.productCode || "").toLowerCase().includes(q));
-  };
+  // ── Type pill counts (over the full row list for this view, unaffected
+  // by search so switching pills never feels like it's fighting the
+  // search box). ──
+  const catCounts = useMemo(() => {
+    const m = { all: rows.length };
+    CLOTH_GROUPS.forEach((g) => { m[g.id] = 0; });
+    rows.forEach((r) => { m[groupFor(subTypeOf(r)).id] = (m[groupFor(subTypeOf(r)).id] || 0) + 1; });
+    return m;
+  }, [rows, subTypeByCode]);
 
   const visible = useMemo(() => {
-    let list = filterBySearch(rows);
+    let list = rows;
+
+    // Search bar — matches Order No, Customer, Customer Code, Product,
+    // and Product Code, case-insensitively. Applied before the pill
+    // filter so search always narrows within whatever pill is active.
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter((r) => {
+        const orderNo = String(orderNoOf(r) || "").toLowerCase();
+        return (
+          orderNo.includes(q) ||
+          (r.customerName || "").toLowerCase().includes(q) ||
+          (r.customerCode || "").toLowerCase().includes(q) ||
+          (r.productName || "").toLowerCase().includes(q) ||
+          (r.productCode || "").toLowerCase().includes(q)
+        );
+      });
+    }
+
+    // Type pill — narrows to rows whose resolved subType group matches
+    // the selected pill.
+    if (activeType !== "all") list = list.filter((r) => groupFor(subTypeOf(r)).id === activeType);
     if (view === "total_order_value") list = [...list].sort((a, b) => b.totalValue - a.totalValue);
     // Admin's "Pending Allocation" — lines where the allocated qty hasn't
     // caught up to what was requested yet (mirrors Marketing Review's own
@@ -172,7 +311,7 @@ export default function SalesOrder() {
     // to allocate rather than by value.
     if (view === "available_stock") list = [...list].sort((a, b) => (b.availableQty || 0) - (a.availableQty || 0));
     return list;
-  }, [rows, search, view]);
+  }, [rows, view, activeType, subTypeByCode, search]);
 
   const totalValueSum = useMemo(() => rows.reduce((a, r) => a + (r.totalValue || 0), 0), [rows]);
   const totalAvailableSum = useMemo(() => {
@@ -186,9 +325,12 @@ export default function SalesOrder() {
   const fmtAmt = (a) => `₹${(parseFloat(a) || 0).toLocaleString()}`;
   const statusBadge = (status) => {
     const map = {
-      pending:  { bg: "rgba(214,148,38,0.12)",  color: "#A8701F", label: "Pending" },
-      approved: { bg: "rgba(46,122,114,0.12)",  color: "#1E7B4D", label: "Approved" },
-      rejected: { bg: "rgba(178,58,58,0.12)",   color: "#B23A3A", label: "Rejected" },
+      pending:   { bg: "rgba(214,148,38,0.12)",  color: "#A8701F", label: "Pending" },
+      approved:  { bg: "rgba(46,122,114,0.12)",  color: "#1E7B4D", label: "Approved" },
+      rejected:  { bg: "rgba(178,58,58,0.12)",   color: "#B23A3A", label: "Lost" },
+      // "cancelled" is the status handleCancel's endpoint is expected to
+      // set — this is what the Rejected Orders tab's rows will carry.
+      cancelled: { bg: "rgba(178,58,58,0.12)",   color: "#B23A3A", label: "Rejected" },
     };
     const st = map[status] || { bg: "rgba(140,150,163,0.12)", color: "#526073", label: status || "—" };
     return <span style={{ background: st.bg, color: st.color, border: `1px solid ${st.color}33`, padding: "3px 12px", borderRadius: 20, fontSize: 11.5, fontWeight: 700 }}>{st.label}</span>;
@@ -224,6 +366,7 @@ export default function SalesOrder() {
         {view === "pending_allocation" && ` Total: ${visible.length} line(s) still awaiting full allocation.`}
         {view === "available_stock" && ` Total available: ${totalAvailableSum.toLocaleString()} Pcs.`}
         {view === "awaiting_approval" && ` Total: ${rows.length} line(s) awaiting System Admin's decision.`}
+        {view === "rejected_orders" && ` Total: ${rows.length} rejected order(s).`}
       </p>
 
       <div style={S.tabRow}>
@@ -234,21 +377,49 @@ export default function SalesOrder() {
         ))}
       </div>
 
+      {/* ── Search bar — shared across all four views. Matches Order No,
+            Customer, Customer Code, Product, and Product Code. Same look
+            as CustomerOrders.jsx. ── */}
+      <div style={S.filterBar}>
+        <div style={S.searchWrap}>
+          <Search size={14} style={S.searchIcon} />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search order no, customer, product, or code…"
+            style={S.searchInput}
+          />
+        </div>
+      </div>
+
       {error && <div style={S.alertError}>{error}</div>}
       {ok && <div style={S.alertOk}>{ok}</div>}
 
-      <div style={S.searchBar}>
-        <div style={S.searchInputWrap}>
-          <span style={S.searchIconWrap}><SearchIcon /></span>
-          <input
-            type="text"
-            placeholder="Search customer or product name / code…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={S.searchInput}
-          />
-          {search && <button onClick={() => setSearch("")} style={S.clearBtn} aria-label="Clear search">×</button>}
-        </div>
+      {/* ── Type pills — Dhoti / Blouse / Uniform Shirting / Uniform
+            Suiting / Others, plus All. Same flat-row convention as
+            CustomerOrders.jsx / Batches.jsx. ── */}
+      <div style={S.pillRow}>
+        <button
+          onClick={() => setActiveType("all")}
+          style={S.pill(activeType === "all", "#0F2138")}
+        >
+          <LayoutGrid size={13} />
+          All <span style={S.pillCount}>({catCounts.all || 0})</span>
+        </button>
+        {CLOTH_GROUPS.map((g) => {
+          const Icon = g.icon;
+          return (
+            <button
+              key={g.id}
+              onClick={() => setActiveType(g.id)}
+              style={S.pill(activeType === g.id, g.color)}
+            >
+              <Icon size={13} />
+              {g.name} <span style={S.pillCount}>({catCounts[g.id] || 0})</span>
+            </button>
+          );
+        })}
       </div>
 
       <div style={S.card}>
@@ -256,12 +427,13 @@ export default function SalesOrder() {
           {loading ? (
             <p style={S.empty}>Loading…</p>
           ) : visible.length === 0 ? (
-            <p style={S.empty}>Nothing here right now.</p>
+            <p style={S.empty}>{search ? "No orders match your search." : "Nothing here right now."}</p>
           ) : (
             <table style={S.table}>
               <thead>
                 <tr>
                   <th style={S.th}>S.No</th>
+                  <th style={S.th}>Order No</th>
                   <th style={S.th}>Customer</th><th style={S.th}>Customer Code</th>
                   <th style={S.th}>Product</th><th style={S.th}>Product Code</th>
                   {!isSystemAdminRole && <th style={S.th}>Requested Qty</th>}
@@ -278,6 +450,7 @@ export default function SalesOrder() {
                   return (
                     <tr key={r.allocationId}>
                       <td style={S.td}>{idx + 1}</td>
+                      <td style={S.td}>{orderNoOf(r) || "—"}</td>
                       <td style={{ ...S.td, fontWeight: 700, color: themeG.accent }}>{r.customerName}</td>
                       <td style={S.td}>{r.customerCode}</td>
                       <td style={S.td}>{r.productName}</td>
@@ -295,7 +468,7 @@ export default function SalesOrder() {
                               title={r.status === "pending" ? "Reject this order" : "Only a Pending order can be rejected"}
                               style={{ ...S.actionBtnReject, ...(canReject ? {} : S.actionBtnDisabled) }}
                             >
-                              Reject
+                              Sale Loss
                             </button>
                             <button
                               onClick={() => handleCancel(r)}
@@ -303,7 +476,7 @@ export default function SalesOrder() {
                               title="Cancel this order and log it in Sales Loss Report"
                               style={{ ...S.actionBtnCancel, ...(busy ? S.actionBtnDisabled : {}) }}
                             >
-                              Cancel
+                              Reject
                             </button>
                           </div>
                         </td>
@@ -320,14 +493,6 @@ export default function SalesOrder() {
   );
 }
 
-function SearchIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  );
-}
-
 function buildStyles(themeG) {
   return {
     heading: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
@@ -337,11 +502,27 @@ function buildStyles(themeG) {
     tabBtn: { padding: "8px 14px", borderRadius: 9, border: `1px solid ${themeG.border}`, background: themeG.card, color: themeG.textMain, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: FONT },
     tabBtnActive: { background: themeG.accent, color: "#fff", borderColor: themeG.accent },
 
-    searchBar: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 16 },
-    searchInputWrap: { position: "relative", display: "flex", alignItems: "center", flex: "1 1 280px", minWidth: 240, color: themeG.textSub },
-    searchIconWrap: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", color: themeG.textSub, pointerEvents: "none" },
-    searchInput: { width: "100%", boxSizing: "border-box", padding: "10px 34px", borderRadius: 10, border: `1px solid ${themeG.border}`, fontSize: 13.5, fontFamily: FONT, background: themeG.card, outline: "none", color: themeG.textMain },
-    clearBtn: { position: "absolute", right: 8, background: "transparent", border: "none", color: themeG.textSub, fontSize: 17, lineHeight: 1, cursor: "pointer", padding: 4 },
+    // ── Search bar (shared across all four views) — same look as
+    // CustomerOrders.jsx's filterBar/searchWrap/searchIcon/searchInput. ──
+    filterBar: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 },
+    searchWrap: { position: "relative", flex: "1 1 260px", maxWidth: 420 },
+    searchIcon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: themeG.textSub },
+    searchInput: {
+      width: "100%", boxSizing: "border-box", padding: "9px 12px 9px 34px", borderRadius: 10,
+      border: `1px solid ${themeG.border}`, background: themeG.card, color: themeG.textMain,
+      fontFamily: FONT, fontSize: 13, outline: "none",
+    },
+
+    // ── Type pills (flat row, same as CustomerOrders.jsx) ──
+    pillRow: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 },
+    pill: (active, color) => ({
+      display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 20,
+      border: active ? "none" : `1px solid ${themeG.border}`, cursor: "pointer", fontFamily: FONT,
+      fontSize: 12.5, fontWeight: 700,
+      background: active ? color : themeG.card, color: active ? "#fff" : themeG.textMain,
+      boxShadow: active ? `0 3px 10px ${color}55` : "0 2px 6px rgba(15,33,56,0.06)",
+    }),
+    pillCount: { opacity: 0.85, fontWeight: 600 },
 
     card: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
     // Shows roughly 10 data rows before scrolling; the header stays

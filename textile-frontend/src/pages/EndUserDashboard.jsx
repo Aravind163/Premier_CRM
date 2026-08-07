@@ -48,7 +48,9 @@ export default function EndUserDashboard() {
 
   const statVal = (key) => (loading ? null : (stats[key] ?? 0));
   const openComplaintsVal = loading ? null : (openComplaints ?? 0);
-  const recentOrdersVal = loading ? [] : recentOrders;
+  // Limit to 5 most recent orders — full list lives on My Orders (see
+  // "Show More" link next to the table title below).
+  const recentOrdersVal = loading ? [] : recentOrders.slice(0, 5);
 
   useEffect(() => {
     const role = localStorage.getItem("role");
@@ -75,6 +77,9 @@ export default function EndUserDashboard() {
     })();
   }, []);
 
+  const HEADER_BG = "#1f3a63";
+  const HEADER_COLOR = "#ffffff";
+
   const S = {
     topBar: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 26 },
     heading: { fontFamily: "'Space Grotesk', " + FONT, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: themeG.textMain, letterSpacing: "-0.4px" },
@@ -92,10 +97,82 @@ export default function EndUserDashboard() {
     quickSub: { fontSize: 12, color: themeG.textSub, margin: 0 },
 
     tableBox: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: "22px 24px", boxShadow: "0 4px 16px rgba(15,33,56,0.06)" },
-    tableTitle: { fontFamily: FONT, fontSize: 16, fontWeight: 600, margin: "0 0 14px", color: themeG.textMain },
-    table: { width: "100%", borderCollapse: "collapse" },
-    th: { textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "8px 12px", borderBottom: `1px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 },
+    tableTitle: { fontFamily: FONT, fontSize: 16, fontWeight: 600, margin: 0, color: themeG.textMain },
+
+    // Header row above the table: title on the left, "Show More" link on
+    // the right, pointing to the full My Orders list.
+    tableHeaderRow: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
+    showMoreBtn: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      background: "transparent",
+      border: "none",
+      color: themeG.accent,
+      fontFamily: FONT,
+      fontSize: 13,
+      fontWeight: 600,
+      cursor: "pointer",
+      padding: 0,
+    },
+
+    // Scroll wrapper: handles both horizontal and vertical scroll,
+    // capped height ≈ 10 rows so header + 10 rows are visible before scrolling.
+    tableScroll: {
+      maxHeight: 460,
+      overflowY: "auto",
+      overflowX: "auto",
+      border: `1px solid ${themeG.border}`,
+      borderRadius: 8,
+    },
+    table: { width: "100%", minWidth: 720, borderCollapse: "separate", borderSpacing: 0 },
+
+    // Sticky header cells — sticky on top for vertical scroll.
+    // Since the table itself scrolls horizontally too, "top" sticky is enough
+    // to keep header fixed while scrolling vertically; it will scroll away
+    // horizontally in sync with body columns (as expected), but stays pinned
+    // at the top always. To also pin against horizontal scroll for the S.No
+    // column, we make the first column sticky on the left as well.
+    th: {
+      textAlign: "left",
+      fontSize: 11,
+      padding: "10px 12px",
+      textTransform: "uppercase",
+      letterSpacing: "0.06em",
+      fontWeight: 600,
+      background: HEADER_BG,
+      color: HEADER_COLOR,
+      position: "sticky",
+      top: 0,
+      zIndex: 2,
+    },
+    thSno: {
+      textAlign: "left",
+      fontSize: 11,
+      padding: "10px 12px",
+      textTransform: "uppercase",
+      letterSpacing: "0.06em",
+      fontWeight: 600,
+      background: HEADER_BG,
+      color: HEADER_COLOR,
+      position: "sticky",
+      top: 0,
+      left: 0,
+      zIndex: 3,
+      width: 56,
+    },
     td: { padding: "12px 12px", fontSize: 13.5, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` },
+    tdSno: {
+      padding: "12px 12px",
+      fontSize: 13.5,
+      color: themeG.textMain,
+      borderBottom: `1px solid ${themeG.border}`,
+      position: "sticky",
+      left: 0,
+      background: themeG.card,
+      zIndex: 1,
+      fontWeight: 600,
+    },
     emptyNote: { fontSize: 13, color: themeG.textSub, padding: "14px 0" },
   };
 
@@ -127,17 +204,6 @@ export default function EndUserDashboard() {
           </p>
         </div>
 
-
-        <div style={S.statCard}>
-          <div style={{ ...S.cardStripe, background: "#2E8B57" }} />
-          <span style={S.cardIcon}>✅</span>
-          <p style={S.cardLabel}>Approved Orders</p>
-          <p style={S.cardValue}>
-            {loading ? "…" : statVal("approved_orders")}
-          </p>
-        </div>
-
-
         <div style={S.statCard}>
           <div style={{ ...S.cardStripe, background: "#D69426" }} />
           <span style={S.cardIcon}>⏳</span>
@@ -147,6 +213,15 @@ export default function EndUserDashboard() {
           </p>
         </div>
 
+
+        <div style={S.statCard}>
+          <div style={{ ...S.cardStripe, background: "#2E8B57" }} />
+          <span style={S.cardIcon}>✅</span>
+          <p style={S.cardLabel}>Approved Orders</p>
+          <p style={S.cardValue}>
+            {loading ? "…" : statVal("approved_orders")}
+          </p>
+        </div>
 
         <div style={S.statCard}>
           <div style={{ ...S.cardStripe, background: "#96302F" }} />
@@ -162,34 +237,46 @@ export default function EndUserDashboard() {
       
 
       <div style={S.tableBox}>
-        <h3 style={S.tableTitle}>Recent Orders in Your Area</h3>
+        <div style={S.tableHeaderRow}>
+          <h3 style={S.tableTitle}>Recent Orders in Your Area</h3>
+          <button
+            style={S.showMoreBtn}
+            onClick={() => navigate("/master/orders")}
+          >
+            Show More <span style={{ fontSize: 15, lineHeight: 1 }}>→</span>
+          </button>
+        </div>
         {loading ? (
           <p style={S.emptyNote}>Loading…</p>
         ) : recentOrdersVal.length === 0 ? (
           <p style={S.emptyNote}>No orders yet in your area.</p>
         ) : (
-          <table style={S.table}>
-            <thead>
-              <tr>
-                <th style={S.th}>Order</th>
-                <th style={S.th}>Customer</th>
-                <th style={S.th}>Product</th>
-                <th style={S.th}>Amount</th>
-                <th style={S.th}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentOrdersVal.map((o) => (
-                <tr key={o.id}>
-                  <td style={S.td}>{o.id}</td>
-                  <td style={S.td}>{o.customer}</td>
-                  <td style={S.td}>{o.product}</td>
-                  <td style={S.td}>{formatRevenue(parseFloat(o.amount) || 0)}</td>
-                  <td style={S.td}><Badge text={o.status} /></td>
+          <div style={S.tableScroll}>
+            <table style={S.table}>
+              <thead>
+                <tr>
+                  <th style={S.thSno}>S.No</th>
+                  <th style={S.th}>Order</th>
+                  <th style={S.th}>Customer</th>
+                  <th style={S.th}>Product</th>
+                  <th style={S.th}>Amount</th>
+                  <th style={S.th}>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {recentOrdersVal.map((o, idx) => (
+                  <tr key={o.id}>
+                    <td style={S.tdSno}>{idx + 1}</td>
+                    <td style={S.td}>{o.id}</td>
+                    <td style={S.td}>{o.customer}</td>
+                    <td style={S.td}>{o.product}</td>
+                    <td style={S.td}>{formatRevenue(parseFloat(o.amount) || 0)}</td>
+                    <td style={S.td}><Badge text={o.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </EndUserLayout>

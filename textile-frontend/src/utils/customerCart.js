@@ -8,7 +8,25 @@
 // custom event so any mounted component (e.g. the sidebar cart badge)
 // can react immediately without waiting on the native `storage` event
 // (which doesn't fire in the same tab that made the change).
-
+//
+// This cart is a single flat array under one CART_KEY — it is NOT
+// scoped per customer (unlike utils/endUserCart.js, which is keyed by
+// customerId because one officer works with many customers). A
+// customer only ever has their own cart, so there's nothing to key by.
+//
+// ── FIX (Clear Cart) ──
+// clearCart() used to take a `customerId` argument and early-return via
+// `if (!customerId) return;`, then call readAll()/writeAll() — neither
+// of which exists in this file. That combination meant:
+//   - Calling clearCart(customerId) from a page with no `customerId` in
+//     scope threw a ReferenceError before this function even ran.
+//   - Calling clearCart() with no argument hit the `!customerId` guard
+//     and silently no-op'd — the cart was never touched, even though
+//     calling code went on to show a "Cart cleared" notice regardless.
+// This function was clearly copy-pasted from a per-customer-keyed cart
+// implementation and never adapted to this file's actual flat-array
+// shape. Fixed to just take no argument and reset the array to empty,
+// same as every other mutator here goes through writeCart().
 const CART_KEY = "customer_cart";
 export const CUSTOMER_CART_EVENT = "customer-cart-updated";
 
@@ -74,6 +92,8 @@ export function removeFromCart(key) {
   return items;
 }
 
+// Empties the single flat cart. No customerId involved — this cart
+// belongs to whichever customer is logged in, there's only ever one.
 export function clearCart() {
   writeCart([]);
 }

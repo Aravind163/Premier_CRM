@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\NotificationController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me',      [AuthController::class, 'me']);
@@ -37,6 +38,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Quantity Allocation — Admin/System Admin decide how much of a
     // product each customer actually gets when total orders exceed stock.
     // Every save draws stock via FIFO from stock_batches (oldest first).
+    Route::post('/allocations/{id}/cancel', [AllocationController::class, 'cancel']);
     Route::get('/allocations/products',    [AllocationController::class, 'products']);
     Route::get('/allocations/customers',   [AllocationController::class, 'customers']);
     Route::get('/allocations/by-customer', [AllocationController::class, 'byCustomer']);

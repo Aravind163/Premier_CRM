@@ -20,6 +20,19 @@
 // font-body class it was falling back to the browser's default font
 // instead of Inter — which is why it visually clashed with the rest
 // of the app.
+//
+// FIX (Type filter mismatch): this page used to define its own local
+// `complaintTypes` list ("Quality" / "Quantity" / "Dispatch Delay" /
+// "Delivery Issue") which had zero overlap with the actual Type values
+// customers can pick on RaiseComplaint.jsx ("Quality Issue" / "Wrong
+// Item / Size" / "Damaged in Transit" / "Delivery Delay" / "Billing
+// Issue" / "Other"). Since the Type filter compares directly against
+// each complaint's real c.Type value from the backend, the old list
+// could never actually match anything a customer submitted — filtering
+// by Type was silently broken. Both pages now import COMPLAINT_TYPES
+// from the same src/constants/complaintTypes.js, so the values a
+// customer picks when filing are exactly the values staff can filter
+// and see here. Lives in src/utils/complaintTypes.js.
 import React, { useEffect, useMemo, useState } from "react";
 import {
   MessageSquareWarning, Search, ClipboardList, Microscope, FileSearch, ShieldCheck,
@@ -29,6 +42,7 @@ import {
 import Layout from "../../components/AppLayout";
 import API from "../../services/api";
 import { SectionTitle, StatCardV2, EmptyState } from "../../components/reviewUiKit";
+import { COMPLAINT_TYPES } from "../../utils/complaintTypes";
 
 const INK = "#0F2138";
 const SAPPHIRE = "#1F5C99";
@@ -227,8 +241,6 @@ export default function ComplaintsAndClaims() {
     return { open, inQc, pendingApproval, resolved };
   }, [enriched]);
 
-  const complaintTypes = ["Quality", "Quantity", "Dispatch Delay", "Delivery Issue"];
-
   return (
     <Layout pageTitle="Complaints & Claims">
       <div className="font-body">
@@ -263,14 +275,16 @@ export default function ComplaintsAndClaims() {
             grid, each getting an equal-width cell so Clear matches the
             other fields' size instead of being a small button off to the
             side. Clear is its own dedicated cell (not sharing with Search),
-            so there's no overlap. */}
+            so there's no overlap. Type options now come from the same
+            COMPLAINT_TYPES list customers pick from on RaiseComplaint.jsx,
+            so this filter actually matches real complaint data. */}
         <div className="card p-3 mb-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
             <div className="flex flex-col gap-1">
               <label className="field-label">Type</label>
               <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="field w-full">
                 <option value="all">All Types</option>
-                {complaintTypes.map((t) => <option key={t}>{t}</option>)}
+                {COMPLAINT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div className="flex flex-col gap-1">

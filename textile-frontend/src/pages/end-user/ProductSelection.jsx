@@ -44,6 +44,15 @@
 // Cart Summary sidebar also carries the same "Clear Cart" action as the
 // customer catalog page — wipes this customer's cart in one go (with a
 // confirm prompt) rather than removing rows one-by-one on Cart Checkout.
+// Unlike the customer catalog's cart (utils/customerCart.js, a single
+// shared cart), this cart IS scoped per customer (utils/endUserCart.js),
+// so handleClearCart correctly guards on and passes `customerId` here —
+// no change needed on this page for that bug.
+//
+// Default row quantity is 0 here (getRowQty falls back to inCartQty,
+// which is 0 for anything not yet in the cart, and setRowQtyFor/floors
+// at Math.max(0, ...)) — already matches the fixed customer catalog
+// page, so nothing to change here either.
 //
 // ── Table columns (matches Primere_Requirements.xlsx) ──
 // The requirements sheet's "Type" column holds the actual variant/dye
@@ -476,9 +485,9 @@ export default function ProductSelection() {
     <EndUserLayout>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       {/* Belt-and-braces against the page ever overflowing the viewport
-          horizontally (which is what clipped the Cart Summary sidebar
-          off the right edge) — the grid fix above is the real fix, this
-          just guarantees nothing else can do the same thing. */}
+          horizontally (which clipped the Cart Summary sidebar off the
+          right edge) — the grid fix above is the real fix, this just
+          guarantees nothing else can do the same thing. */}
       <div style={{ maxWidth: "100%", overflowX: "hidden", boxSizing: "border-box" }}>
 
         {/* ── Select Customer ── */}

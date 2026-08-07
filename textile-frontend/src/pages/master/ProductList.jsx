@@ -202,10 +202,10 @@ export default function ProductList() {
           <span style={{ fontSize:18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily:FONT, fontSize:14, fontWeight:700, color:themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"} Products</span>
         </div>
-        <span style={{ fontSize:12, color:themeG.textSub, fontFamily:FONT }}>
+        {/* <span style={{ fontSize:12, color:themeG.textSub, fontFamily:FONT }}>
           <span style={{ color:themeG.accent, cursor:"pointer", textDecoration:"underline" }}
             onClick={() => navigate("/select-category")}>Switch category</span>
-        </span>
+        </span> */}
       </div>
 
       {/* ── Sub-type pills ── */}

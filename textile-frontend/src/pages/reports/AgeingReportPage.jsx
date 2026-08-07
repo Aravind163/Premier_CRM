@@ -103,6 +103,7 @@ export default function AgeingReportPage() {
   const [customerFilter, setCustomerFilter] = useState("All");
   const [productFilter, setProductFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
+  const [bucketFilter, setBucketFilter] = useState("All");   // NEW
   const [search, setSearch] = useState("");
   const [confirmingCode, setConfirmingCode] = useState(null);
   const [cancellingCode, setCancellingCode] = useState(null);
@@ -174,6 +175,7 @@ export default function AgeingReportPage() {
     () => ["All", ...Array.from(new Set(allFlatOrders.map((o) => o.productType).filter(Boolean))).sort()],
     [allFlatOrders]
   );
+  const bucketOptions = ["All", ...AGEING_BUCKETS.map((b) => b.label)];
 
   const flatOrders = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -181,12 +183,13 @@ export default function AgeingReportPage() {
       .filter((o) => customerFilter === "All" || o.customer === customerFilter)
       .filter((o) => productFilter === "All" || o.product === productFilter)
       .filter((o) => typeFilter === "All" || o.productType === typeFilter)
+      .filter((o) => bucketFilter === "All" || o.bucket === bucketFilter)   // NEW
       .filter((o) => {
         if (!q) return true;
         return [o.customer, o.code, o.product, o.productType, o.sortNo, o.shadeNo]
           .some((v) => String(v ?? "").toLowerCase().includes(q));
       });
-  }, [allFlatOrders, customerFilter, productFilter, typeFilter, search]);
+  }, [allFlatOrders, customerFilter, productFilter, typeFilter, bucketFilter, search]);
 
   const bucketCounts = AGEING_BUCKETS.reduce((acc, b) => {
     acc[b.label] = flatOrders.filter((o) => o.bucket === b.label).length;
@@ -314,6 +317,12 @@ export default function AgeingReportPage() {
                   {typeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
+              <div>
+                <label style={filterLabel}>Ageing Bucket</label>
+                <select style={filterSelect} value={bucketFilter} onChange={(e) => setBucketFilter(e.target.value)}>
+                  {bucketOptions.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
             </div>
             <ExportButton onClick={exportExcel} disabled={flatOrders.length === 0} themeG={themeG} />
           </div>
@@ -332,55 +341,55 @@ export default function AgeingReportPage() {
             {flatOrders.length === 0 ? (
               <p style={{ fontSize: 13, color: themeG.textSub, margin: 0 }}>Nothing overdue right now. 🎉</p>
             ) : (
-                <div style={tableScroll}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
-                    <thead>
-                      <tr>
-                        {["S.No", "Sort No", "Shade No", "Order No", "Customer", "Product Type", "Qty", "Days Overdue", "Bucket", "Total", "Action"].map((h) => (
-                          <th key={h} style={th}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {flatOrders.map((o, i) => (
-                        <tr key={o.code + i} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
-                          <td style={td}>{i + 1}</td>
-                          <td style={td}>{o.sortNo}</td>
-                          <td style={td}>{o.shadeNo}</td>
-                          <td style={td}>{o.code}</td>
-                          <td style={td}>{o.customer}</td>
-                          <td style={td}>{o.productType}</td>
-                          <td style={td}>{o.qty}</td>
-                          <td style={td}>{o.daysOverdue}</td>
-                          <td style={{ ...td, fontWeight: 700, color: bucketAccent[o.bucket] || themeG.textMain }}>{o.bucket}</td>
-                          <td style={{ ...td, fontWeight: 700, color: "#B23A3A" }}>{fmtAmt(o.balanceDue)}</td>
-                          <td style={td}>
-                            {confirmingCode === o.code ? (
-                              <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                                <button
-                                  onClick={() => cancelOrder(o)}
-                                  disabled={cancellingCode === o.code}
-                                  style={{ ...cancelBtn, background: "#B23A3A", color: "#fff" }}
-                                >
-                                  {cancellingCode === o.code ? "…" : "Confirm"}
-                                </button>
-                                <button onClick={() => setConfirmingCode(null)} style={{ ...cancelBtn, borderColor: themeG.border, color: themeG.textMain }}>
-                                  Back
-                                </button>
-                              </span>
-                            ) : (
-                              <button onClick={() => setConfirmingCode(o.code)} style={cancelBtn}>
-                                Cancel
-                              </button>
-                            )}
-                          </td>
-                        </tr>
+              <div style={tableScroll}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
+                  <thead>
+                    <tr>
+                      {["S.No", "Sort No", "Shade No", "Order No", "Customer", "Product Type", "Qty", "Days Overdue", "Bucket", "Total", "Action"].map((h) => (
+                        <th key={h} style={th}>{h}</th>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {flatOrders.map((o, i) => (
+                      <tr key={o.code + i} style={{ borderBottom: "1px solid rgba(46,122,114,0.08)" }}>
+                        <td style={td}>{i + 1}</td>
+                        <td style={td}>{o.sortNo}</td>
+                        <td style={td}>{o.shadeNo}</td>
+                        <td style={td}>{o.code}</td>
+                        <td style={td}>{o.customer}</td>
+                        <td style={td}>{o.productType}</td>
+                        <td style={td}>{o.qty}</td>
+                        <td style={td}>{o.daysOverdue}</td>
+                        <td style={{ ...td, fontWeight: 700, color: bucketAccent[o.bucket] || themeG.textMain }}>{o.bucket}</td>
+                        <td style={{ ...td, fontWeight: 700, color: "#B23A3A" }}>{fmtAmt(o.balanceDue)}</td>
+                        <td style={td}>
+                          {confirmingCode === o.code ? (
+                            <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                              <button
+                                onClick={() => cancelOrder(o)}
+                                disabled={cancellingCode === o.code}
+                                style={{ ...cancelBtn, background: "#B23A3A", color: "#fff" }}
+                              >
+                                {cancellingCode === o.code ? "…" : "Confirm"}
+                              </button>
+                              <button onClick={() => setConfirmingCode(null)} style={{ ...cancelBtn, borderColor: themeG.border, color: themeG.textMain }}>
+                                Back
+                              </button>
+                            </span>
+                          ) : (
+                            <button onClick={() => setConfirmingCode(o.code)} style={cancelBtn}>
+                              Cancel
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
           <div style={{ ...card, marginTop: 24 }}>
             <p style={{ fontSize: 14, fontWeight: 700, color: themeG.textMain, margin: "0 0 14px", fontFamily: FONT }}>Ageing Buckets</p>

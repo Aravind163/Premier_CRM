@@ -420,21 +420,9 @@ export default function Dashboard() {
           return (
             <div style={{ marginBottom: 34 }}>
 
-              <p style={{...styles.o2cSectionLabel}}>Enquiry Summary</p>
-              <div style={styles.o2cGrid}>
-                {enquiryCards.map((c) => (
-                  <div key={c.label} className="pd-fade-up" style={styles.o2cCard}>
-                    <div style={styles.o2cCardTop}>
-                      <span style={styles.o2cLabel}>{c.label}</span>
-                      <span style={styles.o2cIconChip(c.color)}><c.Icon /></span>
-                    </div>
-                    <p style={{ ...styles.o2cValue, color: c.color }}>{c.value}</p>
-                    <p style={styles.o2cSub}>{c.sub}</p>
-                  </div>
-                ))}
-              </div>
+             
 
-              <p style={styles.o2cSectionLabel}>Order Summary</p>
+              <p style={styles.o2cSectionLabel}>Enquiry Summary</p>
               <div style={styles.o2cGrid}>
                 {orderCards.map((c) => (
                   <div key={c.label} className="pd-fade-up" style={styles.o2cCard}>

@@ -5,17 +5,9 @@ import CustomerLayout from "../components/CustomerLayout";
 import { useTheme } from "../ThemeContext";
 import { getG } from "../theme";
 import API from "../services/api";
+import { COMPLAINT_TYPES } from "../utils/complaintTypes";
 
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-
-const COMPLAINT_TYPES = [
-  "Quality Issue",
-  "Wrong Item / Size",
-  "Damaged in Transit",
-  "Delivery Delay",
-  "Billing Issue",
-  "Other",
-];
 
 export default function RaiseComplaint() {
   const { isDark } = useTheme();

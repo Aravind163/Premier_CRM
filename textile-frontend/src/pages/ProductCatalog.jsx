@@ -36,6 +36,21 @@
 // bails out to the drafts list instead of continuing to Order Enquiry,
 // there should be nothing left over to leak into some unrelated later
 // visit to Order Enquiry.
+//
+// ── FIX (Clear Cart) ──
+// handleClearCart used to guard on / call clearCart(customerId), but
+// this page has no `customerId` — the customer-facing cart
+// (utils/customerCart.js) is a single shared cart, not scoped per
+// customer like the End User cart is. Referencing that undefined
+// variable threw a ReferenceError the instant "Clear Cart" was clicked,
+// so the cart never actually cleared. clearCart() now takes no
+// argument, matching customerCart.js's real signature.
+//
+// ── FIX (default quantity) ──
+// Every row used to start at qty 1 (getRowQty fallback, the Math.max
+// floor in setRowQtyFor, and the qty <input>'s min/fallback). Rows now
+// start at 0, matching the End User Product Selection page, so nothing
+// gets added until the customer actually picks a quantity.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import CustomerLayout from "../components/CustomerLayout";
@@ -310,10 +325,12 @@ export default function ProductCatalog() {
       .filter((p) => uomFilter === "All" || dummyUom(p.SubType) === uomFilter);
   }, [products, activeSubType, nameQuery, secondaryQuery, uomFilter]);
 
-  const getRowQty = (id) => rowQty[id] ?? 1;
+  // FIX: rows now start at qty 0 (was 1) — nothing is added until the
+  // customer actually sets a quantity, matching the End User page.
+  const getRowQty = (id) => rowQty[id] ?? 0;
   const setRowQtyFor = (product, qty) => {
     const cap = product.Quantity ?? qty;
-    setRowQty((prev) => ({ ...prev, [product.Id]: Math.max(1, Math.min(qty, cap || qty)) }));
+    setRowQty((prev) => ({ ...prev, [product.Id]: Math.max(0, Math.min(qty, cap || qty)) }));
   };
 
   const addRowToCart = (product) => {
@@ -329,6 +346,19 @@ export default function ProductCatalog() {
 
   const cartCount = cart.length;
   const cartQty = cart.reduce((sum, i) => sum + i.qty, 0);
+
+  // FIX: this cart is a single shared cart (utils/customerCart.js has
+  // no per-customer scoping), so there is no `customerId` to guard on
+  // or pass to clearCart(). The old code referenced an undefined
+  // `customerId` variable, which threw a ReferenceError on every click
+  // and silently prevented the cart from ever clearing.
+  const handleClearCart = () => {
+    if (cart.length === 0) return;
+    if (!window.confirm("Clear all items from this cart? This can't be undone.")) return;
+    clearCart();
+    setRowQty({});
+    setNotice("Cart cleared.");
+  };
 
   // ── Save Draft ──
   // Saves whatever's in the cart right now as a draft, then — same as
@@ -426,6 +456,10 @@ export default function ProductCatalog() {
     swatch: (c) => ({ width: 20, height: 20, borderRadius: "50%", background: c, border: "1.5px solid rgba(0,0,0,0.14)", display: "inline-block", verticalAlign: "middle" }),
     shadeNo: { fontSize: 13, fontWeight: 600, color: themeG.textMain },
 
+    sidebar: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 20, boxShadow: "0 4px 16px rgba(15,33,56,0.06)", position: isNarrow ? "static" : "sticky", top: 20 },
+    sidebarTitleRow: { display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0 0 16px" },
+    sidebarTitle: { display: "flex", alignItems: "center", gap: 8, fontSize: 14.5, fontWeight: 700, color: themeG.textMain, margin: 0 },
+    clearCartLink: { border: "none", background: "transparent", color: "#B23A3A", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT, padding: 0, opacity: cart.length === 0 ? 0.4 : 1, pointerEvents: cart.length === 0 ? "none" : "auto" },
     qtyBox: { display: "flex", alignItems: "center", gap: 6 },
     qtyBtn: { width: 26, height: 26, borderRadius: 7, border: `1px solid ${themeG.border}`, background: themeG.bg, color: themeG.textMain, fontSize: 14, fontWeight: 700, cursor: "pointer" },
     qtyInput: { width: 52, textAlign: "center", padding: "5px 4px", borderRadius: 7, border: `1px solid ${themeG.border}`, fontSize: 13, fontFamily: FONT, color: themeG.textMain, background: themeG.card, outline: "none" },
@@ -433,8 +467,6 @@ export default function ProductCatalog() {
     addedBtn: { padding: "7px 16px", borderRadius: 8, border: "none", background: "#16A34A", color: "#fff", fontSize: 12.5, fontWeight: 700, fontFamily: FONT },
     inCartNote: { fontSize: 10.5, color: themeG.textSub },
 
-    sidebar: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, padding: 20, boxShadow: "0 4px 16px rgba(15,33,56,0.06)", position: isNarrow ? "static" : "sticky", top: 20 },
-    sidebarTitle: { display: "flex", alignItems: "center", gap: 8, fontSize: 14.5, fontWeight: 700, color: themeG.textMain, margin: "0 0 16px" },
     statLabel: { fontSize: 11.5, color: themeG.textSub, fontWeight: 600 },
     statValue: { fontSize: 18, fontWeight: 700, color: themeG.textMain },
     divider: { height: 1, background: themeG.border, margin: "14px 0" },
@@ -589,10 +621,10 @@ export default function ProductCatalog() {
                                 <input
                                   style={S.qtyInput}
                                   type="number"
-                                  min={1}
+                                  min={0}
                                   max={p.Quantity ?? undefined}
                                   value={qty}
-                                  onChange={(e) => setRowQtyFor(p, parseInt(e.target.value, 10) || 1)}
+                                  onChange={(e) => setRowQtyFor(p, parseInt(e.target.value, 10) || 0)}
                                 />
                                 <button style={S.qtyBtn} onClick={() => setRowQtyFor(p, qty + 1)}>+</button>
                               </div>
@@ -617,7 +649,12 @@ export default function ProductCatalog() {
 
         {/* ── Cart Summary ── */}
         <div style={S.sidebar}>
-          <p style={S.sidebarTitle}>🛒 Cart Summary</p>
+          <div style={S.sidebarTitleRow}>
+            <p style={S.sidebarTitle}>🛒 Cart Summary</p>
+            <button style={S.clearCartLink} onClick={handleClearCart} disabled={cart.length === 0}>
+              🗑 Clear Cart
+            </button>
+          </div>
 
           <p style={S.statLabel}>Selected Products</p>
           <p style={S.statValue}>{cartCount}</p>

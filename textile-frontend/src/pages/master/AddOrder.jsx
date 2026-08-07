@@ -598,12 +598,12 @@ export default function AddOrder() {
           <span style={{ fontSize: 18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"}</span>
         </div>
-        {!viewOnly && (
+        {/* {!viewOnly && (
           <span style={{ fontSize: 12, color: themeG.textSub }}>
             Category locked — <span style={{ color: themeG.accent, cursor: "pointer", textDecoration: "underline" }}
               onClick={() => navigate("/select-category")}>Switch category</span>
           </span>
-        )}
+        )} */}
       </div>
 
       {fromEnquiry && !editId && (
@@ -816,7 +816,7 @@ export default function AddOrder() {
                     ? ["S.No", "Sort No", "Shade No", "Product", "Sub-type", "Qty"]
                     : ["S.No", "Sort No", "Shade No", "Product", "Sub-type", "Qty", "Actions"]
                   ).map(h => (
-                    <th key={h} style={{ textAlign: "left", fontSize: 11, color: themeG.textLabel, padding: "10px 12px", borderBottom: `2px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>{h}</th>
+                    <th key={h} style={{ textAlign: "left", fontSize: 11,color: "#FFFFFF", background: "#1F3A63", padding: "10px 12px", borderBottom: `2px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
