@@ -38,7 +38,7 @@ export default function CustomerLayout({ children }) {
           </div>
 
           <div style={S.welcomeBadge}>
-            👋 {user.name || user.email || "Customer"}
+             {user.name || user.email || "Customer"}
           </div>
 
           <nav style={S.nav}>

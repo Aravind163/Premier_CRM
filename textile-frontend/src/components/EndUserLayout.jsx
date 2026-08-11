@@ -85,12 +85,12 @@ export default function EndUserLayout({ children }) {
           </div>
 
           <div style={S.welcomeBadge}>
-            👋 {user.name || user.email || "End User"}
+             {user.name || user.email || "End User"}
           </div>
 
           {taluks.length > 0 && (
             <div style={S.areaBadge}>
-              📍 {taluks.join(", ")}
+               {taluks.join(", ")}
               <span style={{ opacity: 0.6 }}> (Taluk)</span>
             </div>
           )}
