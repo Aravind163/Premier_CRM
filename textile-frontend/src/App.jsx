@@ -44,9 +44,12 @@ import AgeingReportPage from "./pages/reports/AgeingReportPage";
 import SalesLossReportPage from "./pages/reports/SalesLossReportPage";
 
 function App() {
+  const basename =
+    import.meta.env.VITE_DEPLOY_TARGET === "vercel" ? "/" : "/Premier_crm/public";
+
   return (
     <ThemeProvider>
-      <BrowserRouter basename="/Premier_crm/public">
+      <BrowserRouter basename={basename}>
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
