@@ -86,8 +86,27 @@ const META_DETAIL_KEYS = ["GroupRef", "EnquiryOrderNo", "EnquiryOrderDate"];
 function sortNoFor(product) {
   return product?.SortNo || product?.Code || "—";
 }
+
 function shadeNoFor(product) {
-  return product?.ShadeNo ||"SHADE101" || "—";
+  return product?.ShadeNo || "SHADE101" || "—";
+}
+
+// Real UOM the customer/officer actually picked when placing this line
+// — stored in OrderDetails.UOM (see Batches.jsx / AllocationController
+// @board, which reads the same field). item.details is that same
+// OrderDetails payload (minus the meta keys), carried straight through
+// from the source enquiry — see builtItems/buildDraftItem below — so
+// this is the real value, not a guess. Falls back to the product
+// master's own UOM only if the order line itself never captured one.
+function uomFor(item, product) {
+  return item?.details?.UOM || item?.details?.uom || product?.UOM || null;
+}
+
+// Same label-only override used everywhere else in the app — "Meter" is
+// stored/matched exactly as-is, only shown as "Mtr" on screen.
+const UOM_LABEL_OVERRIDES = { Meter: "Mtr", Box: "Cases" };
+function uomLabel(value) {
+  return UOM_LABEL_OVERRIDES[value] || value;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -219,6 +238,7 @@ export default function AddOrder() {
                 qty: o.Quantity,
                 pricePerUnit: o.PricePerUnit,
                 discount: o.DiscountPct || 0,
+                remarks: rawDetails.Remarks || rawDetails.remarks || "",
                 details: Object.keys(rawDetails).length ? rawDetails : null,
               };
             });
@@ -594,10 +614,10 @@ export default function AddOrder() {
 
       {/* ── Category locked badge ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(46,122,114,0.06)" }}>
+        {/* <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(46,122,114,0.06)" }}>
           <span style={{ fontSize: 18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"}</span>
-        </div>
+        </div> */}
         {/* {!viewOnly && (
           <span style={{ fontSize: 12, color: themeG.textSub }}>
             Category locked — <span style={{ color: themeG.accent, cursor: "pointer", textDecoration: "underline" }}
@@ -753,7 +773,7 @@ export default function AddOrder() {
                     <thead>
                       <tr>
                         {["Sort No", "Shade No", "Product Description", "Type", "UOM", "Colour", "Quantity"].map((h) => (
-                          <th key={h} style={{ textAlign: "left", padding: "10px 14px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em",  color: "#FFFFFF", background: "#1F3A63", borderBottom: `1px solid ${themeG.border}`, position: "sticky", top: 0 }}>{h}</th>
+                          <th key={h} style={{ textAlign: "left", padding: "10px 14px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#FFFFFF", background: "#1F3A63", borderBottom: `1px solid ${themeG.border}`, position: "sticky", top: 0 }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -813,10 +833,10 @@ export default function AddOrder() {
               <thead>
                 <tr>
                   {(viewOnly
-                    ? ["S.No", "Sort No", "Shade No", "Product", "Sub-type", "Qty"]
-                    : ["S.No", "Sort No", "Shade No", "Product", "Sub-type", "Qty", "Actions"]
+                    ? ["S.No", "Sort No", "Shade", "Product", "UOM", "Sub-type", "Remarks", "Qty"]
+                    : ["S.No", "Sort No", "Shade", "Product", "UOM", "Sub-type", "Remarks", "Qty", "Actions"]
                   ).map(h => (
-                    <th key={h} style={{ textAlign: "left", fontSize: 11,color: "#FFFFFF", background: "#1F3A63", padding: "10px 12px", borderBottom: `2px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>{h}</th>
+                    <th key={h} style={{ textAlign: "center", fontSize: 11, color: "#FFFFFF", background: "#1F3A63", padding: "10px 12px", borderBottom: `2px solid ${themeG.border}`, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -825,12 +845,14 @@ export default function AddOrder() {
                   const product = products.find((p) => String(p.Id) === String(i.productId));
                   return (
                     <tr key={i.tempId}>
-                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.textSub, borderBottom: `1px solid ${themeG.border}` }}>{idx + 1}</td>
-                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` }}>{sortNoFor(product)}</td>
-                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` }}>{shadeNoFor(product)}</td>
-                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` }}>{i.productLabel}</td>
-                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.textSub, borderBottom: `1px solid ${themeG.border}`, textTransform: "capitalize" }}>{i.subType}</td>
-                      <td style={{ padding: "11px 12px", fontSize: 13, borderBottom: `1px solid ${themeG.border}` }}>
+                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.textSub, borderBottom: `1px solid ${themeG.border}`, textAlign: "center" }}>{idx + 1}</td>
+                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}`, textAlign: "center" }}>{sortNoFor(product)}</td>
+                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}`, textAlign: "center" }}>{shadeNoFor(product)}</td>
+                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}`, textAlign: "center" }}>{i.productLabel}</td>
+                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}`, textAlign: "center" }}>{(() => { const u = uomFor(i, product); return u ? uomLabel(u) : "—"; })()}</td>
+                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.textSub, borderBottom: `1px solid ${themeG.border}`, textTransform: "capitalize", textAlign: "center" }}>{i.subType}</td>
+                      <td style={{ padding: "11px 12px", fontSize: 13, color: themeG.textSub, borderBottom: `1px solid ${themeG.border}`, textAlign: "center" }}>{i.remarks || "—"}</td>
+                      <td style={{ padding: "11px 12px", fontSize: 13, borderBottom: `1px solid ${themeG.border}`, textAlign: "center" }}>
                         {viewOnly ? (
                           <span style={{ fontWeight: 600 }}>{i.qty}</span>
                         ) : editingQtyId === i.tempId ? (
@@ -845,7 +867,7 @@ export default function AddOrder() {
                             style={{ width: 70, padding: "6px 8px", borderRadius: 7, border: `1px solid ${themeG.border}`, fontSize: 13, fontFamily: "inherit", color: themeG.textMain, background: themeG.card, outline: "none", boxSizing: "border-box" }}
                           />
                         ) : (
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                             <button type="button" onClick={() => handleUpdateQty(i.tempId, -1)}
                               style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${themeG.border}`, background: themeG.card, color: themeG.textMain, cursor: "pointer", fontSize: 14, fontWeight: 700, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
                               −
@@ -859,8 +881,8 @@ export default function AddOrder() {
                         )}
                       </td>
                       {!viewOnly && (
-                        <td style={{ padding: "11px 12px", borderBottom: `1px solid ${themeG.border}` }}>
-                          <div style={{ display: "flex", gap: 6 }}>
+                        <td style={{ padding: "11px 12px", borderBottom: `1px solid ${themeG.border}`, textAlign: "center" }}>
+                          <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                             <button onClick={() => setEditingQtyId((prev) => prev === i.tempId ? null : i.tempId)}
                               style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${themeG.accent}55`, background: `${themeG.accent}14`, color: themeG.accent, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
                               {editingQtyId === i.tempId ? "Done" : "Edit"}

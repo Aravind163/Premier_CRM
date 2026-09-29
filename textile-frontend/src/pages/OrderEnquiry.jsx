@@ -76,13 +76,32 @@ function dummyType(product, i) {
 }
 function dummyShadeNo(product, i) {
   const num = product.ShadeNo || DUMMY_SHADE_NOS[i % DUMMY_SHADE_NOS.length];
-  return `Shade ${num}`;
+  return ` ${num}`;
 }
-function dummyUom(subType) {
-  const u = (subType || "").toLowerCase();
-  if (u.includes("shirting") || u.includes("suiting") || u.includes("blouse")) return "m";
-  return "pcs";
+
+// Same label-only override as ProductCatalog.jsx/CartCheckout.jsx — the
+// cart line still stores/sends the real "Meter" value everywhere (order
+// submission, backend), only the on-screen text is shortened.
+const UOM_LABEL_OVERRIDES = { Meter: "Mtr", Box: "Cases" };
+function uomLabel(value) {
+  return UOM_LABEL_OVERRIDES[value] || value;
 }
+
+// REMOVED: dummyUom() used to always return "Box" for every row,
+// regardless of what UOM the customer actually picked on Product
+// Selection (Box / Pieces / Meter) — so this column never reflected the
+// real choice. Cart lines now carry their own `uom` (see
+// utils/customerCart.js), so the table below reads `item.uom` directly
+// instead of calling this. Left here, commented out, rather than
+// deleted, in case a hardcoded fallback is ever needed again.
+// function dummyUom() {
+//   return "Box";
+// }
+
+// Dhoti-family SubTypes use "Border No" instead of "Shade No" — same
+// underlying ShadeNo/Code 8 data, different business term for this one
+// product family. Matches every alias used elsewhere in the project.
+const DHOTI_SUBTYPES = new Set(["Dhoti", "dhoti", "Cotton Dhoti Grey", "cotton dhoti grey", "BO Grey - Dhothies", "Cotton Dhoti Fabric", "cotton dhoti fabric", "BO Fabric - Dhothies"]);
 
 export default function OrderEnquiry() {
   const { isDark } = useTheme();
@@ -152,10 +171,23 @@ export default function OrderEnquiry() {
     try {
       const res = await API.post("/orders/bulk", {
         items: cart.map((i) => ({
-          productId: i.product.Id,
+          ...(i.product.RowKey
+            ? {
+                oracleProduct: {
+                  id: i.product.Id,
+                  rowKey: i.product.RowKey,
+                  sortNo: i.product.SortNo,
+                  shadeNo: i.product.ShadeNo,
+                  name: i.product.Name,
+                },
+              }
+            : { productId: i.product.Id }), // old cart lines only
           qty: i.qty,
           color: colorOverrides[i.key] || i.color,
           size: i.size,
+          piecesOfLength: i.piecesOfLength || undefined,
+          uom: i.uom || undefined,
+          remarks: i.remarks || undefined,
         })),
         deliveryDate: requestedDate || null,
         notes: buildNotes(),
@@ -190,7 +222,7 @@ export default function OrderEnquiry() {
         items: cart.map((i) => ({
           productId: i.product.Id, code: i.product.Code, name: i.product.Name,
           subType: i.product.SubType, qty: i.qty, product: i.product,
-          color: colorOverrides[i.key] || i.color,
+          color: colorOverrides[i.key] || i.color, uom: i.uom,
         })),
       });
       clearCart();
@@ -216,14 +248,13 @@ export default function OrderEnquiry() {
 
     tableScroll: { overflowX: "auto" },
     table: { width: "100%", minWidth: 800, borderCollapse: "collapse" },
-    th: { textAlign: "left", padding: "12px 16px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#FFFFFF", background: "#1F3A63", borderBottom: `1px solid ${themeG.border}` },
-    td: { padding: "12px 16px", fontSize: 13.5, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}` },
-    qtyBox: { display: "flex", alignItems: "center", gap: 8 },
+    th: { textAlign: "center", padding: "12px 16px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#FFFFFF", background: "#1F3A63", borderBottom: `1px solid ${themeG.border}` },
+    td: { padding: "12px 16px", fontSize: 13.5, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}`, textAlign: "center" },    qtyBox: { display: "flex", alignItems: "center", gap: 8 },
     qtyBtn: { width: 26, height: 26, borderRadius: 7, border: `1px solid ${themeG.border}`, background: themeG.bg, color: themeG.textMain, fontSize: 14, fontWeight: 700, cursor: "pointer" },
     qtyVal: { fontSize: 13.5, fontWeight: 600, color: themeG.textMain, minWidth: 22, textAlign: "center" },
     swatch: (c) => ({ width: 20, height: 20, borderRadius: "50%", background: c, border: "1.5px solid rgba(0,0,0,0.14)", display: "inline-block" }),
     colorPicker: { width: 28, height: 28, padding: 0, border: `1.5px solid ${themeG.border}`, borderRadius: "50%", cursor: "pointer", background: "none" },
-    actionBtns: { display: "flex", gap: 6, flexWrap: "wrap" },
+    actionBtns: { display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" },
     editBtn: { padding: "5px 12px", borderRadius: 7, border: `1px solid ${themeG.accent}`, background: "rgba(91,155,217,0.08)", color: themeG.accent, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FONT },
     removeBtn: { padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(150,48,47,0.3)", background: "rgba(150,48,47,0.06)", color: "#96302F", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: FONT },
 
@@ -273,12 +304,29 @@ export default function OrderEnquiry() {
                   <tr>
                     <th style={S.th}>S.No</th>
                     <th style={S.th}>Sort No</th>
-                    <th style={S.th}>Shade No</th>
+                    <th style={S.th}>{
+                      cart.length > 0 && cart.every((i) => DHOTI_SUBTYPES.has(i.product.SubType)) ? "Border No" : "Shade"
+                    }</th>
                     <th style={S.th}>Product Name</th>
-                    <th style={S.th}>Type</th>
-                    <th style={S.th}>Qty</th>
+                    {/* HIDDEN (not removed) — Type isn't shown on this page
+                        right now, but the data/column stays available in
+                        case it needs to come back. */}
+                    {/* <th style={S.th}>Type</th> */}
+                    {/* REMOVED: "Pieces of Length" column — was a separate
+                        free-text field alongside "No. of Cases"; both are
+                        superseded by the single UOM-driven Quantity column
+                        below (see Product Selection page). */}
+                    {/* <th style={S.th}>Pieces of Length</th> */}
                     <th style={S.th}>UOM</th>
-                    <th style={S.th}>Colour</th>
+                    {/* HIDDEN (not removed) — Colour isn't shown on this
+                        page right now; column kept for the same reason
+                        as Type above. */}
+                    {/* <th style={S.th}>Colour</th> */}
+                    {/* CHANGE: "No. of Cases" renamed to "Quantity", and moved
+                        to sit right after Colour (was between Pieces of
+                        Length and UOM). */}
+                    <th style={S.th}>Quantity</th>
+                    <th style={S.th}>Remarks</th>
                     <th style={S.th}>Actions</th>
                   </tr>
                 </thead>
@@ -289,10 +337,18 @@ export default function OrderEnquiry() {
                     return (
                       <tr key={item.key}>
                         <td style={S.td}>{i + 1}</td>
-                        <td style={S.td}>{item.product.Code || "—"}</td>
+                        <td style={S.td}>{item.product.SortNo || item.product.Code || "—"}</td>
                         <td style={S.td}>{dummyShadeNo(item.product, i)}</td>
                         <td style={S.td}>{item.product.Name}</td>
-                        <td style={S.td}>{dummyType(item.product, i)}</td>
+                        {/* HIDDEN (not removed) — see header note above. */}
+                        {/* <td style={S.td}>{dummyType(item.product, i)}</td> */}
+                        {/* <td style={S.td}>{item.piecesOfLength || "—"}</td> */}
+                        {/* CHANGE: was `{dummyUom()}`, which always showed "Box".
+                            Now reads the UOM actually stored on this cart line —
+                            Box → Box, Pieces → Pieces, Meter → Meter. */}
+                        <td style={S.td}>{uomLabel(item.uom || "Box")}</td>
+                        {/* HIDDEN (not removed) — see header note above. */}
+                        {/* <td style={S.td}><div style={S.swatch(swatch)} /></td> */}
                         <td style={S.td}>
                           {isEditing ? (
                             <div style={S.qtyBox}>
@@ -304,8 +360,7 @@ export default function OrderEnquiry() {
                             <span>{item.qty}</span>
                           )}
                         </td>
-                        <td style={S.td}>{dummyUom(item.product.SubType)}</td>
-                        <td style={S.td}><div style={S.swatch(swatch)} /></td>
+                        <td style={S.td}>{item.remarks || "—"}</td>
                         <td style={S.td}>
                           <div style={S.actionBtns}>
                             <button style={S.editBtn} onClick={() => setEditingKey(isEditing ? null : item.key)}>

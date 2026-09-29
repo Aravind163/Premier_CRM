@@ -282,7 +282,7 @@ export default function ProductWiseReportPage() {
               <div style={{ overflow: "auto", maxHeight: 460 }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
-                    <tr>{["S.No", "Sort No", "Shade No", "Product Name", "Type", "Received", "Allocated", "Pending"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
+                    <tr>{["S.No", "Sort No", "Shade", "Product Name", "Type", "Received", "Allocated", "Pending"].map((h) => <th key={h} style={th}>{h}</th>)}</tr>
                   </thead>
                   <tbody>
                     {rows.map((r, i) => (
@@ -301,6 +301,7 @@ export default function ProductWiseReportPage() {
                   <tfoot>
                     <tr style={{ borderTop: `2px solid ${themeG.border}` }}>
                       <td style={{ ...totalTd, fontWeight: 800 }}>Total</td>
+                      <td style={totalTd} />
                       <td style={totalTd} />
                       <td style={totalTd} />
                       <td style={totalTd} />

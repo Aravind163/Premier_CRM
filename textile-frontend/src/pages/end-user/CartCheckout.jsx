@@ -33,10 +33,32 @@ const DUMMY_SWATCHES = ["#8FD9A8", "#7FD1E0", "#E893C9", "#9A9AA5", "#F0A15C", "
 const DUMMY_TYPES = ["BLD & DYED", "Bld/Dyed", "R.Blue/G.Blue", "Fiber Dyed", "YD Dyed", "YD Slub", "3.7 & 7.4", "8*137 (Box)", "Spl Maroon"];
 const DUMMY_SHADE_NOS = ["101", "102", "103", "104", "105", "106"];
 
-function dummyUom(subType) {
-  const u = (subType || "").toLowerCase();
-  if (u.includes("shirting") || u.includes("suiting") || u.includes("blouse")) return "m";
-  return "pcs";
+// REMOVED: dummyUom() used to always return "Box" for every row,
+// regardless of what UOM the officer actually picked on Product
+// Selection (Box / Pieces / Meter) — so this column never reflected the
+// real choice. Same bug/fix as the customer-facing OrderEnquiry.jsx.
+// Cart lines now carry their own `uom` (see utils/endUserCart.js), so
+// the table below reads `l.uom` directly instead of calling this. Left
+// here, commented out, rather than deleted, in case a hardcoded
+// fallback is ever needed again.
+// function dummyUom() {
+//   return "Box";
+// }
+
+// Dhoti-family SubTypes use "Border No" instead of "Shade No" — same
+// underlying ShadeNo/Code 8 data, different business term for this one
+// product family. Matches every alias used elsewhere in the project.
+const DHOTI_SUBTYPES = new Set(["Dhoti", "dhoti", "Cotton Dhoti Grey", "cotton dhoti grey", "BO Grey - Dhothies", "Cotton Dhoti Fabric", "cotton dhoti fabric", "BO Fabric - Dhothies"]);
+function shadeOrBorderLabel(subType) {
+  return DHOTI_SUBTYPES.has(subType) ? "Border No" : "Shade No";
+}
+
+// Same label-only override as ProductSelection.jsx/ProductCatalog.jsx —
+// the cart line still stores/sends the real "Meter" value everywhere
+// (order submission, backend), only the on-screen text is shortened.
+const UOM_LABEL_OVERRIDES = { Meter: "Mtr", Box: "Cases" };
+function uomLabel(value) {
+  return UOM_LABEL_OVERRIDES[value] || value;
 }
 
 function dummyType(product, i) {
@@ -45,11 +67,11 @@ function dummyType(product, i) {
 
 function dummyShadeNo(product, i) {
   const num = product.ShadeNo || DUMMY_SHADE_NOS[i % DUMMY_SHADE_NOS.length];
-  return `SHADE ${num}`;
+  return ` ${num}`;
 }
 
 function dummyDescription(product, i) {
-  return `SHADING FABRIC ${dummyShadeNo(product, i)}`;
+  return ` ${dummyShadeNo(product, i)}`;
 }
 
 function formatDate(d) {
@@ -86,8 +108,8 @@ export default function CartCheckout() {
     if (!customerId) { navigate("/end-user/product-selection"); return; }
     (async () => {
       try {
-        const custRes = await API.get("/customers");
-        const found = custRes.data.find((c) => String(c.Id) === String(customerId)) || null;
+        const custRes = await API.get("/customers", { params: { source: "oracle" } });
+        const found = custRes.data.find((c) => String(c.numberid) === String(customerId)) || null;
         setCustomer(found);
       } catch {
         setError("Failed to load customer details.");
@@ -151,8 +173,8 @@ export default function CartCheckout() {
       } else {
         saveDraft({
           customerId,
-          customerName: customer?.Name,
-          customerCode: customer?.Code,
+          customerName: customer?.shortname,
+          customerCode: customer?.numberid,
           items: cart,
           requestedDate,
           refNo,
@@ -168,6 +190,18 @@ export default function CartCheckout() {
     }
   };
 
+  // FIX: this used to fire every cart line as a simultaneous
+  // Promise.all(...) of separate POST /orders requests. Each one asks
+  // the backend for "the next order code" independently — sending them
+  // all at once meant two of those requests could both read the same
+  // "last order" before either had actually inserted theirs, both
+  // compute the same next code, and the second insert fail with
+  // SQLSTATE[23000] / UQ_Orders_Code (duplicate key). The backend now
+  // also retries on that specific collision (see
+  // OrderController::createOrderWithUniqueCode), but submitting one at
+  // a time here removes the race in the first place instead of just
+  // recovering from it, and gives a clearer error (which specific line
+  // failed) if something does go wrong partway through.
   const submitEnquiry = async () => {
     if (cart.length === 0) { setError("Your cart is empty."); return; }
     if (!requestedDate) { setError("Please pick a Requested Date."); return; }
@@ -175,15 +209,32 @@ export default function CartCheckout() {
     setError("");
     try {
       const notes = buildNotes();
-      await Promise.all(cart.map((l) => API.post("/orders", {
-        customerId,
-        productId: l.product.Id,
-        qty: l.qty,
-        pricePerUnit: l.product.Price,
-        discount: 0,
-        deliveryDate: requestedDate,
-        notes,
-      })));
+      // One ref for the whole cart → all its products become lines of ONE ERP sale-order header.
+      const cartRef = `CART-${Date.now()}-${customerId}`;
+      for (const l of cart) {
+        await API.post("/orders", {
+          oracleCustomerId: String(customerId),
+          ...(l.product.RowKey
+            ? {
+                oracleProduct: {
+                  id: l.product.Id,
+                  rowKey: l.product.RowKey,
+                  sortNo: l.product.SortNo,
+                  shadeNo: l.product.ShadeNo,
+                  name: l.product.Name,
+                },
+              }
+            : { productId: l.product.Id }), // old cart lines only
+          qty: l.qty,
+          discount: 0,
+          deliveryDate: requestedDate,
+          notes,
+          cartRef,
+          piecesOfLength: l.piecesOfLength || undefined,
+          uom: l.uom || undefined,
+          remarks: l.remarks || undefined,
+        });
+      }
       clearCart(customerId);
       if (draftId) deleteDraft(draftId);
       navigate("/master/orders", {
@@ -206,9 +257,8 @@ export default function CartCheckout() {
     tableCard: { background: themeG.card, border: `1px solid ${themeG.border}`, borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(15,33,56,0.06)", marginBottom: 20 },
     tableScroll: { overflowX: "auto" },
     table: { width: "100%", minWidth: 960, borderCollapse: "collapse" },
-    th: { textAlign: "left", padding: "12px 16px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#FFFFFF", background: "#1F3A63", borderBottom: `1px solid ${themeG.border}`, whiteSpace: "nowrap" },
-    td: { padding: "12px 16px", fontSize: 13.5, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}`, whiteSpace: "nowrap", fontFamily: FONT },
-    tdWrap: { padding: "12px 16px", fontSize: 13, color: themeG.textSub, borderBottom: `1px solid ${themeG.border}`, whiteSpace: "normal", maxWidth: 220, fontFamily: FONT },
+    th: { textAlign: "center", padding: "12px 16px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#FFFFFF", background: "#1F3A63", borderBottom: `1px solid ${themeG.border}`, whiteSpace: "nowrap" },
+    td: { padding: "12px 16px", fontSize: 13.5, color: themeG.textMain, borderBottom: `1px solid ${themeG.border}`, whiteSpace: "nowrap", fontFamily: FONT, textAlign: "center" }, tdWrap: { padding: "12px 16px", fontSize: 13, color: themeG.textSub, borderBottom: `1px solid ${themeG.border}`, whiteSpace: "normal", maxWidth: 220, fontFamily: FONT, textAlign: "center", },
     swatch: (c) => ({ width: 20, height: 20, borderRadius: "50%", background: c, border: "1.5px solid rgba(0,0,0,0.14)", display: "inline-block", verticalAlign: "middle" }),
     shadeNo: { fontSize: 13, fontWeight: 600, color: themeG.textMain },
 
@@ -220,7 +270,7 @@ export default function CartCheckout() {
     // Actions column — bordered pill buttons (blue Edit/Done, red
     // Remove) matching the customer-facing Order Enquiry table, instead
     // of plain text links.
-    actionsCell: { display: "flex", alignItems: "center", gap: 8 },
+    actionsCell: { display: "flex", alignItems: "center", gap: 8, justifyContent: "center" },
     editBtn: { padding: "6px 14px", borderRadius: 7, border: `1.5px solid ${themeG.accent}`, background: isDark ? "rgba(91,155,217,0.10)" : "#fff", color: themeG.accent, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT },
     doneBtn: { padding: "6px 14px", borderRadius: 7, border: "1.5px solid #16A34A", background: isDark ? "rgba(22,163,74,0.10)" : "#fff", color: "#16A34A", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT },
     removeBtn: { padding: "6px 14px", borderRadius: 7, border: "1.5px solid #B23A3A", background: isDark ? "rgba(178,58,58,0.10)" : "#fff", color: "#B23A3A", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT },
@@ -274,9 +324,9 @@ export default function CartCheckout() {
       <div style={S.infoCard}>
         <p style={S.infoTitle}>👤 Customer Information</p>
         <div style={S.infoGrid}>
-          <div><p style={S.infoLabel}>Customer Name</p><p style={S.infoValue}>{customer?.Name || "—"}</p></div>
-          <div><p style={S.infoLabel}>Customer Code</p><p style={S.infoValue}>{customer?.Code || "—"}</p></div>
-          <div><p style={S.infoLabel}>Area / Region</p><p style={S.infoValue}>{customer?.Taluk ? `${customer.Taluk} — ${customer.District || ""}` : "—"}</p></div>
+          <div><p style={S.infoLabel}>Customer Name</p><p style={S.infoValue}>{customer?.shortname || "—"}</p></div>
+          <div><p style={S.infoLabel}>Customer Code</p><p style={S.infoValue}>{customer?.numberid || "—"}</p></div>
+          <div> <p style={S.infoLabel}>Area / Region</p> <p style={S.infoValue}> {customer?.town ? `${customer.town} — ${customer.district || ""}` : "—"} </p> </div>
           <div><p style={S.infoLabel}>Sales Officer Name</p><p style={S.infoValue}>{user.name || "—"}</p></div>
           <div><p style={S.infoLabel}>Date</p><p style={S.infoValue}>{formatDate(new Date())}</p></div>
         </div>
@@ -295,12 +345,13 @@ export default function CartCheckout() {
                   <tr>
                     <th style={S.th}>S.No</th>
                     <th style={S.th}>Sort No</th>
-                    <th style={S.th}>Shade No</th>
+                    <th style={S.th}>{
+                      cart.length > 0 && cart.every((l) => DHOTI_SUBTYPES.has(l.product.SubType)) ? "Border No" : "Shade"
+                    }</th>
                     <th style={S.th}>Product Name</th>
-                    <th style={S.th}>Type</th>
-                    <th style={S.th}>Qty</th>
                     <th style={S.th}>UOM</th>
-                    <th style={S.th}>Colour</th>
+                    <th style={S.th}>Quantity</th>
+                    <th style={S.th}>Dispatch Instruction</th>
                     <th style={S.th}>Actions</th>
                   </tr>
                 </thead>
@@ -312,10 +363,10 @@ export default function CartCheckout() {
                     return (
                       <tr key={l.key}>
                         <td style={S.td}>{i + 1}</td>
-                        <td style={S.td}>{p.Code || "—"}</td>
+                        <td style={S.td}>{p.SortNo || p.Code || "—"}</td>
                         <td style={S.td}><span style={S.shadeNo}>{dummyShadeNo(p, i)}</span></td>
                         <td style={S.tdWrap}>{p.Name || dummyDescription(p, i)}</td>
-                        <td style={S.td}>{dummyType(p, i)}</td>
+                        <td style={S.td}>{uomLabel(l.uom || "Box")}</td>
                         <td style={S.td}>
                           {isEditing ? (
                             <div style={S.qtyBox}>
@@ -340,8 +391,7 @@ export default function CartCheckout() {
                             <span style={S.qtyReadOnly}>{l.qty}</span>
                           )}
                         </td>
-                        <td style={S.td}>{dummyUom(p.SubType)}</td>
-                        <td style={S.td}><div style={S.swatch(swatch)} /></td>
+                        <td style={S.td}>{l.remarks || "—"}</td>
                         <td style={S.td}>
                           <div style={S.actionsCell}>
                             {isEditing ? (
@@ -372,6 +422,8 @@ export default function CartCheckout() {
             </div>
             <div style={S.totalBlock}>
               <div>
+                {/* CHANGE: "Total No. of Cases" -> "Total Quantity", matching
+                    the customer-facing Order Enquiry page's footer label. */}
                 <p style={S.totalLabel}>Total Quantity</p>
                 <p style={S.totalValue}>{totalQty.toLocaleString()}</p>
               </div>
@@ -415,7 +467,7 @@ export default function CartCheckout() {
             {savingDraft ? "Saving…" : "💾 Save as Draft"}
           </button>
           <button style={S.finalSubmitBtn} disabled={submitting || cart.length === 0} onClick={submitEnquiry}>
-            📨 Submit Enquiry
+            {submitting ? "Submitting…" : "📨 Submit Enquiry"}
           </button>
         </div>
       </div>

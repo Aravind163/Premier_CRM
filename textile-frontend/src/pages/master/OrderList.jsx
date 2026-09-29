@@ -118,6 +118,14 @@ function displayStatus(status, preferRejected) {
   return status || "";
 }
 
+// Same label-only override used across Product Selection / Cart / Order
+// Enquiry pages — "Meter" is stored/matched everywhere as before, only
+// shown as "Mtr" in the table and filter dropdown.
+const UOM_LABEL_OVERRIDES = { Meter: "Mtr", Box: "Cases" };
+function uomLabel(value) {
+  return UOM_LABEL_OVERRIDES[value] || value;
+}
+
 const categoryColors = {
   yarn: { bg: "rgba(247,232,203,0.22)", dot: "#D69426", border: "rgba(214,148,38,0.22)" },
   cloth: { bg: "rgba(216,230,243,0.22)", dot: "#5B9BD9", border: "rgba(91,155,217,0.20)" },
@@ -256,6 +264,8 @@ function OrderListTab({
   const currentUserId = user.Id ?? user.id ?? user.ID ?? user.userId ?? null;
 
   const [filterStatus, setFilterStatus] = useState("All");
+  const [uomFilter, setUomFilter] = useState("All");
+  const [subTypeFilter, setSubTypeFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -316,6 +326,11 @@ function OrderListTab({
         // to the /products lookup by ProductId. No placeholder text.
         const productName = o.product?.Name || productsById[o.ProductId]?.Name || "—";
 
+        // UOM the customer/officer actually picked at checkout (Box/Pieces/
+        // Meter, stored in OrderDetails.UOM) — falls back to the product's
+        // master UOM for orders placed before this was captured.
+        const uom = o.OrderDetails?.UOM || o.OrderDetails?.uom || o.product?.UOM || productsById[o.ProductId]?.UOM || "—";
+
         return {
           id: o.Code,
           dbId: o.Id,
@@ -323,6 +338,7 @@ function OrderListTab({
           followPerson: followName,
           category: o.Category,
           subType: o.SubType || "—",
+          uom,
           productName,
           qty: o.Quantity,
           date: o.CreatedAt ? o.CreatedAt.substring(0, 10) : "",
@@ -347,7 +363,25 @@ function OrderListTab({
   // Reset status filter when switching My Orders ↔ Customer Orders
   useEffect(() => {
     setFilterStatus("All");
+    setUomFilter("All");
+    setSubTypeFilter("All");
   }, [placementFilter]);
+
+  // UOM dropdown options — every distinct real UOM value currently on
+  // the loaded orders, plus the app's canonical Box/Pieces/Meter set so
+  // the dropdown always has something to filter by even before orders
+  // load. Labels go through uomLabel() so "Meter" shows as "Mtr" here
+  // too, while filtering still matches the real stored value.
+  const UOM_FILTER_FALLBACK = ["Box", "Pieces", "Meter"];
+  const uomOptions = Array.from(
+    new Set([...orders.map((o) => o.uom).filter((u) => u && u !== "—"), ...UOM_FILTER_FALLBACK])
+  ).sort();
+
+  // Sub Type dropdown options — every distinct real Sub Type value
+  // currently on the loaded orders.
+  const subTypeOptions = Array.from(
+    new Set(orders.map((o) => o.subType).filter((s) => s && s !== "—"))
+  ).sort();
 
   const groupOrders = (list) => {
     const groups = new Map();
@@ -377,6 +411,8 @@ function OrderListTab({
   const filtered = displayOrders.filter((o) => {
     const matchTab = o.category === tab;
     const matchStatus = statusMatchesFilter(o.status, filterStatus);
+    const matchUom = uomFilter === "All" || o.uom === uomFilter;
+    const matchSubType = subTypeFilter === "All" || o.subType === subTypeFilter;
     const matchSearch = o.id.toLowerCase().includes(search.toLowerCase())
       || o.customer.toLowerCase().includes(search.toLowerCase())
       || o.followPerson.toLowerCase().includes(search.toLowerCase())
@@ -387,7 +423,7 @@ function OrderListTab({
           placementFilter === "mine" ? o.placement === "mine" :
             placementFilter === "customer" ? o.placement === "customer" :
               true;
-    return matchTab && matchStatus && matchSearch && matchPlacement;
+    return matchTab && matchStatus && matchUom && matchSubType && matchSearch && matchPlacement;
   });
 
   const handleDelete = async (o) => {
@@ -462,10 +498,10 @@ function OrderListTab({
       )}
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(46,122,114,0.06)" }}>
+        {/* <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(46,122,114,0.06)" }}>
           <span style={{ fontSize: 18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily: FONT, fontSize: 14, fontWeight: 700, color: themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"} Orders</span>
-        </div>
+        </div> */}
         {/* <span style={{ fontSize: 12, color: themeG.textSub, fontFamily: FONT }}>
           <span style={{ color: themeG.accent, cursor: "pointer", textDecoration: "underline" }}
             onClick={() => navigate("/select-category")}>Switch category</span>
@@ -493,6 +529,28 @@ function OrderListTab({
             </button>
           ))}
         </div>
+
+        <select
+          value={uomFilter}
+          onChange={(e) => setUomFilter(e.target.value)}
+          style={{ padding: "8px 13px", borderRadius: 9, border: `1px solid ${themeG.border}`, fontSize: 12.5, fontFamily: FONT, background: themeG.card, color: themeG.textMain, outline: "none" }}
+        >
+          <option value="All">All UOM</option>
+          {uomOptions.map((u) => (
+            <option key={u} value={u}>{uomLabel(u)}</option>
+          ))}
+        </select>
+
+        <select
+          value={subTypeFilter}
+          onChange={(e) => setSubTypeFilter(e.target.value)}
+          style={{ padding: "8px 13px", borderRadius: 9, border: `1px solid ${themeG.border}`, fontSize: 12.5, fontFamily: FONT, background: themeG.card, color: themeG.textMain, outline: "none" }}
+        >
+          <option value="All">All Sub Types</option>
+          {subTypeOptions.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "flex-start" }}>
           <ExcelToolbar
@@ -526,66 +584,69 @@ function OrderListTab({
         ))}
       </div>
 
-      <div style={{ background: "#EAF3FC", border: "1px solid rgba(91,155,217,0.35)", borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.06)" }}>
-        <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1180 }}>
-          <thead>
-            <tr style={{ borderBottom: `1px solid ${themeG.border}` }}>
-              {["S.No", "Order No", "Date", "Customer Name", "Sub Type", "Qty", "Following Person", "Delivery Date", "Status", "Actions"].map((h) => (
-                <th key={h} style={{ textAlign: "left", fontSize: 11, padding: "10px 13px", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, color: "#FFFFFF", background: "#1F3A63", fontFamily: FONT, whiteSpace: "nowrap" }}>
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={11} style={{ textAlign: "center", padding: 40, color: themeG.textSub, fontSize: 14, fontFamily: FONT }}>
-                  {placementFilter === "customer"
-                    ? "No customer-placed enquiries yet. Orders you submit for a customer appear under My Orders."
-                    : placementFilter === "mine"
-                      ? "No orders placed by you yet."
-                      : "No orders found."}
-                </td>
+      <div style={{ background: "#FFFFFF", border: "1px solid rgba(91,155,217,0.35)", borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 16px rgba(46,122,114,0.06)" }}>
+        {/* Inline scroll — caps the body at roughly 10 rows before it
+            scrolls internally, header stays pinned via position: sticky. */}
+        <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: 520 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1180 }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${themeG.border}` }}>
+                {["S.No", "Enquiry No", "Date", "Customer Name", "Sub Type", "UOM", "Qty", "Following Person", "Delivery Date", "Status", "Actions"].map((h) => (
+                  <th key={h} style={{ textAlign: "center", fontSize: 11, padding: "10px 13px", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600, color: "#FFFFFF", background: "#1F3A63", fontFamily: FONT, whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 1 }}>
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ) : filtered.map((o, idx) => {
-              const cc = categoryColors[o.category] || categoryColors.cloth;
-              const statusLabel = displayStatus(o.status, preferRejectedLabel);
-              return (
-                <tr key={o.id} style={{ borderBottom: "1px solid rgba(46,122,114,0.06)", background: cc.bg }}>
-                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textSub, fontFamily: FONT, borderLeft: `3px solid ${cc.dot}` }}>{idx + 1}</td>
-                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.accent, fontWeight: 700, fontFamily: FONT, whiteSpace: "nowrap" }}>
-                    {o.id}
-                    {o.isGroup && (
-                      <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: cc.dot, background: cc.border, border: `1px solid ${cc.border}`, padding: "1px 8px", borderRadius: 20 }}>
-                        {o.memberIds.length} products
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ padding: "12px 13px", fontSize: 12, color: themeG.textSub, fontFamily: FONT, whiteSpace: "nowrap" }}>{o.date}</td>
-                  <td style={{ padding: "12px 13px", fontSize: 14, color: themeG.textMain, fontWeight: 500, fontFamily: FONT }}>{o.customer}</td>
-                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textMain, fontFamily: FONT }}>{o.subType}</td>
-                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textMain, fontFamily: FONT }}>{o.qty}</td>
-                  <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textSub, fontFamily: FONT }}>{o.followPerson}</td>
-                  <td style={{ padding: "12px 13px", fontSize: 12, fontFamily: FONT, whiteSpace: "nowrap" }}>
-                    {o.deliveryDate || "—"}
-                  </td>
-                  <td style={{ padding: "12px 13px" }}><Badge text={statusLabel} colorFn={statusColor} /></td>
-                  <td style={{ padding: "12px 13px", whiteSpace: "nowrap" }}>
-                    <div style={{ display: "flex", gap: 7 }}>
-                      <button style={btnStyle("#5B9BD9")} onClick={() => navigate(`/master/orders/add?editId=${o.dbId}&mode=view`)}>👁️</button>
-                      <button style={btnStyle(themeG.accent)} onClick={() => navigate(`/master/orders/add?editId=${o.dbId}`)}>✏️</button>
-                      <button style={btnStyle("#B23A3A")} disabled={deletingId === o.dbId} onClick={() => handleDelete(o)}>
-                        {deletingId === o.dbId ? "…" : "🗑️"}
-                      </button>
-                    </div>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={11} style={{ textAlign: "center", padding: 40, color: themeG.textSub, fontSize: 14, fontFamily: FONT }}>
+                    {placementFilter === "customer"
+                      ? "No customer-placed enquiries yet. Orders you submit for a customer appear under My Orders."
+                      : placementFilter === "mine"
+                        ? "No orders placed by you yet."
+                        : "No orders found."}
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ) : filtered.map((o, idx) => {
+                const cc = categoryColors[o.category] || categoryColors.cloth;
+                const statusLabel = displayStatus(o.status, preferRejectedLabel);
+                return (
+                  <tr key={o.id} style={{ borderBottom: "1px solid rgba(46,122,114,0.06)", background: "#FFFFFF" }}>
+                    <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textSub, fontFamily: FONT, borderLeft: `3px solid ${cc.dot}`, textAlign: "center" }}>{idx + 1}</td>
+                    <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.accent, fontWeight: 700, fontFamily: FONT, whiteSpace: "nowrap", textAlign: "center" }}>
+                      {o.id}
+                      {o.isGroup && (
+                        <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: cc.dot, background: cc.border, border: `1px solid ${cc.border}`, padding: "1px 8px", borderRadius: 20 }}>
+                          {o.memberIds.length} products
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: "12px 13px", fontSize: 12, color: themeG.textSub, fontFamily: FONT, whiteSpace: "nowrap", textAlign: "center" }}>{o.date}</td>
+                    <td style={{ padding: "12px 13px", fontSize: 14, color: themeG.textMain, fontWeight: 500, fontFamily: FONT, textAlign: "center" }}>{o.customer}</td>
+                    <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textMain, fontFamily: FONT, textAlign: "center" }}>{o.subType}</td>
+                    <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textMain, fontFamily: FONT, textAlign: "center" }}>{uomLabel(o.uom)}</td>
+                    <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textMain, fontFamily: FONT, textAlign: "center" }}>{o.qty}</td>
+                    <td style={{ padding: "12px 13px", fontSize: 13, color: themeG.textSub, fontFamily: FONT, textAlign: "center" }}>{o.followPerson}</td>
+                    <td style={{ padding: "12px 13px", fontSize: 12, fontFamily: FONT, whiteSpace: "nowrap", textAlign: "center" }}>
+                      {o.deliveryDate || "—"}
+                    </td>
+                    <td style={{ padding: "12px 13px", textAlign: "center" }}><Badge text={statusLabel} colorFn={statusColor} /></td>
+                    <td style={{ padding: "12px 13px", whiteSpace: "nowrap", textAlign: "center" }}>
+                      <div style={{ display: "flex", gap: 7, justifyContent: "center" }}>
+                        <button style={btnStyle("#5B9BD9")} onClick={() => navigate(`/master/orders/add?editId=${o.dbId}&mode=view`)}>👁️</button>
+                        <button style={btnStyle(themeG.accent)} onClick={() => navigate(`/master/orders/add?editId=${o.dbId}`)}>✏️</button>
+                        <button style={btnStyle("#B23A3A")} disabled={deletingId === o.dbId} onClick={() => handleDelete(o)}>
+                          {deletingId === o.dbId ? "…" : "🗑️"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
         <div style={{ padding: "10px 13px", borderTop: `1px solid ${themeG.border}`, fontSize: 12, color: themeG.textSub, fontFamily: FONT }}>
           Showing {filtered.length} of {orders.filter((o) => o.category === tab).length} {tab} orders
@@ -688,10 +749,10 @@ function OrderStatusTab({ themeG, navigate }) {
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(46,122,114,0.06)" }}>
+        {/* <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 10, background: themeG.card, border: `1px solid ${themeG.border}`, boxShadow: "0 2px 8px rgba(46,122,114,0.06)" }}>
           <span style={{ fontSize: 18 }}>{tab === "cloth" ? "👘" : "🧵"}</span>
           <span style={{ fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: themeG.textMain }}>{tab === "cloth" ? "Cloth" : "Yarn"} Orders</span>
-        </div>
+        </div> */}
         {/* <span style={{ fontSize: 12, color: themeG.textSub }}>
           <span style={{ color: themeG.accent, cursor: "pointer", textDecoration: "underline" }}
             onClick={() => navigate("/select-category")}>Switch category</span>

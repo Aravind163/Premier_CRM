@@ -303,7 +303,7 @@ export default function SalesLossReportPage() {
                 <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 800 }}>
                   <thead>
                     <tr>
-                      {["S.No", "Sort No", "Shade No", "Order No", "Product Name", "Customer", "Qty", "Month", "Value Lost"].map((h) => (
+                      {["S.No", "Sort No", "Shade", "Enquiry No", "Product Name", "Customer", "Qty", "Month", "Value Lost"].map((h) => (
                         <th key={h} style={th}>{h}</th>
                       ))}
                     </tr>

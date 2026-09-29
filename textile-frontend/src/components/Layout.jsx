@@ -75,6 +75,18 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
   // Master), so it opens whenever you're on any /reports/* route instead
   // of defaulting closed regardless of where you are.
   const [reportsOpen, setReportsOpen] = useState(() => location.pathname.startsWith("/reports"));
+  // Admin Master — Super Admin only: provision End User / Admin / System
+  // Admin login accounts directly.
+  const [adminMasterOpen, setAdminMasterOpen] = useState(() => location.pathname.startsWith("/master/admin-master"));
+  // Sidebar open/close toggle — persisted so it stays collapsed/expanded
+  // across page navigations (each page remounts Layout on route change).
+  const [sidebarOpen, setSidebarOpen] = useState(() => localStorage.getItem("sidebarOpen") !== "false");
+  const toggleSidebar = () => {
+    setSidebarOpen((prev) => {
+      localStorage.setItem("sidebarOpen", String(!prev));
+      return !prev;
+    });
+  };
 
   const isActive = (path) => location.pathname === path;
   const isPrefix = (path) => location.pathname.startsWith(path);
@@ -86,8 +98,9 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
       <div style={S.body}>
+
         {/* ── Sidebar ── */}
-        <div style={S.sidebar}>
+        <div style={{ ...S.sidebar, width: sidebarOpen ? S.sidebar.width : 0, minWidth: sidebarOpen ? S.sidebar.width : 0, padding: sidebarOpen ? S.sidebar.padding : "20px 0px", overflow: sidebarOpen ? "auto" : "hidden", transition: "width 0.25s ease, min-width 0.25s ease, padding 0.25s ease" }}>
           <div style={S.logoWrap}> <span style={S.logoText}>Premier CRM</span>
           </div>
 
@@ -108,6 +121,27 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
                 <span>Dashboard</span>
               </div>
             </Link>
+
+            {/* Admin Master — Super Admin only. Provision End User / Admin /
+                System Admin login accounts directly (separate from the
+                District/Taluk approval workflow under Master). Placed
+                right after Dashboard so it's the second item in the nav. */}
+            {isSuperAdmin && (
+              <div style={S.navGroup}>
+                <div style={S.navGroupHeader} onClick={() => setAdminMasterOpen(!adminMasterOpen)}>
+                  <span style={S.navIcon}><ShieldIcon /></span>
+                  <span style={S.navGroupLabel}>Admin Master</span>
+                  <span style={{ ...S.chevron, transform: adminMasterOpen ? "rotate(90deg)" : "rotate(0deg)" }}><ChevronIcon /></span>
+                </div>
+                {adminMasterOpen && (
+                  <div style={S.navGroupBody}>
+                    <div style={S.navLeafGroup}>
+                      <NavLeaf to="/master/admin-master/users" label="New User" active={isPrefix("/master/admin-master/users")} S={S} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Select Category — hidden for end_user (they place orders, not manage catalog) */}
             {/* {!isEndUser && (
@@ -138,16 +172,23 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
                 8/9/11/14. Hidden for end_user (out of their scope). */}
             {!isEndUser && (
               <>
-                <Link to="/master/batches" style={{ textDecoration: "none" }}>
-                  <div style={{ ...S.navItem, ...(isPrefix("/master/batches") ? S.navItemActive : {}) }}>
-                    <span style={S.navIcon}><BoxIcon /></span>
-                    <span>Marketing Review</span>
-                  </div>
-                </Link>
+                {/* Marketing Review — hidden for super_admin (hidden, not
+                    removed — still reachable by URL, just not shown in
+                    the nav). */}
+                {!isSuperAdmin && (
+                  <Link to="/master/batches" style={{ textDecoration: "none" }}>
+                    <div style={{ ...S.navItem, ...(isPrefix("/master/batches") ? S.navItemActive : {}) }}>
+                      <span style={S.navIcon}><BoxIcon /></span>
+                      <span>Marketing Review</span>
+                    </div>
+                  </Link>
+                )}
 
                 {/* Master — full version for super_admin / system_admin / admin.
-                end_user gets a trimmed "My Orders" style menu instead. */}
-                {!isEndUser ? (
+                end_user gets a trimmed "My Orders" style menu instead.
+                Hidden entirely for super_admin (hidden, not removed —
+                still reachable by URL, just not shown in the nav). */}
+                {!isSuperAdmin && (!isEndUser ? (
                   <div style={S.navGroup}>
                     <div style={S.navGroupHeader} onClick={() => setMasterOpen(!masterOpen)}>
                       <span style={S.navIcon}><LayersIcon /></span>
@@ -183,7 +224,6 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
                             <NavLeaf to="/master/products" label="Product List" active={isActive("/master/products")} S={S} />
                           </div>
                         )} */}
-
                         {/* Orders — third */}
                         <div style={{ ...S.navSubItem, ...((isPrefix("/master/orders") || isPrefix("/master/enquiry")) ? S.navSubActive : {}) }} onClick={() => setOrdersOpen(!ordersOpen)}>
                           <span>Orders</span>
@@ -220,7 +260,7 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
                       </div>
                     )}
                   </div>
-                )}
+                ))}
 
                 
                 <Link to="/master/sales-order" style={{ textDecoration: "none" }}>
@@ -229,12 +269,21 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
                     <span>Order Details</span>
                   </div>
                 </Link>
-                <Link to="/master/invoices" style={{ textDecoration: "none" }}>
+                {/* ERP staging tables (sale_order_header + sale_order_line) — staff only */}
+                {/* {(isSuperAdmin || isSystemAdmin || isAdmin) && (
+                  <Link to="/master/erp-sale-orders" style={{ textDecoration: "none" }}>
+                    <div style={{ ...S.navItem, ...(isPrefix("/master/erp-sale-orders") ? S.navItemActive : {}) }}>
+                      <span style={S.navIcon}><ReceiptIcon /></span>
+                      <span>ERP Sale Order</span>
+                    </div>
+                  </Link>
+                )} */}
+                {/* <Link to="/master/invoices" style={{ textDecoration: "none" }}>
                   <div style={{ ...S.navItem, ...(isPrefix("/master/invoices") ? S.navItemActive : {}) }}>
                     <span style={S.navIcon}><ReceiptIcon /></span>
                     <span>Invoices</span>
                   </div>
-                </Link>
+                </Link> */}
                 <Link to="/master/credit-limit" style={{ textDecoration: "none" }}>
                   <div style={{ ...S.navItem, ...(isPrefix("/master/credit-limit") ? S.navItemActive : {}) }}>
                     <span style={S.navIcon}><ReceiptIcon /></span>
@@ -257,7 +306,6 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
             )}
             {/* Order Enquiry — the entry point of the O2C flow, so it sits
                 before Master: Assign -> Approve -> Add Order (in Master). */}
-
 
 
             {/* Reports — six separate report pages behind one collapsible
@@ -291,7 +339,7 @@ export default function Layout({ children, pageTitle, pageSubtitle }) {
 
         {/* ── Right: Header + Scrollable Content + Footer ── */}
         <div style={S.rightPane}>
-          <Header />
+          <Header sidebarOpen={sidebarOpen} onToggleSidebar={toggleSidebar} />
           <div style={S.scrollArea}>
             <div style={S.main}>
               {readOnly && (
@@ -332,7 +380,7 @@ function buildStyles(colors, isDark) {
   return {
     page: {
       display: "flex",
-      height: "100vh",
+      height: "100%",
       overflow: "hidden",
       background: colors.background,
       fontFamily: FONT,
@@ -365,7 +413,7 @@ function buildStyles(colors, isDark) {
         : "radial-gradient(circle at 1px 1px, rgba(15,33,56,0.05) 1px, transparent 0), radial-gradient(1200px 500px at 100% -10%, rgba(31,92,153,0.07), transparent 60%)",
       backgroundSize: "22px 22px, 100% 100%",
       backgroundAttachment: "fixed, fixed",
-      minHeight: "calc(100vh - 62px - 46px)",
+      minHeight: "calc(100% - 46px)",
     },
     sidebar: {
       width: 210,

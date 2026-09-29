@@ -140,7 +140,7 @@ export default function RaiseComplaint() {
         <table style={S.table}>
           <thead>
             <tr>
-              {["Date", "Order", "Type", "Description", "Status"].map((h) => (
+              {["Date", "Enquiry", "Type", "Description", "Status"].map((h) => (
                 <th key={h} style={S.th}>{h}</th>
               ))}
             </tr>

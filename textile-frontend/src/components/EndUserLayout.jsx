@@ -70,6 +70,15 @@ export default function EndUserLayout({ children }) {
   // lives outside this group as its own top-level link (see nav below).
   const [enquiryOpen, setEnquiryOpen] = useState(isEnquiry || isDrafts || isCartCheckout || isOrdersPage);
   const [customersOpen, setCustomersOpen] = useState(isAddCustomer || isCustomerList);
+  // Sidebar open/close toggle — persisted so it stays collapsed/expanded
+  // across page navigations (each page remounts this layout on route change).
+  const [sidebarOpen, setSidebarOpen] = useState(() => localStorage.getItem("sidebarOpen") !== "false");
+  const toggleSidebar = () => {
+    setSidebarOpen((prev) => {
+      localStorage.setItem("sidebarOpen", String(!prev));
+      return !prev;
+    });
+  };
 
   const S = buildStyles(colors, isDark);
 
@@ -78,22 +87,23 @@ export default function EndUserLayout({ children }) {
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
       <div style={S.body}>
+
         {/* ── Sidebar (end_user / area-scoped) ── */}
-        <div style={S.sidebar}>
+        <div style={{ ...S.sidebar, width: sidebarOpen ? S.sidebar.width : 0, minWidth: sidebarOpen ? S.sidebar.width : 0, padding: sidebarOpen ? S.sidebar.padding : "20px 0px", overflow: sidebarOpen ? "auto" : "hidden", transition: "width 0.25s ease, min-width 0.25s ease, padding 0.25s ease" }}>
           <div style={S.logoWrap}>
             <span style={S.logoText}>Premier CRM</span>
           </div>
 
-          <div style={S.welcomeBadge}>
+          {/* <div style={S.welcomeBadge}>
              {user.name || user.email || "End User"}
-          </div>
+          </div> */}
 
-          {taluks.length > 0 && (
+          {/* {taluks.length > 0 && (
             <div style={S.areaBadge}>
                {taluks.join(", ")}
               <span style={{ opacity: 0.6 }}> (Taluk)</span>
             </div>
-          )}
+          )} */}
 
           <nav style={S.nav}>
             <Link to="/end-user/dashboard" style={{ textDecoration: "none" }}>
@@ -154,7 +164,7 @@ export default function EndUserLayout({ children }) {
 
         {/* ── Right: Header + Scrollable Content + Footer ── */}
         <div style={S.rightPane}>
-          <Header />
+          <Header sidebarOpen={sidebarOpen} onToggleSidebar={toggleSidebar} />
           <div style={S.scrollArea}>
             <div style={S.main}>{children}</div>
             <Footer />
@@ -193,7 +203,7 @@ function buildStyles(colors, isDark) {
   return {
     page: {
       display: "flex",
-      height: "100vh",
+      height: "100%",
       overflow: "hidden",
       background: colors.background,
       fontFamily: FONT,
@@ -217,12 +227,12 @@ function buildStyles(colors, isDark) {
       overflowX: "hidden",
     },
     main: {
-      padding: "24px 20px",
+      padding: "12px 20px 24px",
       background: isDark ? colors.background : "#F5F7FA",
       backgroundImage: isDark ? "none" : "radial-gradient(circle at 1px 1px, rgba(15,33,56,0.05) 1px, transparent 0), radial-gradient(1200px 500px at 100% -10%, rgba(31,92,153,0.07), transparent 60%)",
       backgroundSize: "22px 22px, 100% 100%",
       backgroundAttachment: "fixed, fixed",
-      minHeight: "calc(100vh - 62px - 46px)",
+      minHeight: "calc(100% - 46px)",
     },
     sidebar: {
       width: 200,

@@ -76,6 +76,28 @@ class Order extends Model
             $order->Lcode = $order->Lcode ?? 'PRE-1';
             $order->Ccode = $order->Ccode ?? 'PRE';
         });
+
+        // ERP staging (sale_order_header / sale_order_line): keep the staged
+        // line in step when a CRM order is edited or deleted. Creation is
+        // handled explicitly in OrderController (it knows the cart/group).
+        // Never allowed to break the normal CRM flow — failures are only logged.
+        static::updated(function (Order $order) {
+            if ($order->wasChanged(['Quantity', 'PricePerUnit', 'DeliveryDate', 'OrderDetails'])) {
+                try {
+                    app(\App\Services\SaleOrderService::class)->syncFromOrder($order);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('SaleOrder sync failed for order ' . $order->Id . ': ' . $e->getMessage());
+                }
+            }
+        });
+
+        static::deleted(function (Order $order) {
+            try {
+                app(\App\Services\SaleOrderService::class)->removeForOrder((int) $order->Id);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('SaleOrder cleanup failed for order ' . $order->Id . ': ' . $e->getMessage());
+            }
+        });
     }
 
     public function customer()

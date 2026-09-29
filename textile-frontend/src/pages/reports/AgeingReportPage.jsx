@@ -345,7 +345,7 @@ export default function AgeingReportPage() {
                 <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
                   <thead>
                     <tr>
-                      {["S.No", "Sort No", "Shade No", "Order No", "Customer", "Product Type", "Qty", "Days Overdue", "Bucket", "Total", "Action"].map((h) => (
+                      {["S.No", "Sort No", "Shade", "Enquiry No", "Customer", "Product Type", "Qty", "Days Overdue", "Bucket", "Total", "Action"].map((h) => (
                         <th key={h} style={th}>{h}</th>
                       ))}
                     </tr>

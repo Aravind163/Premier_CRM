@@ -3,13 +3,20 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\OrderAllottedSystemAdminMail;
+use App\Mail\OrderPlacedAdminMail;
+use App\Mail\OrderPlacedEndUserMail;
 use App\Models\AppNotification;
 use App\Models\Customer;
 use App\Models\Employee;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\User;
+use App\Services\SaleOrderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class OrderController extends Controller
@@ -96,9 +103,26 @@ class OrderController extends Controller
 
         // Customers only ever see their own orders (for tracking delivery
         // status) — never the full company order book.
+                // Customers only ever see their own orders (for tracking delivery
+        // status) — never the full company order book.
         if ($caller && $caller->role === 'customer') {
             $customer = Customer::where('UserId', $caller->id)->first();
             $query->where('CustomerId', $customer->Id ?? 0);
+        }
+
+        // Order Enquiry's "Final Approval" queue for System Admin must only
+        // show orders Admin has actually allocated stock to via Marketing
+        // Review — otherwise a brand-new order is visible (and actionable)
+        // to System Admin the moment it's placed, skipping Admin entirely.
+        // Sent only by OrderEnquiry.jsx for system_admin — doesn't affect
+        // Order List / Sales Order / Dashboard, which still need the full
+        // unscoped view for that role.
+        if ($request->boolean('allocated_only') && $caller && $caller->role === 'system_admin') {
+            $query->whereExists(function ($q) {
+                $q->from('sale_order_line')
+                    ->whereColumn('sale_order_line.CrmOrderId', 'Orders.Id')
+                    ->where('sale_order_line.USERPRIMARYQUANTITY', '>', 0);
+            });
         }
 
         return response()->json(
@@ -129,6 +153,104 @@ class OrderController extends Controller
      * enquiry flow instead (see storeBulk below), where price always comes
      * from the Product itself and no self-discount is possible.
      */
+
+    // public function store(Request $request)
+    // {
+    //     if ($request->user() && $request->user()->role === 'customer') {
+    //         return response()->json(['message' => 'Please use the cart to submit an enquiry.'], 403);
+    //     }
+
+    //     $validated = $request->validate([
+    //         'customerId' => 'required|integer|exists:Customers,Id',
+    //         'productId' => 'required|integer|exists:Products,Id',
+    //         'qty' => 'required|integer|min:1',
+    //         'pricePerUnit' => 'required|numeric|min:0',
+    //         'discount' => 'nullable|numeric|min:0|max:100',
+    //         'deliveryDate' => 'nullable|date',
+    //         'notes' => 'nullable|string',
+    //         'orderDetails' => 'nullable|array',   // ← product-specific fields
+    //         // Free-text "Pieces of Length" captured on Product Selection
+    //         // (end-user) — folded into OrderDetails below so it round-trips
+    //         // with the order without needing a dedicated column.
+    //         'piecesOfLength' => 'nullable|string|max:100',
+    //         // UOM (Box / Pieces / Meter) the officer picked on Product
+    //         // Selection's UOM dropdown for this line — same OrderDetails
+    //         // round-trip as piecesOfLength, and as storeBulk() (customer
+    //         // cart checkout) already does below.
+    //         'uom' => 'nullable|string|max:50',
+    //         // Per-line remarks typed on Product Selection's Remarks column —
+    //         // same OrderDetails round-trip pattern as piecesOfLength/uom.
+    //         'remarks' => 'nullable|string|max:500',
+    //     ]);
+
+    //     $orderCustomer = Customer::find($validated['customerId']);
+    //     $caller = $request->user();
+
+    //     // Field Officer (end_user) can only place orders for customers in
+    //     // their own assigned Taluk(s); Admin only within their own assigned
+    //     // District(s). System/Super Admin unscoped.
+    //     if ($caller && $caller->role === 'end_user') {
+    //         $taluks = $this->callerAreas($caller, 'Taluk');
+    //         if (!$orderCustomer || !in_array($orderCustomer->Taluk, $taluks, true)) {
+    //             return response()->json(['message' => 'You can only place orders for customers in your own assigned Taluk(s).'], 403);
+    //         }
+    //     }
+    //     if ($caller && $caller->role === 'admin') {
+    //         $districts = $this->callerAreas($caller, 'District');
+    //         if (!$orderCustomer || !in_array($orderCustomer->District, $districts, true)) {
+    //             return response()->json(['message' => 'You can only place orders for customers in your own assigned District(s).'], 403);
+    //         }
+    //     }
+
+    //     $product = Product::find($validated['productId']);
+
+    //     $qty = (float) $validated['qty'];
+    //     $pricePerUnit = (float) $validated['pricePerUnit'];
+    //     $discountPct = (float) ($validated['discount'] ?? 0);
+    //     $totalAmount = round($qty * $pricePerUnit * (1 - $discountPct / 100), 2);
+
+    //     $order = $this->createOrderWithUniqueCode([
+    //         'CustomerId' => $validated['customerId'],
+    //         'ProductId' => $validated['productId'],
+    //         'Category' => $product->Category,
+    //         'SubType' => $product->SubType,
+    //         'Quantity' => $validated['qty'],
+    //         'PricePerUnit' => $pricePerUnit,
+    //         'DiscountPct' => $discountPct,
+    //         'TotalAmount' => $totalAmount,
+    //         'Status' => 'pending',
+    //         'PaymentStatus' => 'unpaid',
+    //         'DeliveryDate' => $validated['deliveryDate'] ?? null,
+    //         'Notes' => $validated['notes'] ?? null,
+    //         'CreatedBy' => $request->user()->id,
+    //         // NOTE: OrderDetails is cast as 'array' on the Order model, so
+    //         // Eloquent handles the JSON encode/decode itself — pass the
+    //         // plain array (or null), never a pre-encoded JSON string here.
+    //         'OrderDetails' => (function () use ($validated) {
+    //             $details = $validated['orderDetails'] ?? [];
+    //             if (!empty($validated['piecesOfLength'])) {
+    //                 $details['PiecesOfLength'] = $validated['piecesOfLength'];
+    //             }
+    //             if (!empty($validated['uom'])) {
+    //                 $details['UOM'] = $validated['uom'];
+    //             }
+    //             if (!empty($validated['remarks'])) {
+    //                 $details['Remarks'] = $validated['remarks'];
+    //             }
+    //             return $details ?: null;
+    //         })(),
+    //     ]);
+
+    //     // Flow: END USER -> Places Order -> CRM creates Order -> Email -> Admin
+    //     $this->sendToUsers(
+    //         $this->adminsForDistrict($orderCustomer->District ?? null),
+    //         new OrderPlacedAdminMail($order, $caller->role === 'end_user' ? 'End User' : 'Admin')
+    //     );
+
+    //     return response()->json($order->load(['customer', 'product']), 201);
+    // }
+
+
     public function store(Request $request)
     {
         if ($request->user() && $request->user()->role === 'customer') {
@@ -136,46 +258,74 @@ class OrderController extends Controller
         }
 
         $validated = $request->validate([
-            'customerId' => 'required|integer|exists:Customers,Id',
-            'productId' => 'required|integer|exists:Products,Id',
+            // Either a local customer/product (legacy) …
+            'customerId' => 'nullable|integer|exists:Customers,Id',
+            'productId' => 'nullable|integer|exists:Products,Id',
+            // … or the Oracle ones the catalog now uses (verified server-side).
+            'oracleCustomerId' => 'nullable|string|max:50',
+            'oracleProduct' => 'nullable|array',
+            'oracleProduct.id' => 'nullable',
+            'oracleProduct.rowKey' => 'nullable|string|max:64',
+            'oracleProduct.sortNo' => 'nullable',
+            'oracleProduct.shadeNo' => 'nullable',
+            'oracleProduct.name' => 'nullable|string|max:500',
             'qty' => 'required|integer|min:1',
-            'pricePerUnit' => 'required|numeric|min:0',
+            'pricePerUnit' => 'nullable|numeric|min:0',   // Oracle feed has no price → falls back to the product's own (0)
             'discount' => 'nullable|numeric|min:0|max:100',
             'deliveryDate' => 'nullable|date',
             'notes' => 'nullable|string',
-            'orderDetails' => 'nullable|array',   // ← product-specific fields
+            'orderDetails' => 'nullable|array',
+            // Same value on every POST of one cart → all its products become lines of ONE ERP header.
+            'cartRef' => 'nullable|string|max:80',
+            'piecesOfLength' => 'nullable|string|max:100',
+            'uom' => 'nullable|string|max:50',
+            'remarks' => 'nullable|string|max:500',
         ]);
 
-        $orderCustomer = Customer::find($validated['customerId']);
+        if (empty($validated['customerId']) && empty($validated['oracleCustomerId'])) {
+            return response()->json(['message' => 'Customer is required.'], 422);
+        }
+        if (empty($validated['productId']) && empty($validated['oracleProduct'])) {
+            return response()->json(['message' => 'Product is required.'], 422);
+        }
+
         $caller = $request->user();
+        $isOracleCustomer = !empty($validated['oracleCustomerId']);
 
-        // Field Officer (end_user) can only place orders for customers in
-        // their own assigned Taluk(s); Admin only within their own assigned
-        // District(s). System/Super Admin unscoped.
-        if ($caller && $caller->role === 'end_user') {
-            $taluks = $this->callerAreas($caller, 'Taluk');
-            if (!$orderCustomer || !in_array($orderCustomer->Taluk, $taluks, true)) {
-                return response()->json(['message' => 'You can only place orders for customers in your own assigned Taluk(s).'], 403);
+        $orderCustomer = $isOracleCustomer
+            ? $this->resolveOracleCustomer((string) $validated['oracleCustomerId'], $caller)   // also enforces the officer's area
+            : Customer::find($validated['customerId']);
+
+        // Local customers keep the original Taluk/District scoping.
+        // (Oracle customers were already area-checked in resolveOracleCustomer.)
+        if (!$isOracleCustomer) {
+            if ($caller && $caller->role === 'end_user') {
+                $taluks = $this->callerAreas($caller, 'Taluk');
+                if (!$orderCustomer || !in_array($orderCustomer->Taluk, $taluks, true)) {
+                    return response()->json(['message' => 'You can only place orders for customers in your own assigned Taluk(s).'], 403);
+                }
+            }
+            if ($caller && $caller->role === 'admin') {
+                $districts = $this->callerAreas($caller, 'District');
+                if (!$orderCustomer || !in_array($orderCustomer->District, $districts, true)) {
+                    return response()->json(['message' => 'You can only place orders for customers in your own assigned District(s).'], 403);
+                }
             }
         }
-        if ($caller && $caller->role === 'admin') {
-            $districts = $this->callerAreas($caller, 'District');
-            if (!$orderCustomer || !in_array($orderCustomer->District, $districts, true)) {
-                return response()->json(['message' => 'You can only place orders for customers in your own assigned District(s).'], 403);
-            }
-        }
 
-        $product = Product::find($validated['productId']);
+        $product = !empty($validated['oracleProduct'])
+            ? $this->resolveOracleProduct($validated['oracleProduct'], $caller)
+            : Product::find($validated['productId']);
 
         $qty = (float) $validated['qty'];
-        $pricePerUnit = (float) $validated['pricePerUnit'];
+        $pricePerUnit = (float) ($validated['pricePerUnit'] ?? $product->Price ?? 0);
         $discountPct = (float) ($validated['discount'] ?? 0);
         $totalAmount = round($qty * $pricePerUnit * (1 - $discountPct / 100), 2);
 
-        $order = Order::create([
-            'Code' => $this->generateOrderCode(),
-            'CustomerId' => $validated['customerId'],
-            'ProductId' => $validated['productId'],
+        $order = DB::transaction(function () use ($validated, $product, $orderCustomer, $caller, $request, $pricePerUnit, $discountPct, $totalAmount) {
+        $order = $this->createOrderWithUniqueCode([
+            'CustomerId' => $orderCustomer->Id,
+            'ProductId' => $product->Id,
             'Category' => $product->Category,
             'SubType' => $product->SubType,
             'Quantity' => $validated['qty'],
@@ -187,11 +337,58 @@ class OrderController extends Controller
             'DeliveryDate' => $validated['deliveryDate'] ?? null,
             'Notes' => $validated['notes'] ?? null,
             'CreatedBy' => $request->user()->id,
-            // NOTE: OrderDetails is cast as 'array' on the Order model, so
-            // Eloquent handles the JSON encode/decode itself — pass the
-            // plain array (or null), never a pre-encoded JSON string here.
-            'OrderDetails' => $validated['orderDetails'] ?? null,
+            'OrderDetails' => (function () use ($validated, $product, $orderCustomer) {
+                $details = $validated['orderDetails'] ?? [];
+                if (!empty($validated['piecesOfLength'])) {
+                    $details['PiecesOfLength'] = $validated['piecesOfLength'];
+                }
+                if (!empty($validated['uom'])) {
+                    $details['UOM'] = $validated['uom'];
+                }
+                if (!empty($validated['remarks'])) {
+                    $details['Remarks'] = $validated['remarks'];
+                }
+                // Oracle snapshot — what was actually ordered, as Oracle knows it.
+                if (!empty($validated['oracleProduct'])) {
+                    $details['OracleProductId'] = (string) ($validated['oracleProduct']['id'] ?? '');
+                    $details['SortNo'] = $product->SortNo;
+                    $details['ShadeNo'] = $product->ShadeNo;
+                    $details['ProductName'] = $product->Name;
+                }
+                if (!empty($validated['oracleCustomerId'])) {
+                    $details['OracleCustomerId'] = (string) $validated['oracleCustomerId'];
+                    $details['CustomerName'] = $orderCustomer->Name;
+                }
+                return $details ?: null;
+            })(),
         ]);
+
+        // ERP staging: add this product as a LINE on the order's header
+        // (sale_order_header / sale_order_line). Wrapped in try/catch so an
+        // Oracle timeout doesn't block order creation — if staging fails,
+        // resolveLine() in AllocationController will re-stage it on the fly
+        // the first time Admin allocates against this order.
+        try {
+            app(SaleOrderService::class)->stageOrder(
+                $order, $product, $orderCustomer, $caller,
+                $validated['orderDetails']['GroupRef'] ?? $validated['cartRef'] ?? null,
+                $validated['notes'] ?? null
+            );
+        } catch (\Throwable $e) {
+            \Log::warning('stageOrder failed on order creation — will retry at allocation time', [
+                'orderId' => $order->Id,
+                'error'   => $e->getMessage(),
+            ]);
+        }
+
+        return $order;
+        });
+
+        // Flow: END USER -> Places Order -> CRM creates Order -> Email -> Admin
+        $this->sendToUsers(
+            $this->adminsForDistrict($orderCustomer->District ?? null),
+            new OrderPlacedAdminMail($order, $caller->role === 'end_user' ? 'End User' : 'Admin')
+        );
 
         return response()->json($order->load(['customer', 'product']), 201);
     }
@@ -230,10 +427,28 @@ class OrderController extends Controller
 
         $validated = $request->validate([
             'items' => 'required|array|min:1',
-            'items.*.productId' => 'required|integer|exists:Products,Id',
+            // Local product (legacy) OR an Oracle product (verified server-side).
+            'items.*.productId' => 'nullable|integer|exists:Products,Id',
+            'items.*.oracleProduct' => 'nullable|array',
+            'items.*.oracleProduct.id' => 'nullable',
+            'items.*.oracleProduct.rowKey' => 'nullable|string|max:64',
+            'items.*.oracleProduct.sortNo' => 'nullable',
+            'items.*.oracleProduct.shadeNo' => 'nullable',
+            'items.*.oracleProduct.name' => 'nullable|string|max:500',
             'items.*.qty' => 'required|integer|min:1',
             'items.*.color' => 'nullable|string|max:100',
             'items.*.size' => 'nullable|string|max:50',
+            // Free-text "Pieces of Length" captured on the customer's own
+            // Product Catalog page — same OrderDetails round-trip as above.
+            'items.*.piecesOfLength' => 'nullable|string|max:100',
+            // UOM (Box / Pieces / Meter) the customer picked on the Product
+            // Selection page's UOM dropdown for this line — stored on
+            // OrderDetails the same way, so it round-trips back out
+            // correctly wherever this order's UOM is shown.
+            'items.*.uom' => 'nullable|string|max:50',
+            // Per-product remarks typed on the customer's Product Catalog
+            // Remarks column — same OrderDetails round-trip as color/size/uom.
+            'items.*.remarks' => 'nullable|string|max:500',
             'deliveryDate' => 'nullable|date',
             'notes' => 'nullable|string',
         ]);
@@ -243,7 +458,13 @@ class OrderController extends Controller
         $orders = DB::transaction(function () use ($validated, $customer, $caller, $cartRef) {
             $created = [];
             foreach ($validated['items'] as $item) {
-                $product = Product::find($item['productId']);
+                if (!empty($item['oracleProduct'])) {
+                    $product = $this->resolveOracleProduct($item['oracleProduct'], $caller);
+                } elseif (!empty($item['productId'])) {
+                    $product = Product::find($item['productId']);
+                } else {
+                    continue; // neither a local nor an Oracle product on this line
+                }
                 if (!$product || $product->Status !== 'active') {
                     continue; // skip anything that vanished / went inactive mid-checkout
                 }
@@ -257,9 +478,20 @@ class OrderController extends Controller
                     $orderDetails['Color'] = $item['color'];
                 if (!empty($item['size']))
                     $orderDetails['Size'] = $item['size'];
+                if (!empty($item['piecesOfLength']))
+                    $orderDetails['PiecesOfLength'] = $item['piecesOfLength'];
+                if (!empty($item['uom']))
+                    $orderDetails['UOM'] = $item['uom'];
+                if (!empty($item['remarks']))
+                    $orderDetails['Remarks'] = $item['remarks'];
+                                if (!empty($item['oracleProduct'])) {
+                    $orderDetails['OracleProductId'] = (string) ($item['oracleProduct']['id'] ?? '');
+                    $orderDetails['SortNo'] = $product->SortNo;
+                    $orderDetails['ShadeNo'] = $product->ShadeNo;
+                    $orderDetails['ProductName'] = $product->Name;
+                }
 
-                $created[] = Order::create([
-                    'Code' => $this->generateOrderCode(),
+                $order = $this->createOrderWithUniqueCode([
                     'CustomerId' => $customer->Id,
                     'ProductId' => $product->Id,
                     'Category' => $product->Category,
@@ -276,6 +508,21 @@ class OrderController extends Controller
                     // Plain array — the model's 'array' cast encodes it for us.
                     'OrderDetails' => $orderDetails,
                 ]);
+
+                // ERP staging: this product becomes a LINE on the cart's ONE
+                // header (sale_order_header / sale_order_line). Wrapped in
+                // try/catch so Oracle timeout doesn't block the entire cart
+                // submission — resolveLine() retries staging at allocation time.
+                try {
+                    app(SaleOrderService::class)->stageOrder($order, $product, $customer, $caller, $cartRef, $validated['notes'] ?? null);
+                } catch (\Throwable $e) {
+                    \Log::warning('stageOrder failed on cart order creation — will retry at allocation time', [
+                        'orderId' => $order->Id,
+                        'error'   => $e->getMessage(),
+                    ]);
+                }
+
+                $created[] = $order;
             }
             return $created;
         });
@@ -283,6 +530,19 @@ class OrderController extends Controller
         if (empty($orders)) {
             return response()->json(['message' => 'None of the items in your cart are available anymore.'], 422);
         }
+
+        // Flow: CUSTOMER -> Places Order -> CRM creates Order -> Email -> End User + Email -> Admin
+        // One order (the first) represents the whole cart submission for
+        // notification purposes — all lines share the same customer/taluk.
+        $firstOrder = $orders[0];
+        $this->sendToUsers(
+            $this->endUsersForTaluk($customer->Taluk ?? null),
+            new OrderPlacedEndUserMail($firstOrder)
+        );
+        $this->sendToUsers(
+            $this->adminsForDistrict($customer->District ?? null),
+            new OrderPlacedAdminMail($firstOrder, 'Customer')
+        );
 
         return response()->json([
             'message' => count($orders) . ' item(s) submitted as an enquiry.',
@@ -319,6 +579,27 @@ class OrderController extends Controller
             return response()->json([
                 'message' => 'Only the Marketing Head (System Admin) can give final approval on a sales order.',
             ], 403);
+        }
+
+        // Same allocation guard as updateStatus(): System Admin can only
+        // give final approval once Admin has actually allocated stock to
+        // this order in Marketing Review. Without this, AddOrder.jsx's
+        // "finalize enquiry" submit (PUT /orders/{id}) lets System Admin
+        // set status="approved" the moment THEY are the one filling in
+        // Add Order — completely skipping Admin's allocation step. This
+        // was the second, unguarded route to the same bug fixed on
+        // updateStatus() last time; PUT /orders/{id} and
+        // PATCH /orders/{id}/status both need the check.
+        if (($validated['status'] ?? null) === 'approved') {
+            $hasAllocation = DB::table('sale_order_line')
+                ->where('CrmOrderId', $order->Id)
+                ->where('USERPRIMARYQUANTITY', '>', 0)
+                ->exists();
+            if (!$hasAllocation) {
+                return response()->json([
+                    'message' => 'This order has no stock allocated yet — it must go through Marketing Review (Admin allocation) first.',
+                ], 422);
+            }
         }
 
         // ERP hand-off (O2C Step 4, "Transfer to ERP") is a Marketing Head
@@ -452,6 +733,18 @@ class OrderController extends Controller
             'AssignedAt' => now(),
         ]);
 
+        // NOTE: System Admin is intentionally NOT notified here. Assigning
+        // an enquiry to yourself is just the first step of Admin's own
+        // review (before Add Order details / Marketing Review allocation
+        // have even happened) — the order has not been approved by Admin
+        // yet, so it must not reach System Admin at this point.
+        //
+        // The correct "Admin -> System Admin" hand-off happens only once
+        // Admin actually allocates stock in Marketing Review and clicks
+        // Approval — see AllocationController@store /
+        // notifySystemAdminsOfAllocation(), which is the single place
+        // System Admin is emailed/receives visibility on an order.
+
         return response()->json($order->load(['customer', 'product', 'assignee']));
     }
 
@@ -473,18 +766,31 @@ class OrderController extends Controller
         // the Marketing Head, modelled here as the 'system_admin' role.
         // Until this gate, the enquiry sits in the Marketing Head's
         // "Pending Final Approvals" queue (see OrderEnquiry.jsx).
-        $caller = $request->user();
+               $caller = $request->user();
         if ($validated['status'] === 'approved' && (!$caller || $caller->role !== 'system_admin')) {
             return response()->json([
                 'message' => 'Only the Marketing Head (System Admin) can give final approval on a sales order.',
             ], 403);
         }
 
-        // Goods must actually be dispatched (LR number recorded via the
-        // dedicated /dispatch endpoint) before they can be marked delivered.
-        if ($validated['status'] === 'delivered' && $order->Status !== 'dispatched') {
-            return response()->json(['message' => 'Order must be dispatched (with an LR number) before it can be marked delivered.'], 422);
+        // Server-side enforcement of the same rule: System Admin can only
+        // give final approval once Admin has actually allocated stock to
+        // this order in Marketing Review. Without this, a direct API call
+        // (or a stale frontend) could still approve an order with 0
+        // allocated, same bug as the Order Enquiry loophole above.
+        if ($validated['status'] === 'approved') {
+            $hasAllocation = DB::table('sale_order_line')
+                ->where('CrmOrderId', $order->Id)
+                ->where('USERPRIMARYQUANTITY', '>', 0)
+                ->exists();
+            if (!$hasAllocation) {
+                return response()->json([
+                    'message' => 'This order has no stock allocated yet — it must go through Marketing Review (Admin allocation) first.',
+                ], 422);
+            }
         }
+
+        // Goods must actually be dispatched (LR number recorded via the
 
         $update = ['Status' => $validated['status']];
 
@@ -718,6 +1024,79 @@ class OrderController extends Controller
     }
 
     /**
+     * End User(s) (role = end_user) covering the given Taluk. Falls back to
+     * every End User if none are specifically assigned to that Taluk, so an
+     * order never silently goes un-notified.
+     */
+    private function endUsersForTaluk(?string $taluk): \Illuminate\Support\Collection
+    {
+        $endUsers = User::where('role', 'end_user')->whereNotNull('email')->get();
+
+        if (!$taluk) {
+            return $endUsers;
+        }
+
+        $matched = $endUsers->filter(function (User $user) use ($taluk) {
+            return in_array($taluk, (array) $user->taluk, true);
+        });
+
+        return $matched->isNotEmpty() ? $matched : $endUsers;
+    }
+
+    /**
+     * Admin(s) (role = admin) covering the given District. Falls back to
+     * every Admin if none are specifically assigned to that District.
+     */
+    private function adminsForDistrict(?string $district): \Illuminate\Support\Collection
+    {
+        $admins = User::where('role', 'admin')->whereNotNull('email')->get();
+
+        if (!$district) {
+            return $admins;
+        }
+
+        $matched = $admins->filter(function (User $user) use ($district) {
+            return in_array($district, (array) $user->district, true);
+        });
+
+        return $matched->isNotEmpty() ? $matched : $admins;
+    }
+
+    /** Every System Admin (role = system_admin) with an email on file. */
+    private function systemAdmins(): \Illuminate\Support\Collection
+    {
+        return User::where('role', 'system_admin')->whereNotNull('email')->get();
+    }
+
+    /**
+     * Fire an SMTP email to a list of Users, one message per recipient so a
+     * bad address never exposes the others (BCC-style fan-out). Any SMTP
+     * failure is logged rather than bubbled up — a mail outage should never
+     * block an order from being created or updated.
+     */
+    private function sendToUsers(\Illuminate\Support\Collection $recipients, \Illuminate\Contracts\Mail\Mailable $mailable): void
+    {
+        if ($recipients->isEmpty()) {
+            Log::warning('Order notification skipped — no recipients found', [
+                'mailable' => get_class($mailable),
+            ]);
+            return;
+        }
+
+        foreach ($recipients as $recipient) {
+            try {
+                Mail::to($recipient->email)->send($mailable);
+            } catch (\Throwable $e) {
+                Log::warning('Order notification email failed', [
+                    'to' => $recipient->email,
+                    'mailable' => get_class($mailable),
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    /**
      * PATCH /api/orders/{id}/payment-due
      *
      * Manually reassign a bill's payment due date — e.g. a customer asks
@@ -821,12 +1200,222 @@ class OrderController extends Controller
         return response()->json($order->fresh(['customer', 'product']));
     }
 
+        // ── Oracle → local hand-off ──
+    // Keep in sync with $typeMap in ProductController@index.
+    private const ORACLE_TYPE_MAP = [
+        'BLW' => 'Blouse',
+        'DHT' => 'Dhoti',
+        'SHT' => 'Uniform Shirting',
+        'SUT' => 'Uniform Suiting',
+    ];
+
+    /** Verify an Oracle product line and return (creating if needed) its local Product row. */
+    private function resolveOracleProduct(array $op, $caller): Product
+    {
+        // NOT trimmed on purpose: they must match Oracle byte-for-byte.
+        $oracleId = (string) ($op['id'] ?? '');
+        $sortNo   = (string) ($op['sortNo'] ?? '');
+        $shadeNo  = (string) ($op['shadeNo'] ?? '');
+        $rowKey   = trim((string) ($op['rowKey'] ?? ''));
+
+        if ($oracleId === '' || $sortNo === '') {
+            abort(422, 'A product in the cart has incomplete details. Please remove it and add it again.');
+        }
+
+        $q = DB::connection('oracle')
+            ->table('PRODUCT as p')
+            ->join('FULLITEMKEYDECODER as f', function ($join) {
+                $join->on('f.ITEMTYPECODE', '=', 'p.ITEMTYPECODE')
+                     ->on('f.SUBCODE01', '=', 'p.SUBCODE01');
+            })
+            ->where('p.ABSUNIQUEID', $oracleId)
+            ->where('f.SUBCODE01', $sortNo)
+            ->whereIn('p.FIRSTUSERGRPCODE', array_keys(self::ORACLE_TYPE_MAP))
+            ->select(
+                'p.ABSUNIQUEID as id',
+                'p.FIRSTUSERGRPCODE as type_code',
+                'f.SUBCODE01 as sort_no',
+                'f.SUBCODE08 as shade_no',
+                'f.SHORTDESCRIPTION as name'
+            )
+            ->distinct();
+
+        if ($shadeNo !== '') {
+            $q->where('f.SUBCODE08', $shadeNo);
+        }
+
+        $rows = $q->get();
+        $keyOf = fn ($r) => md5(implode('|', [$r->id, $r->type_code, $r->sort_no, $r->shade_no, $r->name]));
+
+        $row = $rowKey !== ''
+            ? $rows->first(fn ($r) => $keyOf($r) === $rowKey)
+            : $rows->first();
+
+        if (!$row) {
+            abort(422, "Product {$sortNo} {$shadeNo} could not be found in Oracle. Please remove it from the cart and add it again.");
+        }
+
+        // Deterministic local Code for this exact Oracle row → same row
+        // always maps to the same local Product.
+        $code = 'ORA-' . substr($keyOf($row), 0, 12);
+
+        $product = Product::where('Code', $code)->first();
+        if ($product) {
+            return $product;
+        }
+
+        try {
+            return Product::create([
+                'Code'      => $code,
+                'SortNo'    => mb_substr((string) $row->sort_no, 0, 50),
+                'ShadeNo'   => $row->shade_no !== null ? mb_substr((string) $row->shade_no, 0, 50) : null,
+                'Name'      => mb_substr((string) $row->name, 0, 191),
+                'Category'  => 'cloth',
+                'SubType'   => self::ORACLE_TYPE_MAP[$row->type_code] ?? 'Others',
+                'Color'     => '#FFFFFF',
+                'Price'     => 0,   // Oracle feed carries no price — Marketing sets it on review
+                'Quantity'  => 0,   // stock is not synced from Oracle
+                'Quality'   => 'Standard',
+                'Status'    => 'active',
+                'CreatedBy' => $caller->id ?? null,
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            $product = Product::where('Code', $code)->first();   // created by a parallel request
+            if (!$product) {
+                throw $e;
+            }
+            return $product;
+        }
+    }
+
+    /** Verify an Oracle BUSINESSPARTNER, enforce the caller's area, return (creating if needed) its local Customer. */
+    private function resolveOracleCustomer(string $numberId, $caller): Customer
+    {
+        $row = DB::connection('oracle')
+            ->table('BUSINESSPARTNER')
+            ->select('NUMBERID', 'SHORTNAME', 'TOWN', 'DISTRICT', 'ADDRESSPHONENUMBER', 'TAXREGISTRATIONNUMBER')
+            ->where('NUMBERID', $numberId)
+            ->whereNotNull('SHORTNAME')
+            ->first();
+
+        if (!$row) {
+            abort(422, 'This customer could not be found in Oracle.');
+        }
+
+        // Same area rule the Oracle customer picker applies (TOWN/DISTRICT
+        // contain the officer's Taluk / District). System Admin unscoped.
+        $matchedTaluk = null;
+        $matchedDistrict = null;
+        if ($caller && in_array($caller->role, ['end_user', 'admin'], true)) {
+            $town = strtoupper((string) $row->town);
+            $dist = strtoupper((string) $row->district);
+
+            if ($caller->role === 'end_user') {
+                foreach ($this->callerAreas($caller, 'Taluk') as $t) {
+                    $u = strtoupper($t);
+                    if ($u !== '' && (str_contains($town, $u) || str_contains($dist, $u))) { $matchedTaluk = $t; break; }
+                }
+            }
+            foreach ($this->callerAreas($caller, 'District') as $d) {
+                $u = strtoupper($d);
+                if ($u !== '' && str_contains($dist, $u)) { $matchedDistrict = $d; break; }
+            }
+            if ($matchedTaluk === null && $matchedDistrict === null) {
+                abort(403, 'This customer is outside your assigned area.');
+            }
+        }
+
+        $oracleId = (string) $row->numberid;
+
+        $customer = Customer::where('OracleId', $oracleId)->first();
+        if ($customer) {
+            return $customer;
+        }
+
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            try {
+                $last = Customer::orderByDesc('Id')->first();
+                $next = $last ? ((int) Str::after($last->Code, 'CUST-')) + 1 : 1;
+
+                return Customer::create([
+                    'Code'        => 'CUST-' . str_pad($next, 3, '0', STR_PAD_LEFT),
+                    'OracleId'    => $oracleId,
+                    'Name'        => mb_substr((string) $row->shortname, 0, 191),
+                    'Phone'       => mb_substr((string) ($row->addressphonenumber ?: '-'), 0, 20),
+                    'Type'        => 'retail',
+                    'District'    => $matchedDistrict ?? (string) ($row->district ?? ''),
+                    'Taluk'       => $matchedTaluk ?? (string) ($row->town ?? ''),
+                    'Outstanding' => 0,
+                    'Status'      => 'approved',
+                    'Notes'       => "Auto-created from Oracle BUSINESSPARTNER {$oracleId}",
+                    'GSTNo'       => $row->taxregistrationnumber ? mb_substr((string) $row->taxregistrationnumber, 0, 15) : null,
+                    'CreatedBy'   => $caller->id ?? null,
+                ]);
+            } catch (\Illuminate\Database\QueryException $e) {
+                $customer = Customer::where('OracleId', $oracleId)->first();
+                if ($customer) {
+                    return $customer;
+                }
+                if ($attempt >= 3) {
+                    throw $e;
+                }
+                usleep(random_int(15000, 60000)); // Code race — recompute and retry
+            }
+        }
+        throw new \RuntimeException('Failed to create the customer record.');
+    }
+
     private function generateOrderCode(): string
     {
         $last = Order::orderByDesc('Id')->first();
         $nextNumber = $last ? ((int) Str::after($last->Code, 'ORD-')) + 1 : 1001;
 
         return 'ORD-' . $nextNumber;
+    }
+
+    /**
+     * FIX: "Cannot insert duplicate key... UQ_Orders_Code" — generateOrderCode()
+     * reads the current last Order and adds 1, which is fine for a single
+     * request in isolation, but breaks the moment TWO requests do that read
+     * at nearly the same time (e.g. the customer/end-user cart pages submit
+     * every cart line as its own POST /orders — CartCheckout.jsx used to
+     * fire all of them at once via Promise.all — or two different people
+     * checking out within the same second). Both reads see the same "last"
+     * order, both compute the same next number, and the second INSERT hits
+     * the unique constraint on Code and the whole request 500s — exactly
+     * the SQLSTATE[23000] / UQ_Orders_Code error reported.
+     *
+     * Fix: wrap code generation + the actual insert in one retry loop. If
+     * the insert fails specifically because of a duplicate Code, just
+     * generate a fresh code and try again (a few times) instead of letting
+     * the whole request fail — the raced request "loses" the number it
+     * guessed and picks the next one instead, transparently to the caller.
+     * Every Order::create(...) call site in this controller should go
+     * through here instead of calling generateOrderCode() + Order::create
+     * directly, so this protection is universal instead of being re-added
+     * ad hoc wherever a new order-creation code path shows up.
+     */
+    private function createOrderWithUniqueCode(array $attributes, int $maxAttempts = 5): Order
+    {
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            $attributes['Code'] = $this->generateOrderCode();
+            try {
+                return Order::create($attributes);
+            } catch (\Illuminate\Database\QueryException $e) {
+                $isDuplicateCode = str_contains($e->getMessage(), 'UQ_Orders_Code')
+                    || str_contains($e->getMessage(), 'Orders_Code')
+                    || (int) $e->getCode() === 23000;
+                if (!$isDuplicateCode || $attempt >= $maxAttempts) {
+                    throw $e;
+                }
+                // Brief random backoff so two racing requests don't just
+                // immediately collide again on their very next attempt.
+                usleep(random_int(15000, 60000));
+            }
+        }
+        // Unreachable — the loop above always either returns or throws —
+        // but keeps static analysis happy about a guaranteed return type.
+        throw new \RuntimeException('Failed to generate a unique order code.');
     }
 
     /**

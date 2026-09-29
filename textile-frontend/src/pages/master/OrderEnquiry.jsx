@@ -90,11 +90,15 @@ export default function OrderEnquiry() {
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
 
-  const load = async () => {
+    const load = async () => {
     setLoading(true);
     setError("");
     try {
       const params = { status_in: PIPELINE_STATUSES };
+      // System Admin's queue should only ever show orders Admin has
+      // already allocated stock to in Marketing Review — matches the
+      // same server-side gate now enforced in OrderController@updateStatus.
+      if (role === "system_admin") params.allocated_only = 1;
       const res = await API.get("/orders", { params });
       // Personal view: everyone only sees enquiries they're following
       // themselves, EXCEPT still-unclaimed "pending" ones, which have to

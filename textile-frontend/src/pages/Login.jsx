@@ -235,7 +235,7 @@ function AlertIcon() {
 
 const styles = {
   page: {
-    minHeight: "100vh",
+    minHeight: "100%",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",

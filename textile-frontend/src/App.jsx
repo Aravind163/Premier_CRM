@@ -30,7 +30,10 @@ import AllocationEmployeeDirectory from "./pages/master/AllocationEmployeeDirect
 import AllocationSystemAdmin from "./pages/master/AllocationSystemAdmin";
 import AllocationAdminEndUsers from "./pages/master/AllocationAdminEndUsers";
 import SalesOrder from "./pages/master/SalesOrder";
+import ErpSaleOrders from "./pages/master/ErpSaleOrders";
 import CreditLimit from "./pages/master/CreditLimit";
+import AdminMasterUsers from "./pages/master/AdminMasterUsers";
+import AdminMasterUserForm from "./pages/master/AdminMasterUserForm";
 import EndUserAddCustomer from "./pages/end-user/AddCustomer";
 import EndUserCustomerList from "./pages/end-user/CustomerList";
 import EndUserProductSelection from "./pages/end-user/ProductSelection";
@@ -42,6 +45,7 @@ import DataReportPage from "./pages/reports/DataReportPage";
 import ProductWiseReportPage from "./pages/reports/ProductWiseReportPage";
 import AgeingReportPage from "./pages/reports/AgeingReportPage";
 import SalesLossReportPage from "./pages/reports/SalesLossReportPage";
+import AvailableStock from "./pages/master/AvailableStock";
 
 function App() {
   const basename =
@@ -112,6 +116,7 @@ function App() {
           <Route path="/master/invoices" element={<Invoices />} />
           <Route path="/master/claims" element={<ComplaintsAndClaims />} />
           <Route path="/master/compliance" element={<ComplianceDashboard />} />
+          <Route path="/master/available-stock" element={<AvailableStock />} />
 
           {/* Master – Orders */}
           <Route path="/master/orders" element={<OrderList />} />
@@ -121,7 +126,15 @@ function App() {
           {/* Master – Sales Order (pipeline worklist -> Push to ERP) and
               Credit Limit (outstanding balances / overdue-day filters) */}
           <Route path="/master/sales-order" element={<SalesOrder />} />
+          {/* ERP staging view: sale_order_header + sale_order_line */}
+          <Route path="/master/erp-sale-orders" element={<ErpSaleOrders />} />
           <Route path="/master/credit-limit" element={<CreditLimit />} />
+
+          {/* Admin Master (Super Admin only) — provision End User / Admin /
+              System Admin login accounts directly (no approval workflow). */}
+          <Route path="/master/admin-master/users" element={<AdminMasterUsers />} />
+          <Route path="/master/admin-master/users/add" element={<AdminMasterUserForm />} />
+          <Route path="/master/admin-master/users/:id/edit" element={<AdminMasterUserForm />} />
 
           {/* Status — StatusCustomers/StatusOrders were merged into the
               "Status" tab of CustomerList / OrderList; the employee-status
