@@ -598,7 +598,12 @@ export default function ProductCatalog() {
                       style={S.remarksInputShade}
                     />
                   </td>
-                  
+                  <td style={S.tdShade}>
+                    <button style={justAddedId === p.RowKey ? S.addedBtnShade : S.addBtnShade} onClick={() => addRowToCart(p)}>
+                      {justAddedId === p.RowKey ? "✓ Added" : "+ Add"}
+                    </button>
+                    {already > 0 && <p style={S.inCartNote}>In cart: {already}</p>}
+                  </td>
                 </tr>
               );
             })}
